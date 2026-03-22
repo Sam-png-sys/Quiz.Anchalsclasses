@@ -1,4 +1,4 @@
-// ── DEMO USER ─────────────────────────────────────────────────────────────
+//  DEMO USER 
 export const demoUser = {
   _id: 'u1', name: 'Sam Sharma', email: 'sam@example.com',
   role: 'student', branch: 'BDS', year: '2nd',
@@ -8,7 +8,7 @@ export const demoAdmin = {
   _id: 'a1', name: 'Dr. Anchal', email: 'admin@example.com', role: 'admin',
 }
 
-// ── QUIZ 1 QUESTIONS — Oral Anatomy ──────────────────────────────────────
+//  QUIZ 1 QUESTIONS — Oral Anatomy 
 export const quiz1Questions = [
   { _id: 'q1',  text: 'The cusp of Carabelli is found on which tooth?', options: ['Mandibular first molar', 'Maxillary second molar', 'Maxillary first molar', 'Mandibular second molar'], correctIndex: 2, difficulty: 'Medium', tag: 'BDS', subject: 'Oral Anatomy', explanation: 'The cusp of Carabelli is an accessory cusp on the mesiolingual surface of the maxillary first molar. It is a non-functional morphological variation.' },
   { _id: 'q2',  text: 'Which nerve supplies the lower lip and chin?', options: ['Lingual nerve', 'Mental nerve', 'Inferior alveolar nerve', 'Buccal nerve'], correctIndex: 1, difficulty: 'Easy', tag: 'BDS', subject: 'Oral Anatomy', explanation: 'The mental nerve exits the mental foramen and supplies sensory innervation to the lower lip, chin and buccal gingiva of lower premolars.' },
@@ -22,7 +22,7 @@ export const quiz1Questions = [
   { _id: 'q10', text: 'Which muscle opens the mouth by depressing the mandible?', options: ['Masseter', 'Mylohyoid', 'Lateral pterygoid', 'Temporalis'], correctIndex: 1, difficulty: 'Medium', tag: 'BDS', subject: 'Oral Anatomy', explanation: 'The mylohyoid along with the digastric and geniohyoid depresses the mandible to open the mouth when the hyoid bone is fixed.' },
 ]
 
-// ── QUIZ 2 QUESTIONS — Dental Materials ───────────────────────────────────
+//  QUIZ 2 QUESTIONS — Dental Materials 
 export const quiz2Questions = [
   { _id: 'q11', text: 'Which alloy is most commonly used for cast metal restorations?', options: ['Amalgam', 'Cobalt-Chromium', 'Gold alloy', 'Nickel-Titanium'], correctIndex: 2, difficulty: 'Hard', tag: 'MDS', subject: 'Dental Materials', explanation: 'Gold alloys are the gold standard for cast metal restorations due to their biocompatibility, corrosion resistance and superior mechanical properties.' },
   { _id: 'q12', text: 'What is the setting time of zinc oxide eugenol cement?', options: ['1-2 minutes', '4-10 minutes', '15-20 minutes', '30 minutes'], correctIndex: 1, difficulty: 'Hard', tag: 'MDS', subject: 'Dental Materials', explanation: 'ZOE cement sets in approximately 4-10 minutes clinically. Higher humidity and temperature accelerate the setting reaction.' },
@@ -39,7 +39,7 @@ export const quiz2Questions = [
 // All questions combined for question bank
 export const demoQuestions = [...quiz1Questions, ...quiz2Questions]
 
-// ── QUIZZES ───────────────────────────────────────────────────────────────
+//  QUIZZES 
 export const demoQuizzes = [
   {
     _id: 'qz1',
@@ -65,7 +65,7 @@ export const demoQuizzes = [
   },
 ]
 
-// ── ANALYTICS ─────────────────────────────────────────────────────────────
+//  ANALYTICS 
 export const demoAnalytics = {
   totalAttempts: 3,
   avgScore: 78,
@@ -84,7 +84,7 @@ export const demoAnalytics = {
   ],
 }
 
-// ── LEADERBOARD ───────────────────────────────────────────────────────────
+//  LEADERBOARD 
 export const demoLeaderboard = [
   { userId: 'u2', name: 'Arjun Mehta',  avgScore: 91, attempts: 8 },
   { userId: 'u3', name: 'Rahul Singh',  avgScore: 86, attempts: 7 },
@@ -96,14 +96,14 @@ export const demoLeaderboard = [
   { userId: 'u8', name: 'Ananya Gupta', avgScore: 45, attempts: 3 },
 ]
 
-// ── ADMIN STATS ───────────────────────────────────────────────────────────
+//  ADMIN STATS 
 export const demoAdminStats = {
   totalQuestions: 500,
   totalQuizzes: 12,
   totalStudents: 200,
 }
 
-// ── STUDENTS ──────────────────────────────────────────────────────────────
+//  STUDENTS 
 export const demoStudents = [
   { _id: 's1', name: 'Arjun Mehta',  phone: '9876543210', branch: 'BDS', year: '2nd', isActive: true },
   { _id: 's2', name: 'Rahul Singh',  phone: '9876543211', branch: 'BDS', year: '3rd', isActive: true },
