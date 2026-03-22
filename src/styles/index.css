@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    @apply bg-gray-50 text-gray-900 dark:bg-[#0f0f13] dark:text-gray-100;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+}
+
+@layer components {
+  .card {
+    @apply bg-white dark:bg-[#18181f] border border-black/[0.07] dark:border-white/[0.07] rounded-xl;
+  }
+  .input-base {
+    @apply w-full px-3.5 py-3 rounded-lg border border-black/[0.08] dark:border-white/[0.08]
+           bg-gray-50 dark:bg-[#222230] text-gray-900 dark:text-gray-100
+           text-sm outline-none transition-all duration-200
+           focus:border-accent dark:focus:border-accent-dark placeholder:text-gray-400;
+  }
+  .btn-primary {
+    @apply w-full py-3 rounded-lg bg-accent dark:bg-accent-dark text-white
+           font-semibold text-sm transition-opacity duration-200
+           hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply w-full py-3 rounded-lg border border-accent dark:border-accent-dark
+           text-accent dark:text-accent-dark font-medium text-sm
+           transition-all duration-200 hover:bg-accent-light dark:hover:bg-accent-dark/10;
+  }
+  .badge {
+    @apply px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wide;
+  }
+}
