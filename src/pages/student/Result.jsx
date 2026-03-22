@@ -69,7 +69,6 @@ export default function Result() {
             ))}
           </Card>
 
-
           <div className="flex gap-3">
             <button onClick={() => navigate('/home')}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#18181f] text-sm font-medium text-gray-600 dark:text-gray-300 hover:border-[#185fa5] hover:text-[#185fa5] transition-all">
@@ -93,7 +92,6 @@ export default function Result() {
     </AppLayout>
   )
 }
-
 
 function ReviewCard({ index, ans, isCorrect, isSkipped }) {
   const [open, setOpen] = useState(false)
