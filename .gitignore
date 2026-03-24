@@ -29,3 +29,5 @@ build/
 
 # Misc
 *.sqlite3
+
+credentials.txt
