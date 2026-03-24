@@ -20,9 +20,11 @@ export default function Signup() {
   return (
     <div className="h-screen flex items-center justify-center bg-[#0B0F1A]">
 
-      <div className="bg-[#111827] p-8 rounded-2xl w-96 border border-gray-800 shadow-xl">
+      <div className="absolute w-[500px] h-[500px] bg-purple-500 blur-[120px] opacity-20 rounded-full"></div>
 
-        <h1 className="mb-6 text-2xl font-bold text-center text-cyan-400">
+      <div className="relative bg-[#111827]/60 backdrop-blur-xl p-8 rounded-2xl w-96 border border-gray-800 shadow-2xl">
+
+        <h1 className="mb-6 text-3xl font-bold text-center text-purple-400">
           Create Account
         </h1>
 
@@ -47,11 +49,19 @@ export default function Signup() {
 
         <button
           onClick={handleSignup}
-          className="w-full py-3 bg-cyan-400 text-black rounded-lg font-semibold
-                     hover:shadow-[0_0_25px_#00E5FF80]"
+          className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold
+                     hover:shadow-[0_0_25px_#A855F780]"
         >
           Sign Up
         </button>
+
+        {/* Switch */}
+        <p className="mt-6 text-center text-gray-400">
+          Already have an account?{" "}
+          <a href="/login" className="text-purple-400 hover:underline">
+            Login
+          </a>
+        </p>
 
       </div>
     </div>
