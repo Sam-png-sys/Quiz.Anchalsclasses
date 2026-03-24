@@ -1,95 +1,16 @@
-# Quiz Platform — Frontend
+# React + Vite
 
-React + Tailwind frontend for the Quiz Platform.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Project Structure
+Currently, two official plugins are available:
 
-```
-src/
-├── api/
-│   ├── axios.js          # Axios instance with JWT interceptors
-│   └── services.js       # All API functions
-├── components/
-│   ├── layout/
-│   │   ├── AppLayout.jsx     # Main layout wrapper
-│   │   ├── Navbar.jsx        # Sidebar + mobile nav
-│   │   └── ProtectedRoute.jsx
-│   └── ui/
-│       ├── Badge.jsx
-│       ├── Button.jsx
-│       ├── Card.jsx
-│       ├── Input.jsx
-│       └── Spinner.jsx
-├── context/
-│   ├── AuthContext.jsx   # User auth state
-│   └── ThemeContext.jsx  # Dark/light mode
-├── hooks/
-│   └── useTimer.js       # Quiz countdown timer
-├── pages/
-│   ├── Login.jsx
-│   ├── student/
-│   │   ├── Home.jsx
-│   │   ├── QuizSession.jsx
-│   │   ├── Result.jsx
-│   │   ├── Analytics.jsx
-│   │   └── Leaderboard.jsx
-│   └── admin/
-│       ├── AdminDashboard.jsx
-│       ├── AdminQuestions.jsx
-│       ├── QuestionForm.jsx
-│       ├── QuizForm.jsx
-│       └── AdminStudents.jsx
-├── styles/
-│   └── index.css
-├── utils/
-│   └── helpers.js
-├── App.jsx
-└── main.jsx
-```
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Setup
+## React Compiler
 
-```bash
-# 1. Install dependencies
-npm install
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-# 2. Copy env file
-cp .env.example .env
+## Expanding the ESLint configuration
 
-# 3. Set your backend URL in .env
-VITE_API_URL=http://localhost:5000/api
-
-# 4. Run dev server
-npm run dev
-```
-
-## Build for Production
-
-```bash
-npm run build
-```
-
-Deploy the `dist/` folder to Vercel.
-
-## Routes
-
-| Route | Access | Page |
-|-------|--------|------|
-| /login | Public | Login with OTP |
-| /home | Student | Quiz listing |
-| /quiz/:id | Student | Take quiz |
-| /result/:id | Student | Quiz result |
-| /analytics | Student | Performance analytics |
-| /leaderboard | Student | Rankings |
-| /admin | Admin | Dashboard |
-| /admin/questions | Admin | Question bank |
-| /admin/questions/new | Admin | Add question |
-| /admin/quizzes/new | Admin | Create quiz |
-| /admin/students | Admin | Manage access |
-
-## Notes
-
-- JWT token stored in localStorage
-- Dark mode stored in localStorage
-- All API calls go through `src/api/axios.js`
-- 401 responses auto-redirect to /login
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
