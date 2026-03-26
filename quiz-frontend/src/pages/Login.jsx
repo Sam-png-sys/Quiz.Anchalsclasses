@@ -1,9 +1,17 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+
 
 export default function Login() {
-
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      window.location.href = "/dashboard";
+    }
+  }, []);
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -13,7 +21,7 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
 
-  // 🔥 LOGIN → SEND OTP
+  //  LOGIN → SEND OTP
   const handleLogin = async () => {
     try {
       setLoading(true);
@@ -34,7 +42,7 @@ export default function Login() {
         return;
       }
 
-      // ✅ move to OTP step
+      //  move to OTP step
       setPhone(data.phone);
       setStep("otp");
 
@@ -46,7 +54,7 @@ export default function Login() {
     }
   };
 
-  // 🔥 VERIFY OTP
+  //  VERIFY OTP
   const handleVerify = async () => {
     try {
       setLoading(true);
@@ -67,10 +75,10 @@ export default function Login() {
         return;
       }
 
-      // ✅ SAVE TOKEN
+      //  SAVE TOKEN
       localStorage.setItem("token", data.access_token);
 
-      // ✅ REDIRECT
+      //  REDIRECT
       window.location.href = "/dashboard";
 
     } catch (err) {

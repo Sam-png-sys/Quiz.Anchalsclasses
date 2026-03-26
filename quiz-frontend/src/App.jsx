@@ -1,27 +1,31 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Dashboard from "./pages/Dashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 
-function AnimatedRoutes() {
-  const location = useLocation();
-
+function App() {
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Navigate to="/login" />} />
+    <Router>
+      <Routes>
+
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<Login />} />
+
       </Routes>
-    </AnimatePresence>
+    </Router>
   );
 }
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <AnimatedRoutes />
-    </BrowserRouter>
-  );
-}
+export default App;

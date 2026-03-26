@@ -1,9 +1,16 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
 
 export default function Signup() {
-
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      window.location.href = "/dashboard";
+    }
+  }, []);
+  
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -15,7 +22,7 @@ export default function Signup() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔥 SIGNUP → SEND OTP (CORRECT FLOW)
+  //  SIGNUP → SEND OTP (CORRECT FLOW)
   const handleSignup = async () => {
     try {
       setLoading(true);
@@ -27,7 +34,7 @@ export default function Signup() {
         },
         body: JSON.stringify({
           ...form,
-          role: "admin", // 🔥 web = admin
+          role: "admin", //  web = admin
         }),
       });
 
@@ -39,7 +46,7 @@ export default function Signup() {
         return;
       }
 
-      // ✅ move to OTP step
+      //  move to OTP step
       setStep("otp");
 
     } catch (err) {
@@ -50,7 +57,7 @@ export default function Signup() {
     }
   };
 
-  // 🔥 VERIFY OTP
+  //  VERIFY OTP
   const handleVerify = async () => {
     try {
       setLoading(true);
