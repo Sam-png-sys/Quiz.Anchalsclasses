@@ -7,10 +7,23 @@ export async function apiRequest(endpoint, method = "GET", body = null) {
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : ""
+      Authorization: token ? `Bearer ${token}` : "",
     },
-    body: body ? JSON.stringify(body) : null
+    body: body ? JSON.stringify(body) : null,
   });
 
-  return res.json();
+  // 🔥 AUTO LOGOUT ON 401
+  if (res.status === 401) {
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+    return;
+  }
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.detail || "Something went wrong");
+  }
+
+  return data;
 }

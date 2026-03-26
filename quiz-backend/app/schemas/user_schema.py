@@ -8,12 +8,12 @@ class SendOTP(BaseModel):
 class VerifyOTP(BaseModel):
     phone: str
     otp: str
-    name: str | None = None
 
 
 class UserRegister(BaseModel):
     name: str
     email: EmailStr
+    phone: str = Field(..., min_length=10, max_length=10)
     password: str
     role: str
 
