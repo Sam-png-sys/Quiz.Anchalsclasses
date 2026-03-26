@@ -2,7 +2,9 @@ export function isAuthenticated() {
   return !!localStorage.getItem("token");
 }
 
+import { useNavigate  } from "react-router-dom";  
 export function logout() {
   localStorage.removeItem("token");
-  window.location.href = "/login";
+  const navigate = useNavigate();
+  navigate("/login");
 }

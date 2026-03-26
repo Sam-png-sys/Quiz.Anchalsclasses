@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
-/* Global dark theme */
-body {
+html, body, #root {
+  height: 100%;
+  margin: 0;
   background-color: #0B0F1A;
-  color: #E5E7EB;
-  font-family: 'Inter', sans-serif;
+  overflow: hidden;
 }
 
-/* Smooth UI */
+/* smooth rendering */
 * {
   transition: all 0.2s ease-in-out;
 }
