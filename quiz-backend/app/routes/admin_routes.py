@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.dependencies.auth_dependency import admin_only, get_current_user
-from app.config.database import quiz_collection, question_collection, attempt_collection
+from app.config.database import quiz_collection, question_collection, attempt_collection, users_collection
 from bson import ObjectId
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
