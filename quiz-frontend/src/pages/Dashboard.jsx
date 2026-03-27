@@ -9,8 +9,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+
+  const navigate = useNavigate();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [stats, setStats] = useState({
@@ -23,9 +26,10 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    window.location.href = "/login";
+    navigate("/login");
   };
 
+  // 🔥 FETCH STATS
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -58,10 +62,10 @@ export default function Dashboard() {
       <motion.div
         animate={{ width: sidebarOpen ? 260 : 80 }}
         transition={{ duration: 0.35, ease: "easeInOut" }}
-        className="bg-[#111827] border-r border-gray-800 flex flex-col relative"
+        className="bg-[#111827] border-r border-gray-800 flex flex-col"
       >
 
-        {/* 🔥 TOGGLE BUTTON (CENTERED WHEN CLOSED) */}
+        {/* 🔥 HEADER */}
         <div className={`flex ${sidebarOpen ? "justify-between px-4" : "justify-center"} items-center py-4`}>
 
           {sidebarOpen && (
@@ -86,24 +90,28 @@ export default function Dashboard() {
             label="Dashboard"
             open={sidebarOpen}
             active
+            onClick={() => navigate("/dashboard")}
           />
 
           <SidebarItem
             icon={<PlusCircle size={20} />}
             label="Create Quiz"
             open={sidebarOpen}
+            onClick={() => navigate("/create-quiz")}
           />
 
           <SidebarItem
             icon={<Users size={20} />}
             label="Students"
             open={sidebarOpen}
+            onClick={() => alert("Coming soon")}
           />
 
           <SidebarItem
             icon={<BarChart3 size={20} />}
             label="Analytics"
             open={sidebarOpen}
+            onClick={() => alert("Coming soon")}
           />
 
         </nav>
@@ -133,7 +141,7 @@ export default function Dashboard() {
           Dashboard Overview
         </motion.h1>
 
-        {/* 🔥 CARDS */}
+        {/* 🔥 STATS */}
         <div className="grid grid-cols-3 gap-6">
 
           <StatCard title="Total Quizzes" value={stats.quizzes} color="cyan" />
@@ -159,10 +167,11 @@ export default function Dashboard() {
 }
 
 
-// 🔥 SIDEBAR ITEM COMPONENT
-function SidebarItem({ icon, label, open, active }) {
+// 🔥 SIDEBAR ITEM
+function SidebarItem({ icon, label, open, active, onClick }) {
   return (
     <div
+      onClick={onClick}
       className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer
       transition-all duration-200
       ${active
