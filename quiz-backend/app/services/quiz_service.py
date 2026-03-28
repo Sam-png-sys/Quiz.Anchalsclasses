@@ -7,19 +7,24 @@ def get_quizzes(page: int = 1, limit: int = 10):
     skip = (page - 1) * limit
 
     quizzes = list(
-        quiz_collection.find({}, {"title": 1, "duration": 1})
+        quiz_collection.find({}, {
+            "title": 1,
+            "duration": 1,
+            "isOpen": 1   
+        })
         .skip(skip)
         .limit(limit)
     )
 
     return [serialize(q) for q in quizzes]
 
-
 def get_quiz_by_id(quiz_id: str):
     quiz = quiz_collection.find_one({"_id": ObjectId(quiz_id)})
 
     if not quiz:
         return {"error": "Quiz not found"}
+
+    quiz["isOpen"] = quiz.get("isOpen", True)
 
     return serialize(quiz)
 

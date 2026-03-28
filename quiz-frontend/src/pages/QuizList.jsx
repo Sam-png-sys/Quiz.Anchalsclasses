@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
+import { apiRequest } from "../utils/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
@@ -46,23 +47,33 @@ export default function QuizList() {
     fetchQuizzes();
   }, []);
 
-  const fetchQuizzes = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://127.0.0.1:8000/admin/quizzes", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) { navigate("/login"); return; }
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setQuizzes(data.quizzes || data || []);
-    } catch (err) {
-      setError("Could not load quizzes.");
-      setQuizzes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchQuizzes = async () => {
+  try {
+    setLoading(true);
+
+    const data = await apiRequest("/admin/courses");
+
+    // 🔥 Normalize backend data to match UI
+    const formatted = data.map((q) => ({
+      ...q,
+      id: q._id,
+      isOpen: q.isOpen ?? true,
+      attempts: q.attempts ?? 0,
+      totalQuestions: q.totalQuestions ?? 0,
+      difficulty: q.difficulty ?? "Medium",
+      createdAt: q.createdAt ?? new Date().toISOString(),
+    }));
+
+    setQuizzes(formatted);
+
+  } catch (err) {
+    console.error(err);
+    setError("Could not load quizzes.");
+    setQuizzes([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDelete = async (id) => {
     try {

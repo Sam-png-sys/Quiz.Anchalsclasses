@@ -4,3 +4,4 @@ class QuizCreate(BaseModel):
     title: str
     description: str
     duration: int
+    isOpen: bool = True
