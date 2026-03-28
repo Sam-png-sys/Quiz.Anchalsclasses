@@ -4,6 +4,9 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import CreateQuiz from "./pages/CreateQuiz";
+import QuizList from "./pages/QuizList";
+import Courses from "./pages/Courses";
+import Students from "./pages/Students";
 
 export default function App() {
   return (
@@ -17,10 +20,13 @@ export default function App() {
         {/* ADMIN */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/create-quiz" element={<CreateQuiz />} />
-
         {/* DEFAULT */}
         <Route path="*" element={<Login />} />
-
+        <Route path="/quizzes"  element={<QuizList />} />
+        <Route path="/courses"  element={<Courses />} />
+        <Route path="/students" element={<Students />} />
+      
+        
       </Routes>
     </Router>
   );

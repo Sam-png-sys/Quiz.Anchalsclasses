@@ -77,7 +77,7 @@ export default function Dashboard() {
     { icon: LayoutDashboard, label: "Dashboard",   path: "/dashboard",   active: true },
     { icon: PlusCircle,      label: "Create Quiz",  path: "/create-quiz", active: false },
     { icon: BookOpen,        label: "All Quizzes",  path: "/quizzes",     active: false },
-    { icon: Users,           label: "Students",     path: null,           active: false },
+    { icon: Users,           label: "Students",     path: "/students",    active: false },
     { icon: BarChart3,       label: "Analytics",    path: null,           active: false },
   ];
 
@@ -215,6 +215,7 @@ export default function Dashboard() {
                   { label: "View Students", icon: Users,      path: null,           color: "from-purple-500/15 to-pink-600/15 border-purple-500/20 text-purple-400" },
                   { label: "Analytics",     icon: BarChart3,  path: null,           color: "from-green-500/15 to-emerald-600/15 border-green-500/20 text-green-400" },
                   { label: "All Quizzes",   icon: BookOpen,   path: "/quizzes",     color: "from-amber-500/15 to-orange-600/15 border-amber-500/20 text-amber-400" },
+                  
                 ].map(({ label, icon: Icon, path, color }) => (
                   <button key={label}
                     onClick={() => path ? navigate(path) : alert("Coming soon")}
