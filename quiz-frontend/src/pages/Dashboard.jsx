@@ -5,6 +5,7 @@ import {
   PanelLeftClose, PanelLeftOpen, Shield, BookOpen,
   TrendingUp, Activity, ArrowUpRight, Clock, Zap,
   Loader2,
+  GraduationCapIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
@@ -78,6 +79,7 @@ export default function Dashboard() {
     { icon: PlusCircle,      label: "Create Quiz",  path: "/create-quiz", active: false },
     { icon: BookOpen,        label: "All Quizzes",  path: "/quizzes",     active: false },
     { icon: Users,           label: "Students",     path: "/students",    active: false },
+    { icon: GraduationCapIcon,       label: "Courses",      path: "/courses",     active: false },
     { icon: BarChart3,       label: "Analytics",    path: null,           active: false },
   ];
 

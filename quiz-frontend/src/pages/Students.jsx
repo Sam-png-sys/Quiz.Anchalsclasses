@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
+import { apiRequest } from "../utils/api";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.04 } } };
@@ -40,31 +41,38 @@ export default function Students() {
   useEffect(() => { fetchStudents(); }, []);
 
   const fetchStudents = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://127.0.0.1:8000/admin/students", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) { navigate("/login"); return; }
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const list = data.students || data || [];
-      setStudents(list);
-      setStats({
-        total:    list.length,
-        active:   list.filter(s => s.isActive).length,
-        inactive: list.filter(s => !s.isActive).length,
-        avgScore: list.length > 0
-          ? Math.round(list.reduce((a, s) => a + (s.avgScore || 0), 0) / list.length)
-          : 0,
-      });
-    } catch {
-      setError("Could not load students.");
-      setStudents([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+
+    const data = await apiRequest("/admin/students");
+
+    // 🔥 Normalize data
+    const list = data.map((s) => ({
+      ...s,
+      isActive: s.isActive ?? true,
+      avgScore: s.avgScore ?? 0,
+      totalAttempts: s.totalAttempts ?? 0,
+      branch: s.branch ?? "BDS",
+    }));
+
+    setStudents(list);
+
+    setStats({
+      total: list.length,
+      active: list.filter(s => s.isActive).length,
+      inactive: list.filter(s => !s.isActive).length,
+      avgScore: list.length
+        ? Math.round(list.reduce((a, s) => a + s.avgScore, 0) / list.length)
+        : 0,
+    });
+
+  } catch (err) {
+    setError("Could not load students.");
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const toggleAccess = async (id, current) => {
     try {

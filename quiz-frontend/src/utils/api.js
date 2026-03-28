@@ -27,3 +27,43 @@ export async function apiRequest(endpoint, method = "GET", body = null) {
 
   return data;
 }
+
+
+// ==========================
+// ADMIN APIs
+// ==========================
+
+// 🔥 Get Students
+export const getStudents = () => {
+  return apiRequest("/admin/students");
+};
+
+// 🔥 Get Courses
+export const getCourses = () => {
+  return apiRequest("/admin/courses");
+};
+
+// 🔥 Create Quiz
+export const createQuiz = (data) => {
+  return apiRequest("/admin/quiz", "POST", data);
+};
+
+// 🔥 Add Question
+export const addQuestion = (data) => {
+  return apiRequest("/admin/question", "POST", data);
+};
+
+
+// ==========================
+// QUIZ APIs (APP)
+// ==========================
+
+// 🔥 Get quizzes (paginated)
+export const fetchQuizzes = () => {
+  return apiRequest("/quiz");
+};
+
+// 🔥 Get quiz questions
+export const fetchQuizQuestions = (quizId) => {
+  return apiRequest(`/quiz/${quizId}/questions`);
+};

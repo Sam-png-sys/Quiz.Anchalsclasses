@@ -46,3 +46,40 @@ def get_stats(current_user=Depends(get_current_user)):
         "total_students": total_students,
         "total_attempts": total_attempts
     }
+    
+@router.get("/students")
+def get_students(admin=Depends(admin_only)):
+
+    students = list(users_collection.find(
+        {"role": "student"},
+        {"password": 0}
+    ))
+
+    for s in students:
+        s["_id"] = str(s["_id"])
+
+    return students
+
+@router.get("/courses")
+def get_courses(admin=Depends(admin_only)):
+
+    quizzes = list(quiz_collection.find())
+
+    for q in quizzes:
+        q["_id"] = str(q["_id"])
+
+    return quizzes
+
+@router.put("/course/{id}")
+def update_course(id: str, data: dict, admin=Depends(admin_only)):
+    quiz_collection.update_one(
+        {"_id": ObjectId(id)},
+        {"$set": data}
+    )
+    return {"message": "Updated"}
+
+
+@router.delete("/course/{id}")
+def delete_course(id: str, admin=Depends(admin_only)):
+    quiz_collection.delete_one({"_id": ObjectId(id)})
+    return {"message": "Deleted"}
