@@ -22,7 +22,6 @@ export default function Login() {
 
   const [step, setStep] = useState("form");
   const [otp, setOtp] = useState("");
-  const [phone, setPhone] = useState("");
 
   const [loading, setLoading] = useState(false);
 
@@ -46,7 +45,9 @@ export default function Login() {
         return;
       }
 
-      setPhone(data.phone);
+      // ✅ IMPORTANT FIX
+      setEmail(data.email);
+
       setStep("otp");
 
     } catch (err) {
@@ -67,7 +68,8 @@ export default function Login() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone, otp }),
+        // ✅ FIXED HERE
+        body: JSON.stringify({ email, otp }),
       });
 
       const data = await res.json();
@@ -128,9 +130,7 @@ export default function Login() {
                            focus:ring-2 focus:ring-cyan-400 outline-none"
               />
 
-              {/* 🔥 NEW SECTION */}
               <div className="flex items-center justify-between mb-4">
-
                 <label className="flex items-center gap-2 text-sm text-gray-400">
                   <input
                     type="checkbox"
@@ -146,7 +146,6 @@ export default function Login() {
                 >
                   Forgot Password?
                 </button>
-
               </div>
 
               <button
@@ -163,7 +162,6 @@ export default function Login() {
           {/* ================= OTP STEP ================= */}
           {step === "otp" && (
             <div>
-
               <input
                 placeholder="Enter OTP"
                 value={otp}

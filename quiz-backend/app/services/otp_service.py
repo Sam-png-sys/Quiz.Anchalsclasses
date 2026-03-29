@@ -1,48 +1,45 @@
 import random
 import time
+import smtplib
 import os
-from twilio.rest import Client
+from email.mime.text import MIMEText
+from dotenv import load_dotenv
 
-# TEMP store (use Redis in production)
+load_dotenv()
+
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASS = os.getenv("EMAIL_PASS")
+
 otp_store = {}
-
-OTP_EXPIRY = 300  # 5 min
-
-# Twilio setup
-client = Client(
-    os.getenv("TWILIO_SID"),
-    os.getenv("TWILIO_AUTH_TOKEN")
-)
+OTP_EXPIRY = 300
 
 
-def send_otp_sms(phone: str, otp: str):
-    try:
-        client.messages.create(
-            body=f"Your OTP is {otp}",
-            from_=os.getenv("TWILIO_PHONE"),
-            to=f"+91{phone}"
-        )
-    except Exception as e:
-        print("Twilio Error:", e)
+def send_email(to_email, subject, body):
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = EMAIL_USER
+    msg["To"] = to_email
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.send_message(msg)
 
 
-def generate_otp(phone: str):
+def generate_otp(email):
     otp = str(random.randint(100000, 999999))
 
-    otp_store[phone] = {
+    otp_store[email] = {
         "otp": otp,
         "expires": time.time() + OTP_EXPIRY
     }
 
-    print(f"OTP (dev only): {otp}")
-
-    # Only send SMS if Twilio is configured
-    if os.getenv("TWILIO_SID"):
-        send_otp_sms(phone, otp)
+    send_email(email, "OTP", f"Your OTP is {otp}")
 
     return otp
-def verify_otp(phone: str, otp: str):
-    data = otp_store.get(phone)
+
+
+def verify_otp(email, otp):
+    data = otp_store.get(email)
 
     if not data:
         return False
@@ -53,5 +50,5 @@ def verify_otp(phone: str, otp: str):
     if data["otp"] != otp:
         return False
 
-    del otp_store[phone]
+    del otp_store[email]
     return True

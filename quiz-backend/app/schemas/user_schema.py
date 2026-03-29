@@ -1,12 +1,8 @@
 from pydantic import BaseModel, EmailStr, Field
 
 
-class SendOTP(BaseModel):
-    phone: str = Field(..., min_length=10, max_length=10)
-
-
 class VerifyOTP(BaseModel):
-    phone: str
+    email: EmailStr
     otp: str
 
 

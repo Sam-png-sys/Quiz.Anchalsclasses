@@ -8,33 +8,21 @@ from bson import ObjectId
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# 🔥 TEMP STORAGE
 temp_users = {}
 login_sessions = {}
 
 
-# =========================
-# SIGNUP (WEB = ADMIN, APP = STUDENT)
-# =========================
 @router.post("/signup")
 def signup(data: UserRegister):
-    # 🔥 Prevent duplicate email
     if users_collection.find_one({"email": data.email}):
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=400, detail="User exists")
 
-    # 🔥 Store temp user
-    temp_users[data.phone] = data.dict()
+    temp_users[data.email] = data.dict()
+    generate_otp(data.email)
 
-    generate_otp(data.phone)
-
-    print("TEMP USERS:", temp_users)
-
-    return {"message": "OTP sent"}
+    return {"message": "OTP sent", "email": data.email}
 
 
-# =========================
-# LOGIN
-# =========================
 @router.post("/login")
 def login(data: UserLogin):
     user = users_collection.find_one({"email": data.email})
@@ -42,30 +30,21 @@ def login(data: UserLogin):
     if not user or not verify_password(data.password, user["password"]):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    phone = user.get("phone")
+    login_sessions[data.email] = str(user["_id"])
 
-    if not phone:
-        raise HTTPException(status_code=400, detail="Phone not found")
+    generate_otp(data.email)
 
-    login_sessions[phone] = str(user["_id"])
-
-    generate_otp(phone)
-
-    return {"message": "OTP sent", "phone": phone}
+    return {"message": "OTP sent", "email": data.email}
 
 
-# =========================
-# VERIFY OTP
-# =========================
 @router.post("/verify-otp")
 def verify(data: VerifyOTP):
 
-    if not verify_otp(data.phone, data.otp):
+    if not verify_otp(data.email, data.otp):
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
-    # 🔥 LOGIN FLOW
-    if data.phone in login_sessions:
-        user_id = login_sessions[data.phone]
+    if data.email in login_sessions:
+        user_id = login_sessions[data.email]
 
         user = users_collection.find_one({"_id": ObjectId(user_id)})
 
@@ -74,73 +53,55 @@ def verify(data: VerifyOTP):
             "role": user["role"]
         })
 
-        del login_sessions[data.phone]
+        del login_sessions[data.email]
 
         return {"access_token": token}
 
-    # 🔥 SIGNUP FLOW
-    temp = temp_users.get(data.phone)
+    temp = temp_users.get(data.email)
 
     if not temp:
-        raise HTTPException(status_code=400, detail="Signup session expired")
-
-    # 🔥 Prevent duplicate phone
-    if users_collection.find_one({"phone": data.phone}):
-        raise HTTPException(status_code=400, detail="Phone already registered")
-
-    # 🔥 FORCE ROLE CONTROL (IMPORTANT)
-    role = temp.get("role")
-
-    if role not in ["admin", "student"]:
-        raise HTTPException(status_code=400, detail="Invalid role")
+        raise HTTPException(status_code=400, detail="Signup expired")
 
     temp["password"] = hash_password(temp["password"])
-    temp["phone"] = data.phone
-    temp["role"] = role
 
     result = users_collection.insert_one(temp)
 
-    del temp_users[data.phone]
+    del temp_users[data.email]
 
     token = create_token({
         "user_id": str(result.inserted_id),
-        "role": role
+        "role": temp["role"]
     })
 
     return {"access_token": token}
 
-@router.post("/reset-password")
-def reset_password(data: dict):
-
-    phone = data.get("phone")
-    otp = data.get("otp")
-    new_password = data.get("password")
-
-    if not verify_otp(phone, otp):
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-
-    users_collection.update_one(
-        {"phone": phone},
-        {"$set": {"password": hash_password(new_password)}}
-    )
-
-    return {"message": "Password reset successful"}
 
 @router.post("/forgot-password")
 def forgot_password(data: dict):
+    email = data.get("email")
 
-    user = users_collection.find_one({
-        "$or": [
-            {"email": data.get("email")},
-            {"phone": data.get("phone")}
-        ]
-    })
+    user = users_collection.find_one({"email": email})
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    phone = user.get("phone")
+    generate_otp(email)
 
-    generate_otp(phone)
+    return {"message": "OTP sent"}
 
-    return {"message": "OTP sent", "phone": phone}
+
+@router.post("/reset-password")
+def reset_password(data: dict):
+    email = data.get("email")
+    otp = data.get("otp")
+    password = data.get("password")
+
+    if not verify_otp(email, otp):
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    users_collection.update_one(
+        {"email": email},
+        {"$set": {"password": hash_password(password)}}
+    )
+
+    return {"message": "Password reset successful"}
