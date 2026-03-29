@@ -11,9 +11,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         # remove "Bearer " if present
         if token.startswith("Bearer "):
             token = token.split(" ")[1]
-        print("TOKEN RECEIVED:", token)
+        #print("TOKEN RECEIVED:", token)
         payload = decode_token(token)
-        print("PAYLOAD:", payload)
+        #print("PAYLOAD:", payload)
         return payload
     except Exception as e:
         print("ERROR:", e)
