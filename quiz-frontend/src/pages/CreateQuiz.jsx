@@ -106,7 +106,7 @@ export default function CreateQuiz() {
     <div className="h-screen flex flex-col bg-[#080810] text-white overflow-hidden">
       <Navbar />
 
-      {/* ✅ This div is now the scroll container */}
+      {/* This div is now the scroll container */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-3xl mx-auto w-full px-4 py-8">
 

@@ -1,19 +1,24 @@
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-
-
 export default function Login() {
+  const navigate = useNavigate();
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("token");
+
     if (token) {
       window.location.href = "/dashboard";
     }
   }, []);
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [step, setStep] = useState("form");
   const [otp, setOtp] = useState("");
@@ -21,7 +26,7 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
 
-  //  LOGIN → SEND OTP
+  // ================= LOGIN =================
   const handleLogin = async () => {
     try {
       setLoading(true);
@@ -35,14 +40,12 @@ export default function Login() {
       });
 
       const data = await res.json();
-      console.log("LOGIN RESPONSE:", data);
 
       if (!res.ok) {
         alert(data.detail || "Login failed");
         return;
       }
 
-      //  move to OTP step
       setPhone(data.phone);
       setStep("otp");
 
@@ -54,7 +57,7 @@ export default function Login() {
     }
   };
 
-  //  VERIFY OTP
+  // ================= VERIFY OTP =================
   const handleVerify = async () => {
     try {
       setLoading(true);
@@ -68,17 +71,19 @@ export default function Login() {
       });
 
       const data = await res.json();
-      console.log("VERIFY RESPONSE:", data);
 
       if (!res.ok) {
         alert(data.detail || "Invalid OTP");
         return;
       }
 
-      //  SAVE TOKEN
-      localStorage.setItem("token", data.access_token);
+      // 🔥 REMEMBER ME LOGIC
+      if (rememberMe) {
+        localStorage.setItem("token", data.access_token);
+      } else {
+        sessionStorage.setItem("token", data.access_token);
+      }
 
-      //  REDIRECT
       window.location.href = "/dashboard";
 
     } catch (err) {
@@ -119,9 +124,30 @@ export default function Login() {
                 type="password"
                 placeholder="Password"
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 mb-6 bg-[#111827] border border-gray-700 rounded-lg 
+                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg 
                            focus:ring-2 focus:ring-cyan-400 outline-none"
               />
+
+              {/* 🔥 NEW SECTION */}
+              <div className="flex items-center justify-between mb-4">
+
+                <label className="flex items-center gap-2 text-sm text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={() => setRememberMe(!rememberMe)}
+                  />
+                  Remember Me
+                </label>
+
+                <button
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-sm text-cyan-400 hover:underline"
+                >
+                  Forgot Password?
+                </button>
+
+              </div>
 
               <button
                 onClick={handleLogin}
@@ -136,7 +162,7 @@ export default function Login() {
 
           {/* ================= OTP STEP ================= */}
           {step === "otp" && (
-            <div className="animate-fadeIn">
+            <div>
 
               <input
                 placeholder="Enter OTP"

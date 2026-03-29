@@ -108,3 +108,39 @@ def verify(data: VerifyOTP):
     })
 
     return {"access_token": token}
+
+@router.post("/reset-password")
+def reset_password(data: dict):
+
+    phone = data.get("phone")
+    otp = data.get("otp")
+    new_password = data.get("password")
+
+    if not verify_otp(phone, otp):
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    users_collection.update_one(
+        {"phone": phone},
+        {"$set": {"password": hash_password(new_password)}}
+    )
+
+    return {"message": "Password reset successful"}
+
+@router.post("/forgot-password")
+def forgot_password(data: dict):
+
+    user = users_collection.find_one({
+        "$or": [
+            {"email": data.get("email")},
+            {"phone": data.get("phone")}
+        ]
+    })
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    phone = user.get("phone")
+
+    generate_otp(phone)
+
+    return {"message": "OTP sent", "phone": phone}

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
+import { ArrowLeft } from "lucide-react";
 
 export default function AnalyticsList() {
 
@@ -62,7 +63,10 @@ export default function AnalyticsList() {
       <Navbar />
 
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
-
+            <button onClick={() => navigate("/dashboard")}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
+              <ArrowLeft size={16} />
+            </button>
         {/* HEADER */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Analytics</h1>

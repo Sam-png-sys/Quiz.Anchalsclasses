@@ -8,6 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
+import { ArrowLeft } from "lucide-react";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
@@ -133,7 +134,12 @@ export default function QuizList() {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
+          
           <div>
+             <button onClick={() => navigate("/dashboard")}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
+              <ArrowLeft size={16} />
+            </button>
             <h1 className="text-2xl font-bold text-white tracking-tight">All Quizzes</h1>
             <p className="text-sm text-white/35 mt-1">{processed.length} quiz{processed.length !== 1 ? "zes" : ""} found</p>
           </div>

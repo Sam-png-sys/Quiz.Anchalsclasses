@@ -8,6 +8,7 @@ import QuizList from "./pages/QuizList";
 import Courses from "./pages/Courses";
 import Students from "./pages/Students";
 import Analytics from "./pages/Analytics";
+import ForgotPassword from "./pages/ForgotPassword";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/courses"  element={<Courses />} />
         <Route path="/students" element={<Students />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
       
         
       </Routes>

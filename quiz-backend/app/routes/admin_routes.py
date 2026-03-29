@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from app.dependencies.auth_dependency import admin_only, get_current_user
 from app.config.database import quiz_collection, question_collection, attempt_collection, users_collection
-from app.schemas.quiz_schema import QuizCreate   # 🔥 IMPORTANT
+from app.schemas.quiz_schema import QuizCreate
+from app.utils.hash import hash_password   # ✅ FIXED
+from app.services.otp_service import generate_otp, verify_otp  # ✅ ADD THIS
 from bson import ObjectId
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -126,3 +128,4 @@ def get_stats(current_user=Depends(get_current_user)):
         "total_students": total_students,
         "total_attempts": total_attempts
     }
+    
