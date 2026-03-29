@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Search, X, ToggleLeft, ToggleRight,
   ChevronDown, TrendingUp, CheckCircle2, XCircle,
-  Clock, BookOpen, ArrowUpDown, Eye, Mail, Phone,
+  Clock, BookOpen, ArrowUpDown,ArrowLeft, Eye, Mail, Phone,
   SlidersHorizontal, Download,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -114,6 +114,10 @@ export default function Students() {
       <Navbar />
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
 
+           <button onClick={() => navigate("/dashboard")}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
+              <ArrowLeft size={16} />
+            </button>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
