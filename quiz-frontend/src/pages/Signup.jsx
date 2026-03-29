@@ -2,7 +2,6 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-
 export default function Signup() {
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -18,11 +17,13 @@ export default function Signup() {
     password: "",
   });
 
+  const [signupEmail, setSignupEmail] = useState(""); // 🔥 NEW
+
   const [step, setStep] = useState("form");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  //  SIGNUP → SEND OTP (CORRECT FLOW)
+  // ================= SIGNUP =================
   const handleSignup = async () => {
     try {
       setLoading(true);
@@ -34,19 +35,20 @@ export default function Signup() {
         },
         body: JSON.stringify({
           ...form,
-          role: "admin", //  web = admin
+          role: "admin",
         }),
       });
 
       const data = await res.json();
-      console.log("SIGNUP RESPONSE:", data);
 
       if (!res.ok) {
         alert(data.detail || "Signup failed");
         return;
       }
 
-      //  move to OTP step
+      // 🔥 FIX: LOCK EMAIL
+      setSignupEmail(form.email.trim());
+
       setStep("otp");
 
     } catch (err) {
@@ -57,41 +59,41 @@ export default function Signup() {
     }
   };
 
-  //  VERIFY OTP
+  // ================= VERIFY OTP =================
   const handleVerify = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const res = await fetch("http://127.0.0.1:8000/auth/verify-otp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone: form.phone,
-          otp,
-        }),
-      });
+    const res = await fetch("http://127.0.0.1:8000/auth/verify-otp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: signupEmail,
+        otp,
+      }),
+    });
 
-      const data = await res.json();
-      console.log("VERIFY RESPONSE:", data);
+    const data = await res.json();
 
-      if (!res.ok) {
-        alert(data.detail || "Invalid OTP");
-        return;
-      }
-
-      localStorage.setItem("token", data.access_token);
-      window.location.href = "/dashboard";
-
-    } catch (err) {
-      console.error(err);
-      alert("Server error");
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      alert(data.detail || "Invalid OTP");
+      return;
     }
-  };
 
+    // 🔥 NEW FLOW
+    alert("Signup successful! Please login.");
+
+    window.location.href = "/login";
+
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div className="h-screen w-full flex bg-[#0B0F1A] text-white">
 
@@ -111,13 +113,12 @@ export default function Signup() {
             Start your journey with us.
           </p>
 
-          {/* ================= FORM ================= */}
+          {/* FORM */}
           {step === "form" && (
             <>
               <input
                 placeholder="Full Name"
-                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-purple-400 outline-none"
+                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg"
                 onChange={(e) =>
                   setForm({ ...form, name: e.target.value })
                 }
@@ -125,8 +126,7 @@ export default function Signup() {
 
               <input
                 placeholder="Email"
-                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-purple-400 outline-none"
+                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg"
                 onChange={(e) =>
                   setForm({ ...form, email: e.target.value })
                 }
@@ -134,8 +134,7 @@ export default function Signup() {
 
               <input
                 placeholder="Phone Number"
-                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-purple-400 outline-none"
+                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg"
                 onChange={(e) =>
                   setForm({ ...form, phone: e.target.value })
                 }
@@ -144,8 +143,7 @@ export default function Signup() {
               <input
                 type="password"
                 placeholder="Password"
-                className="w-full p-3 mb-6 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-purple-400 outline-none"
+                className="w-full p-3 mb-6 bg-[#111827] border border-gray-700 rounded-lg"
                 onChange={(e) =>
                   setForm({ ...form, password: e.target.value })
                 }
@@ -154,31 +152,28 @@ export default function Signup() {
               <button
                 onClick={handleSignup}
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold
-                           hover:shadow-[0_0_25px_#A855F780] disabled:opacity-50"
+                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg"
               >
                 {loading ? "Creating..." : "Sign up"}
               </button>
             </>
           )}
 
-          {/* ================= OTP ================= */}
+          {/* OTP */}
           {step === "otp" && (
-            <div className="animate-fadeIn">
+            <div>
 
               <input
                 placeholder="Enter OTP"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-purple-400 outline-none text-center tracking-widest"
+                className="w-full p-3 mb-4 bg-[#111827] rounded-lg text-center"
               />
 
               <button
                 onClick={handleVerify}
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-green-400 to-emerald-500 text-black rounded-lg font-semibold
-                           disabled:opacity-50"
+                className="w-full py-3 bg-green-500 rounded-lg"
               >
                 {loading ? "Verifying..." : "Verify OTP"}
               </button>
@@ -194,7 +189,7 @@ export default function Signup() {
 
           <p className="text-gray-400 text-sm mt-6 text-center">
             Already have an account?{" "}
-            <Link to="/login" className="text-purple-400 hover:underline">
+            <Link to="/login" className="text-purple-400">
               Login
             </Link>
           </p>
@@ -202,14 +197,9 @@ export default function Signup() {
         </div>
       </motion.div>
 
-      {/* RIGHT SIDE */}
-      <motion.div
-        initial={{ opacity: 0, x: 60 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="w-1/2 flex items-center justify-center relative"
-      >
+      {/* RIGHT SIDE SAME */}
+      <motion.div className="w-1/2 flex items-center justify-center relative">
         <div className="absolute w-[300px] h-[300px] bg-purple-500 blur-[120px] opacity-30 rounded-full"></div>
-
         <div className="relative w-64 h-64 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center">
           <div className="absolute bottom-0 w-full h-1/2 bg-white/10 backdrop-blur-2xl rounded-b-full"></div>
         </div>

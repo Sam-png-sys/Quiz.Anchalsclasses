@@ -4,7 +4,9 @@ import os
 
 SECRET_KEY = os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 🔥 1 day
+
+# 🔥 10 DAYS
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 10  
 
 def create_token(data: dict):
     to_encode = data.copy()

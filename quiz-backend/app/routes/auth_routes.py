@@ -12,17 +12,24 @@ temp_users = {}
 login_sessions = {}
 
 
+# =========================
+# SIGNUP
+# =========================
 @router.post("/signup")
 def signup(data: UserRegister):
     if users_collection.find_one({"email": data.email}):
-        raise HTTPException(status_code=400, detail="User exists")
+        raise HTTPException(status_code=400, detail="User already exists")
 
     temp_users[data.email] = data.dict()
+
     generate_otp(data.email)
 
     return {"message": "OTP sent", "email": data.email}
 
 
+# =========================
+# LOGIN
+# =========================
 @router.post("/login")
 def login(data: UserLogin):
     user = users_collection.find_one({"email": data.email})
@@ -37,12 +44,16 @@ def login(data: UserLogin):
     return {"message": "OTP sent", "email": data.email}
 
 
+# =========================
+# VERIFY OTP
+# =========================
 @router.post("/verify-otp")
 def verify(data: VerifyOTP):
 
     if not verify_otp(data.email, data.otp):
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
+    # ================= LOGIN FLOW =================
     if data.email in login_sessions:
         user_id = login_sessions[data.email]
 
@@ -50,32 +61,51 @@ def verify(data: VerifyOTP):
 
         token = create_token({
             "user_id": str(user["_id"]),
-            "role": user["role"]
+            "role": user["role"],
+            "name": user.get("name"),   
+            "email": user.get("email")  
         })
 
-        del login_sessions[data.email]
+        login_sessions.pop(data.email, None)
 
         return {"access_token": token}
 
+    # ================= SIGNUP FLOW =================
     temp = temp_users.get(data.email)
 
     if not temp:
-        raise HTTPException(status_code=400, detail="Signup expired")
+        raise HTTPException(status_code=400, detail="Signup session expired")
 
     temp["password"] = hash_password(temp["password"])
 
-    result = users_collection.insert_one(temp)
+    # duplicate checks
+    if users_collection.find_one({"phone": temp.get("phone")}):
+        raise HTTPException(status_code=400, detail="Phone already registered")
 
-    del temp_users[data.email]
+    if users_collection.find_one({"email": temp.get("email")}):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # safe insert
+    try:
+        result = users_collection.insert_one(temp)
+    except Exception:
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    temp_users.pop(data.email, None)
 
     token = create_token({
         "user_id": str(result.inserted_id),
-        "role": temp["role"]
+        "role": temp["role"],
+        "name": temp.get("name"),   
+        "email": temp.get("email")  
     })
 
     return {"access_token": token}
 
 
+# =========================
+# FORGOT PASSWORD
+# =========================
 @router.post("/forgot-password")
 def forgot_password(data: dict):
     email = data.get("email")
@@ -90,6 +120,9 @@ def forgot_password(data: dict):
     return {"message": "OTP sent"}
 
 
+# =========================
+# RESET PASSWORD
+# =========================
 @router.post("/reset-password")
 def reset_password(data: dict):
     email = data.get("email")

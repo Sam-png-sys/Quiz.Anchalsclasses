@@ -6,9 +6,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token =
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("token");
+    const token = localStorage.getItem("token"); // ✅ ONLY LOCAL
 
     if (token) {
       window.location.href = "/dashboard";
@@ -17,8 +15,6 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const [rememberMe, setRememberMe] = useState(false);
 
   const [step, setStep] = useState("form");
   const [otp, setOtp] = useState("");
@@ -45,9 +41,6 @@ export default function Login() {
         return;
       }
 
-      // ✅ IMPORTANT FIX
-      setEmail(data.email);
-
       setStep("otp");
 
     } catch (err) {
@@ -68,7 +61,6 @@ export default function Login() {
         headers: {
           "Content-Type": "application/json",
         },
-        // ✅ FIXED HERE
         body: JSON.stringify({ email, otp }),
       });
 
@@ -79,12 +71,8 @@ export default function Login() {
         return;
       }
 
-      // 🔥 REMEMBER ME LOGIC
-      if (rememberMe) {
-        localStorage.setItem("token", data.access_token);
-      } else {
-        sessionStorage.setItem("token", data.access_token);
-      }
+      // 🔥 ALWAYS SAVE TOKEN
+      localStorage.setItem("token", data.access_token);
 
       window.location.href = "/dashboard";
 
@@ -130,16 +118,8 @@ export default function Login() {
                            focus:ring-2 focus:ring-cyan-400 outline-none"
               />
 
-              <div className="flex items-center justify-between mb-4">
-                <label className="flex items-center gap-2 text-sm text-gray-400">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={() => setRememberMe(!rememberMe)}
-                  />
-                  Remember Me
-                </label>
-
+              {/* 🔥 ONLY FORGOT PASSWORD LEFT */}
+              <div className="flex justify-end mb-4">
                 <button
                   onClick={() => navigate("/forgot-password")}
                   className="text-sm text-cyan-400 hover:underline"

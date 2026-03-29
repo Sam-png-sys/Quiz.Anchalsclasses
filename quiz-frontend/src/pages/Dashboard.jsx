@@ -37,7 +37,7 @@ export default function Dashboard() {
 
   const token = localStorage.getItem("token");
   const user  = decodeToken(token);
-  const userName = user?.name || user?.username || user?.email?.split("@")[0] || "Admin";
+  const userName = user?.name || user?.email?.split("@")[0] || "User";
 
   // Fetch real stats from backend
   useEffect(() => {
