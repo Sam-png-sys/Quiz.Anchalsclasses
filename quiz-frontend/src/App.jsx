@@ -7,6 +7,7 @@ import CreateQuiz from "./pages/CreateQuiz";
 import QuizList from "./pages/QuizList";
 import Courses from "./pages/Courses";
 import Students from "./pages/Students";
+import Analytics from "./pages/Analytics";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/quizzes"  element={<QuizList />} />
         <Route path="/courses"  element={<Courses />} />
         <Route path="/students" element={<Students />} />
+        <Route path="/analytics" element={<Analytics />} />
       
         
       </Routes>

@@ -13,67 +13,67 @@ const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
 
 const SORT_OPTIONS = [
-  { label: "Newest First",    value: "newest" },
-  { label: "Oldest First",   value: "oldest" },
-  { label: "Most Attempts",  value: "attempts_desc" },
+  { label: "Newest First", value: "newest" },
+  { label: "Oldest First", value: "oldest" },
+  { label: "Most Attempts", value: "attempts_desc" },
   { label: "Least Attempts", value: "attempts_asc" },
-  { label: "A → Z",          value: "alpha_asc" },
-  { label: "Z → A",          value: "alpha_desc" },
+  { label: "A → Z", value: "alpha_asc" },
+  { label: "Z → A", value: "alpha_desc" },
 ];
 
 const DIFF_COLORS = {
-  Easy:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  Easy: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   Medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  Hard:   "bg-red-500/10 text-red-400 border-red-500/20",
+  Hard: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
 export default function QuizList() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  const [quizzes, setQuizzes]       = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState(null);
-  const [search, setSearch]         = useState("");
-  const [sort, setSort]             = useState("newest");
-  const [sortOpen, setSortOpen]     = useState(false);
-  const [filterTag, setFilterTag]   = useState("All");
+  const [quizzes, setQuizzes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [filterTag, setFilterTag] = useState("All");
   const [filterDiff, setFilterDiff] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
-  const [filtersOpen, setFiltersOpen]   = useState(false);
-  const [deleteId, setDeleteId]     = useState(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     fetchQuizzes();
   }, []);
 
-const fetchQuizzes = async () => {
-  try {
-    setLoading(true);
+  const fetchQuizzes = async () => {
+    try {
+      setLoading(true);
 
-    const data = await apiRequest("/admin/courses");
+      const data = await apiRequest("/admin/courses");
 
-    // 🔥 Normalize backend data to match UI
-    const formatted = data.map((q) => ({
-      ...q,
-      id: q._id,
-      isOpen: q.isOpen ?? true,
-      attempts: q.attempts ?? 0,
-      totalQuestions: q.totalQuestions ?? 0,
-      difficulty: q.difficulty ?? "Medium",
-      createdAt: q.createdAt ?? new Date().toISOString(),
-    }));
+      // 🔥 Normalize backend data to match UI
+      const formatted = data.map((q) => ({
+        ...q,
+        id: q._id,
+        isOpen: q.isOpen ?? true,
+        attempts: q.attempts ?? 0,
+        totalQuestions: q.totalQuestions ?? 0,
+        difficulty: q.difficulty ?? "Medium",
+        createdAt: q.createdAt ?? new Date().toISOString(),
+      }));
 
-    setQuizzes(formatted);
+      setQuizzes(formatted);
 
-  } catch (err) {
-    console.error(err);
-    setError("Could not load quizzes.");
-    setQuizzes([]);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.error(err);
+      setError("Could not load quizzes.");
+      setQuizzes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (id) => {
     try {
@@ -107,20 +107,20 @@ const fetchQuizzes = async () => {
   const processed = quizzes
     .filter(q => {
       const matchSearch = q.title?.toLowerCase().includes(search.toLowerCase());
-      const matchTag    = filterTag === "All" || q.tag === filterTag;
-      const matchDiff   = filterDiff === "All" || q.difficulty === filterDiff;
+      const matchTag = filterTag === "All" || q.tag === filterTag;
+      const matchDiff = filterDiff === "All" || q.difficulty === filterDiff;
       const matchStatus = filterStatus === "All" ||
         (filterStatus === "Open" && q.isOpen) ||
         (filterStatus === "Closed" && !q.isOpen);
       return matchSearch && matchTag && matchDiff && matchStatus;
     })
     .sort((a, b) => {
-      if (sort === "newest")        return new Date(b.createdAt) - new Date(a.createdAt);
-      if (sort === "oldest")        return new Date(a.createdAt) - new Date(b.createdAt);
+      if (sort === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
+      if (sort === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
       if (sort === "attempts_desc") return (b.attempts || 0) - (a.attempts || 0);
-      if (sort === "attempts_asc")  return (a.attempts || 0) - (b.attempts || 0);
-      if (sort === "alpha_asc")     return a.title?.localeCompare(b.title);
-      if (sort === "alpha_desc")    return b.title?.localeCompare(a.title);
+      if (sort === "attempts_asc") return (a.attempts || 0) - (b.attempts || 0);
+      if (sort === "alpha_asc") return a.title?.localeCompare(b.title);
+      if (sort === "alpha_desc") return b.title?.localeCompare(a.title);
       return 0;
     });
 
@@ -212,9 +212,9 @@ const fetchQuizzes = async () => {
               className="overflow-hidden mb-5"
             >
               <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 flex flex-wrap gap-6">
-                <FilterGroup label="Tag" options={["All","BDS","MDS"]} value={filterTag} onChange={setFilterTag} />
-                <FilterGroup label="Difficulty" options={["All","Easy","Medium","Hard"]} value={filterDiff} onChange={setFilterDiff} />
-                <FilterGroup label="Status" options={["All","Open","Closed"]} value={filterStatus} onChange={setFilterStatus} />
+                <FilterGroup label="Tag" options={["All", "BDS", "MDS"]} value={filterTag} onChange={setFilterTag} />
+                <FilterGroup label="Difficulty" options={["All", "Easy", "Medium", "Hard"]} value={filterDiff} onChange={setFilterDiff} />
+                <FilterGroup label="Status" options={["All", "Open", "Closed"]} value={filterStatus} onChange={setFilterStatus} />
                 {activeFilters > 0 && (
                   <button onClick={() => { setFilterTag("All"); setFilterDiff("All"); setFilterStatus("All"); }}
                     className="self-end text-[12px] font-semibold text-red-400/70 hover:text-red-400 transition-colors">
@@ -229,7 +229,7 @@ const fetchQuizzes = async () => {
         {/* Quiz grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1,2,3,4,5,6].map(i => (
+            {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className="bg-[#0c0c18] border border-white/[0.05] rounded-2xl p-5 animate-pulse">
                 <div className="w-3/4 h-4 bg-white/[0.05] rounded mb-3" />
                 <div className="w-1/2 h-3 bg-white/[0.05] rounded mb-5" />
@@ -267,7 +267,24 @@ const fetchQuizzes = async () => {
                   </div>
 
                   {/* Title */}
-                  <h3 className="font-bold text-white text-[14px] leading-snug mb-1">{quiz.title}</h3>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-bold text-white text-[14px] leading-snug">
+                      {quiz.title}
+                    </h3>
+
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(quiz._id || quiz.id);
+                      }}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 transition"
+                    >
+                      Copy ID
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] text-white/30 mb-2">
+                    ID: {quiz._id || quiz.id}
+                  </p>
                   {quiz.description && (
                     <p className="text-[12px] text-white/35 mb-3 line-clamp-2 leading-relaxed">{quiz.description}</p>
                   )}
