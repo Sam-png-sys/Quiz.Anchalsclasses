@@ -1,29 +1,36 @@
 import random
 import time
-import smtplib
 import os
-from email.mime.text import MIMEText
+import resend
 from dotenv import load_dotenv
 
 load_dotenv()
 
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
+#  RESEND API KEY
+resend.api_key = os.getenv("RESEND_API_KEY")
 
+# OTP STORE
 otp_store = {}
-OTP_EXPIRY = 300
+OTP_EXPIRY = 300  # 5 minutes
 
 
-def send_email(to_email, subject, body):
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = EMAIL_USER
-    msg["To"] = to_email
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(EMAIL_USER, EMAIL_PASS)
-        server.send_message(msg)
+# SEND EMAIL VIA RESEND
 
+def send_email(to_email, subject, html_body):
+    try:
+        resend.Emails.send({
+            "from": "Dr Anchal Classes <noreply@dranchalclasses.in>",
+            "to": to_email,
+            "subject": subject,
+            "html": html_body
+        })
+    except Exception as e:
+        print("Resend Error:", e)
+
+
+
+# GENERATE OTP
 
 def generate_otp(email):
     otp = str(random.randint(100000, 999999))
@@ -33,10 +40,27 @@ def generate_otp(email):
         "expires": time.time() + OTP_EXPIRY
     }
 
-    send_email(email, "OTP", f"Your OTP is {otp}")
+    print(f"OTP (dev): {otp}")
+
+    #  SEND EMAIL
+    send_email(
+        email,
+        "Your OTP Code",
+        f"""
+        <div style="font-family: Arial; padding: 20px;">
+            <h2>Dr Anchal Classes</h2>
+            <p>Your OTP is:</p>
+            <h1 style="color:#06b6d4;">{otp}</h1>
+            <p>This OTP is valid for 5 minutes.</p>
+        </div>
+        """
+    )
 
     return otp
 
+
+
+# VERIFY OTP
 
 def verify_otp(email, otp):
     data = otp_store.get(email)
