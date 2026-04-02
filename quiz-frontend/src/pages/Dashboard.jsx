@@ -12,7 +12,7 @@ import Navbar from "./Navbar";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
-  show:   { opacity: 1, y: 0 },
+  show: { opacity: 1, y: 0 },
 };
 const stagger = {
   show: { transition: { staggerChildren: 0.07 } },
@@ -29,6 +29,7 @@ function decodeToken(token) {
 }
 
 export default function Dashboard() {
+  const [topStudents, setTopStudents] = useState([]);
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [stats, setStats] = useState(null);
@@ -36,8 +37,17 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
 
   const token = localStorage.getItem("token");
-  const user  = decodeToken(token);
+  const user = decodeToken(token);
   const userName = user?.name || user?.email?.split("@")[0] || "User";
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/admin/top-students", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.json())
+      .then(setTopStudents)
+      .catch(() => setTopStudents([]));
+  }, []);
 
   // Fetch real stats from backend
   useEffect(() => {
@@ -58,7 +68,7 @@ export default function Dashboard() {
 
         const data = await res.json();
         setStats({
-          quizzes:  data.total_quizzes  ?? 0,
+          quizzes: data.total_quizzes ?? 0,
           students: data.total_students ?? 0,
           attempts: data.total_attempts ?? 0,
         });
@@ -75,12 +85,12 @@ export default function Dashboard() {
   }, []);
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard",   path: "/dashboard",   active: true },
-    { icon: PlusCircle,      label: "Create Quiz",  path: "/create-quiz", active: false },
-    { icon: BookOpen,        label: "All Quizzes",  path: "/quizzes",     active: false },
-    { icon: Users,           label: "Students",     path: "/students",    active: false },
-    { icon: GraduationCapIcon,       label: "Courses",      path: "/courses",     active: false },
-    { icon: BarChart3,       label: "Analytics",    path: "/analytics",           active: false },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", active: true },
+    { icon: PlusCircle, label: "Create Quiz", path: "/create-quiz", active: false },
+    { icon: BookOpen, label: "All Quizzes", path: "/quizzes", active: false },
+    { icon: Users, label: "Students", path: "/students", active: false },
+    { icon: GraduationCapIcon, label: "Courses", path: "/courses", active: false },
+    { icon: BarChart3, label: "Analytics", path: "/analytics", active: false },
   ];
 
   return (
@@ -158,7 +168,7 @@ export default function Dashboard() {
           <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {loading ? (
               // Loading skeletons
-              [1,2,3].map(i => (
+              [1, 2, 3].map(i => (
                 <div key={i} className="bg-[#0c0c18] border border-white/[0.05] rounded-2xl p-5 animate-pulse">
                   <div className="w-10 h-10 rounded-2xl bg-white/[0.05] mb-4" />
                   <div className="w-16 h-8 bg-white/[0.05] rounded-lg mb-2" />
@@ -167,9 +177,9 @@ export default function Dashboard() {
               ))
             ) : (
               <>
-                <StatCard variants={fadeUp} icon={BookOpen}   label="Total Quizzes"  value={stats.quizzes}  color="cyan"   />
-                <StatCard variants={fadeUp} icon={Users}      label="Students"        value={stats.students} color="purple" />
-                <StatCard variants={fadeUp} icon={TrendingUp} label="Total Attempts"  value={stats.attempts} color="green"  />
+                <StatCard variants={fadeUp} icon={BookOpen} label="Total Quizzes" value={stats.quizzes} color="cyan" />
+                <StatCard variants={fadeUp} icon={Users} label="Students" value={stats.students} color="purple" />
+                <StatCard variants={fadeUp} icon={TrendingUp} label="Total Attempts" value={stats.attempts} color="green" />
               </>
             )}
           </motion.div>
@@ -177,31 +187,67 @@ export default function Dashboard() {
           {/* Bottom grid */}
           <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-            {/* Recent activity */}
+            {/* Top Students (Leaderboard) */}
             <motion.div variants={fadeUp} className="bg-[#0c0c18] border border-white/[0.05] rounded-2xl p-6">
+
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
-                  <Activity size={15} className="text-cyan-400" />
-                  <h2 className="text-[14px] font-bold text-white">Recent Activity</h2>
+                  <TrendingUp size={15} className="text-cyan-400" />
+                  <h2 className="text-[14px] font-bold text-white">Top Students</h2>
                 </div>
-                <button className="text-[11px] font-semibold text-cyan-400 hover:underline">View all</button>
+                <button className="text-[11px] font-semibold text-cyan-400 hover:underline">
+                  View all
+                </button>
               </div>
+
               <div className="flex flex-col gap-0">
-                {[
-                  { label: "New student registered",              time: "2 min ago",  dot: "bg-cyan-400" },
-                  { label: "Quiz 'Oral Anatomy Ch.1' attempted",  time: "8 min ago",  dot: "bg-purple-400" },
-                  { label: "New quiz created by admin",           time: "1 hr ago",   dot: "bg-green-400" },
-                  { label: "Student scored 92% on MDS Mock Test", time: "3 hrs ago",  dot: "bg-amber-400" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 py-3 border-b border-white/[0.04] last:border-0">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.dot}`} />
-                    <p className="flex-1 text-[13px] text-white/60 leading-snug">{item.label}</p>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Clock size={10} className="text-white/20" />
-                      <span className="text-[11px] text-white/25">{item.time}</span>
+
+                {topStudents.length === 0 ? (
+                  <p className="text-white/40">No data yet</p>
+                ) : (
+                  topStudents.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 py-3 border-b border-white/[0.04] last:border-0"
+                    >
+
+                      {/* Rank Dot */}
+                      <div
+                        className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 
+              ${i === 0
+                            ? "bg-yellow-400"
+                            : i === 1
+                              ? "bg-gray-300"
+                              : i === 2
+                                ? "bg-amber-600"
+                                : "bg-cyan-400"
+                          }`}
+                      />
+
+                      {/* Text */}
+                      <p className="flex-1 text-[13px] text-white/60 leading-snug">
+                        <span className="text-white font-semibold">{item.name}</span> scored{" "}
+                        <span className="text-green-400 font-semibold">
+                          {item.score}%
+                        </span>{" "}
+                        in {item.quiz}
+                      </p>
+
+                      {/* Time */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Clock size={10} className="text-white/20" />
+                        <span className="text-[11px] text-white/25">
+                          {item.submittedAt
+                            ? `${Math.floor(
+                              (Date.now() - new Date(item.submittedAt)) / 60000
+                            )} min ago`
+                            : "--"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
+
               </div>
             </motion.div>
 
@@ -213,11 +259,11 @@ export default function Dashboard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Create Quiz",   icon: PlusCircle, path: "/create-quiz", color: "from-cyan-500/15 to-blue-600/15 border-cyan-500/20 text-cyan-400" },
-                  { label: "View Students", icon: Users,      path: "/students",    color: "from-purple-500/15 to-pink-600/15 border-purple-500/20 text-purple-400" },
-                  { label: "Analytics",     icon: BarChart3,  path: "/analytics",   color: "from-green-500/15 to-emerald-600/15 border-green-500/20 text-green-400" },
-                  { label: "All Quizzes",   icon: BookOpen,   path: "/quizzes",     color: "from-amber-500/15 to-orange-600/15 border-amber-500/20 text-amber-400" },
-                  
+                  { label: "Create Quiz", icon: PlusCircle, path: "/create-quiz", color: "from-cyan-500/15 to-blue-600/15 border-cyan-500/20 text-cyan-400" },
+                  { label: "View Students", icon: Users, path: "/students", color: "from-purple-500/15 to-pink-600/15 border-purple-500/20 text-purple-400" },
+                  { label: "Analytics", icon: BarChart3, path: "/analytics", color: "from-green-500/15 to-emerald-600/15 border-green-500/20 text-green-400" },
+                  { label: "All Quizzes", icon: BookOpen, path: "/quizzes", color: "from-amber-500/15 to-orange-600/15 border-amber-500/20 text-amber-400" },
+
                 ].map(({ label, icon: Icon, path, color }) => (
                   <button key={label}
                     onClick={() => path ? navigate(path) : alert("Coming soon")}
@@ -240,9 +286,9 @@ export default function Dashboard() {
 
 function StatCard({ icon: Icon, label, value, color, variants }) {
   const palette = {
-    cyan:   { grad: "from-cyan-400 to-blue-500",     glow: "shadow-cyan-500/20",   text: "text-cyan-400",   bg: "bg-cyan-500/10",   border: "border-cyan-500/15" },
-    purple: { grad: "from-purple-400 to-pink-500",   glow: "shadow-purple-500/20", text: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/15" },
-    green:  { grad: "from-green-400 to-emerald-500", glow: "shadow-green-500/20",  text: "text-green-400",  bg: "bg-green-500/10",  border: "border-green-500/15" },
+    cyan: { grad: "from-cyan-400 to-blue-500", glow: "shadow-cyan-500/20", text: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/15" },
+    purple: { grad: "from-purple-400 to-pink-500", glow: "shadow-purple-500/20", text: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/15" },
+    green: { grad: "from-green-400 to-emerald-500", glow: "shadow-green-500/20", text: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/15" },
   };
   const p = palette[color];
 

@@ -138,3 +138,4 @@ def reset_password(data: dict):
     )
 
     return {"message": "Password reset successful"}
+

@@ -29,3 +29,4 @@ users_collection.create_index(
 question_collection.create_index("quizId")
 attempt_collection.create_index([("userId", 1), ("quizId", 1)])
 attempt_collection.create_index("submittedAt")
+activity_collection = db["activities"]  
