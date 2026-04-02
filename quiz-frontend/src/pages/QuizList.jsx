@@ -134,17 +134,27 @@ export default function QuizList() {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          
-          <div>
-             <button onClick={() => navigate("/dashboard")}
-              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
               <ArrowLeft size={16} />
             </button>
-            <h1 className="text-2xl font-bold text-white tracking-tight">All Quizzes</h1>
-            <p className="text-sm text-white/35 mt-1">{processed.length} quiz{processed.length !== 1 ? "zes" : ""} found</p>
+
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">All Quizzes</h1>
+              <p className="text-sm text-white/35 mt-1">
+                {processed.length} quiz{processed.length !== 1 ? "zes" : ""} found
+              </p>
+            </div>
           </div>
-          <button onClick={() => navigate("/create-quiz")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold hover:opacity-90 hover:shadow-lg hover:shadow-cyan-500/25 transition-all active:scale-[0.98]">
+
+          <button
+            onClick={() => navigate("/create-quiz")}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold"
+          >
             <Plus size={16} /> New Quiz
           </button>
         </div>

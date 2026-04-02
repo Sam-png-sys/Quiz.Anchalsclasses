@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   GraduationCap, Plus, BookOpen, Clock, Users,
-  ChevronRight, Trash2, Edit2, X, Save, Layers,
+  ChevronRight, Trash2, Edit2, X, Save, Layers, 
+  ArrowLeft
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
@@ -12,10 +13,10 @@ const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.07 } } };
 
 const COURSE_COLORS = [
-  { from: "from-cyan-500",   to: "to-blue-600",   bg: "bg-cyan-500/10",   border: "border-cyan-500/20",   text: "text-cyan-400" },
-  { from: "from-purple-500", to: "to-pink-600",   bg: "bg-purple-500/10", border: "border-purple-500/20", text: "text-purple-400" },
-  { from: "from-amber-500",  to: "to-orange-600", bg: "bg-amber-500/10",  border: "border-amber-500/20",  text: "text-amber-400" },
-  { from: "from-green-500",  to: "to-emerald-600",bg: "bg-green-500/10",  border: "border-green-500/20",  text: "text-green-400" },
+  { from: "from-cyan-500", to: "to-blue-600", bg: "bg-cyan-500/10", border: "border-cyan-500/20", text: "text-cyan-400" },
+  { from: "from-purple-500", to: "to-pink-600", bg: "bg-purple-500/10", border: "border-purple-500/20", text: "text-purple-400" },
+  { from: "from-amber-500", to: "to-orange-600", bg: "bg-amber-500/10", border: "border-amber-500/20", text: "text-amber-400" },
+  { from: "from-green-500", to: "to-emerald-600", bg: "bg-green-500/10", border: "border-green-500/20", text: "text-green-400" },
 ];
 
 const EMPTY_FORM = { title: "", description: "", tag: "BDS", duration: "", totalQuizzes: "" };
@@ -24,47 +25,47 @@ export default function Courses() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  const [courses, setCourses]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing]   = useState(null);
-  const [form, setForm]         = useState(EMPTY_FORM);
-  const [saving, setSaving]     = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => { fetchCourses(); }, []);
 
   const fetchCourses = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data = await apiRequest("/admin/courses");
+      const data = await apiRequest("/admin/courses");
 
-    const list = data.map((c) => ({
-      ...c,
-      totalQuizzes: c.totalQuizzes ?? 0,
-      enrolled: c.enrolled ?? 0,
-    }));
+      const list = data.map((c) => ({
+        ...c,
+        totalQuizzes: c.totalQuizzes ?? 0,
+        enrolled: c.enrolled ?? 0,
+      }));
 
-    setCourses(list);
+      setCourses(list);
 
-  } catch (err) {
-    setError("Could not load courses.");
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      setError("Could not load courses.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
-  const openEdit   = (c)  => { setEditing(c._id || c.id); setForm({ title: c.title, description: c.description, tag: c.tag, duration: c.duration, totalQuizzes: c.totalQuizzes }); setModalOpen(true); };
+  const openEdit = (c) => { setEditing(c._id || c.id); setForm({ title: c.title, description: c.description, tag: c.tag, duration: c.duration, totalQuizzes: c.totalQuizzes }); setModalOpen(true); };
 
   const handleSave = async () => {
     if (!form.title.trim()) { alert("Title required"); return; }
     setSaving(true);
     try {
-      const url    = editing ? `http://127.0.0.1:8000/admin/course/${editing}` : "http://127.0.0.1:8000/admin/course";
+      const url = editing ? `http://127.0.0.1:8000/admin/course/${editing}` : "http://127.0.0.1:8000/admin/course";
       const method = editing ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
@@ -98,21 +99,35 @@ export default function Courses() {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Courses</h1>
-            <p className="text-sm text-white/35 mt-1">Manage your course catalog</p>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
+              <ArrowLeft size={16} />
+            </button>
+
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Courses</h1>
+              <p className="text-sm text-white/35 mt-1">Manage your course catalog</p>
+            </div>
           </div>
-          <button onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold hover:opacity-90 hover:shadow-lg hover:shadow-cyan-500/25 transition-all active:scale-[0.98]">
+
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold"
+          >
             <Plus size={16} /> Add Course
           </button>
+
         </div>
 
         {error && <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">⚠️ {error}</div>}
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[1,2,3].map(i => (
+            {[1, 2, 3].map(i => (
               <div key={i} className="bg-[#0c0c18] border border-white/[0.05] rounded-2xl p-6 animate-pulse">
                 <div className="w-14 h-14 bg-white/[0.05] rounded-2xl mb-4" />
                 <div className="w-3/4 h-4 bg-white/[0.05] rounded mb-2" />
@@ -135,7 +150,7 @@ export default function Courses() {
           <motion.div variants={stagger} initial="hidden" animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {courses.map((course, idx) => {
-              const id    = course._id || course.id;
+              const id = course._id || course.id;
               const color = COURSE_COLORS[idx % COURSE_COLORS.length];
               return (
                 <motion.div key={id} variants={fadeUp}
@@ -208,23 +223,23 @@ export default function Courses() {
 
                 <div className="flex flex-col gap-4">
                   <FormField label="Course Title">
-                    <input value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+                    <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
                       placeholder="e.g. BDS Complete Prep" className="field-input" />
                   </FormField>
                   <FormField label="Description">
-                    <textarea rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})}
+                    <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                       placeholder="Describe this course..." className="field-input resize-none" />
                   </FormField>
                   <div className="grid grid-cols-2 gap-3">
                     <FormField label="Tag">
-                      <select value={form.tag} onChange={e => setForm({...form, tag: e.target.value})}
+                      <select value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value })}
                         className="field-input">
                         <option>BDS</option>
                         <option>MDS</option>
                       </select>
                     </FormField>
                     <FormField label="Duration">
-                      <input value={form.duration} onChange={e => setForm({...form, duration: e.target.value})}
+                      <input value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })}
                         placeholder="e.g. 6 months" className="field-input" />
                     </FormField>
                   </div>

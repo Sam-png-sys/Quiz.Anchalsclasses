@@ -6,6 +6,7 @@ import {
 import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
 import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function AnalyticsList() {
 
@@ -58,21 +59,28 @@ export default function AnalyticsList() {
     q.title?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const navigate = useNavigate();
+
   return (
+
     <div className="min-h-screen bg-[#080810] text-white flex flex-col">
       <Navbar />
 
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
-            <button onClick={() => navigate("/dashboard")}
-              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
-              <ArrowLeft size={16} />
-            </button>
-        {/* HEADER */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Analytics</h1>
-          <p className="text-sm text-white/40">
-            Performance overview of all quizzes
-          </p>
+        <div className="flex items-center gap-4 mb-8">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+          >
+            <ArrowLeft size={16} />
+          </button>
+
+          <div>
+            <h1 className="text-2xl font-bold">Analytics</h1>
+            <p className="text-sm text-white/40">
+              Performance overview of all quizzes
+            </p>
+          </div>
         </div>
 
         {/* SEARCH */}

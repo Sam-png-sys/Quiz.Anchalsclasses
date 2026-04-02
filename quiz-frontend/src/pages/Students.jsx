@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Search, X, ToggleLeft, ToggleRight,
   ChevronDown, TrendingUp, CheckCircle2, XCircle,
-  Clock, BookOpen, ArrowUpDown,ArrowLeft, Eye, Mail, Phone,
+  Clock, BookOpen, ArrowUpDown, ArrowLeft, Eye, Mail, Phone,
   SlidersHorizontal, Download,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -14,65 +14,65 @@ const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.04 } } };
 
 const SORT_OPTIONS = [
-  { label: "Newest First",    value: "newest" },
-  { label: "Oldest First",   value: "oldest" },
-  { label: "Highest Score",  value: "score_desc" },
-  { label: "Lowest Score",   value: "score_asc" },
-  { label: "A → Z",          value: "alpha_asc" },
-  { label: "Most Attempts",  value: "attempts_desc" },
+  { label: "Newest First", value: "newest" },
+  { label: "Oldest First", value: "oldest" },
+  { label: "Highest Score", value: "score_desc" },
+  { label: "Lowest Score", value: "score_asc" },
+  { label: "A → Z", value: "alpha_asc" },
+  { label: "Most Attempts", value: "attempts_desc" },
 ];
 
 export default function Students() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  const [students, setStudents]     = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState(null);
-  const [search, setSearch]         = useState("");
-  const [sort, setSort]             = useState("newest");
-  const [sortOpen, setSortOpen]     = useState(false);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [sortOpen, setSortOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState("All");
-  const [filterTag, setFilterTag]   = useState("All");
+  const [filterTag, setFilterTag] = useState("All");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [stats, setStats]           = useState({ total: 0, active: 0, inactive: 0, avgScore: 0 });
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, avgScore: 0 });
 
   useEffect(() => { fetchStudents(); }, []);
 
   const fetchStudents = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data = await apiRequest("/admin/students");
+      const data = await apiRequest("/admin/students");
 
-    // 🔥 Normalize data
-    const list = data.map((s) => ({
-      ...s,
-      isActive: s.isActive ?? true,
-      avgScore: s.avgScore ?? 0,
-      totalAttempts: s.totalAttempts ?? 0,
-      branch: s.branch ?? "BDS",
-    }));
+      // 🔥 Normalize data
+      const list = data.map((s) => ({
+        ...s,
+        isActive: s.isActive ?? true,
+        avgScore: s.avgScore ?? 0,
+        totalAttempts: s.totalAttempts ?? 0,
+        branch: s.branch ?? "BDS",
+      }));
 
-    setStudents(list);
+      setStudents(list);
 
-    setStats({
-      total: list.length,
-      active: list.filter(s => s.isActive).length,
-      inactive: list.filter(s => !s.isActive).length,
-      avgScore: list.length
-        ? Math.round(list.reduce((a, s) => a + s.avgScore, 0) / list.length)
-        : 0,
-    });
+      setStats({
+        total: list.length,
+        active: list.filter(s => s.isActive).length,
+        inactive: list.filter(s => !s.isActive).length,
+        avgScore: list.length
+          ? Math.round(list.reduce((a, s) => a + s.avgScore, 0) / list.length)
+          : 0,
+      });
 
-  } catch (err) {
-    setError("Could not load students.");
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      setError("Could not load students.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleAccess = async (id, current) => {
     try {
@@ -89,8 +89,8 @@ export default function Students() {
   const processed = students
     .filter(s => {
       const matchSearch = s.name?.toLowerCase().includes(search.toLowerCase()) ||
-                          s.email?.toLowerCase().includes(search.toLowerCase()) ||
-                          s.phone?.includes(search);
+        s.email?.toLowerCase().includes(search.toLowerCase()) ||
+        s.phone?.includes(search);
       const matchStatus = filterStatus === "All" ||
         (filterStatus === "Active" && s.isActive) ||
         (filterStatus === "Inactive" && !s.isActive);
@@ -98,12 +98,12 @@ export default function Students() {
       return matchSearch && matchStatus && matchTag;
     })
     .sort((a, b) => {
-      if (sort === "newest")       return new Date(b.createdAt) - new Date(a.createdAt);
-      if (sort === "oldest")       return new Date(a.createdAt) - new Date(b.createdAt);
-      if (sort === "score_desc")   return (b.avgScore || 0) - (a.avgScore || 0);
-      if (sort === "score_asc")    return (a.avgScore || 0) - (b.avgScore || 0);
-      if (sort === "alpha_asc")    return a.name?.localeCompare(b.name);
-      if (sort === "attempts_desc")return (b.totalAttempts || 0) - (a.totalAttempts || 0);
+      if (sort === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
+      if (sort === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
+      if (sort === "score_desc") return (b.avgScore || 0) - (a.avgScore || 0);
+      if (sort === "score_asc") return (a.avgScore || 0) - (b.avgScore || 0);
+      if (sort === "alpha_asc") return a.name?.localeCompare(b.name);
+      if (sort === "attempts_desc") return (b.totalAttempts || 0) - (a.totalAttempts || 0);
       return 0;
     });
 
@@ -114,20 +114,29 @@ export default function Students() {
       <Navbar />
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
 
-           <button onClick={() => navigate("/dashboard")}
-              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
-              <ArrowLeft size={16} />
-            </button>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Students</h1>
-            <p className="text-sm text-white/35 mt-1">{processed.length} of {stats.total} students</p>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
+              <ArrowLeft size={16} />
+            </button>
+
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Students</h1>
+              <p className="text-sm text-white/35 mt-1">
+                {processed.length} of {stats.total} students
+              </p>
+            </div>
           </div>
-          <button
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white/60 hover:text-white text-sm font-semibold transition-all">
+
+          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white/60 hover:text-white text-sm font-semibold transition-all">
             <Download size={15} /> Export
           </button>
+
         </div>
 
         {error && <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">⚠️ {error}</div>}
@@ -135,10 +144,10 @@ export default function Students() {
         {/* Quick stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
-            { label: "Total",    value: stats.total,    icon: Users,       color: "text-cyan-400",   bg: "bg-cyan-500/10" },
-            { label: "Active",   value: stats.active,   icon: CheckCircle2,color: "text-emerald-400",bg: "bg-emerald-500/10" },
-            { label: "Inactive", value: stats.inactive, icon: XCircle,     color: "text-red-400",    bg: "bg-red-500/10" },
-            { label: "Avg Score",value: stats.avgScore + "%", icon: TrendingUp, color: "text-purple-400", bg: "bg-purple-500/10" },
+            { label: "Total", value: stats.total, icon: Users, color: "text-cyan-400", bg: "bg-cyan-500/10" },
+            { label: "Active", value: stats.active, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+            { label: "Inactive", value: stats.inactive, icon: XCircle, color: "text-red-400", bg: "bg-red-500/10" },
+            { label: "Avg Score", value: stats.avgScore + "%", icon: TrendingUp, color: "text-purple-400", bg: "bg-purple-500/10" },
           ].map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className="bg-[#0c0c18] border border-white/[0.05] rounded-2xl p-4 flex items-center gap-3">
               <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
@@ -198,8 +207,8 @@ export default function Students() {
           {filtersOpen && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-4">
               <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 flex flex-wrap gap-6">
-                <FilterGroup label="Status" options={["All","Active","Inactive"]} value={filterStatus} onChange={setFilterStatus} />
-                <FilterGroup label="Branch" options={["All","BDS","MDS"]} value={filterTag} onChange={setFilterTag} />
+                <FilterGroup label="Status" options={["All", "Active", "Inactive"]} value={filterStatus} onChange={setFilterStatus} />
+                <FilterGroup label="Branch" options={["All", "BDS", "MDS"]} value={filterTag} onChange={setFilterTag} />
                 {activeFilters > 0 && (
                   <button onClick={() => { setFilterStatus("All"); setFilterTag("All"); }}
                     className="self-end text-[12px] font-semibold text-red-400/70 hover:text-red-400 transition-colors">
@@ -214,7 +223,7 @@ export default function Students() {
         {/* Table */}
         {loading ? (
           <div className="bg-[#0c0c18] border border-white/[0.05] rounded-2xl overflow-hidden">
-            {[1,2,3,4,5].map(i => (
+            {[1, 2, 3, 4, 5].map(i => (
               <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-white/[0.04] animate-pulse">
                 <div className="w-10 h-10 rounded-xl bg-white/[0.05] flex-shrink-0" />
                 <div className="flex-1"><div className="w-32 h-3.5 bg-white/[0.05] rounded mb-1.5" /><div className="w-48 h-3 bg-white/[0.05] rounded" /></div>

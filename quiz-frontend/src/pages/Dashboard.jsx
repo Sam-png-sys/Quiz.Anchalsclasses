@@ -214,8 +214,8 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: "Create Quiz",   icon: PlusCircle, path: "/create-quiz", color: "from-cyan-500/15 to-blue-600/15 border-cyan-500/20 text-cyan-400" },
-                  { label: "View Students", icon: Users,      path: null,           color: "from-purple-500/15 to-pink-600/15 border-purple-500/20 text-purple-400" },
-                  { label: "Analytics",     icon: BarChart3,  path: null,           color: "from-green-500/15 to-emerald-600/15 border-green-500/20 text-green-400" },
+                  { label: "View Students", icon: Users,      path: "/students",    color: "from-purple-500/15 to-pink-600/15 border-purple-500/20 text-purple-400" },
+                  { label: "Analytics",     icon: BarChart3,  path: "/analytics",   color: "from-green-500/15 to-emerald-600/15 border-green-500/20 text-green-400" },
                   { label: "All Quizzes",   icon: BookOpen,   path: "/quizzes",     color: "from-amber-500/15 to-orange-600/15 border-amber-500/20 text-amber-400" },
                   
                 ].map(({ label, icon: Icon, path, color }) => (
