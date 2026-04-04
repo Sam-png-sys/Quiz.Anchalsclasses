@@ -32,6 +32,8 @@ def signup(data: UserRegister):
 # =========================
 @router.post("/login")
 def login(data: UserLogin):
+    print("EMAIL:", data.email)
+    print("PASSWORD:", data.password)
     user = users_collection.find_one({"email": data.email})
 
     if not user or not verify_password(data.password, user["password"]):
