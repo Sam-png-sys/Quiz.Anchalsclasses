@@ -58,18 +58,23 @@ const TimerRing = ({ timeLeft, totalTime }) => {
   );
 };
 
-// ─── Option Button ───────────────────────────────────────────────────────────
-const OptionBtn = ({ label, text, selected, onPress, delay }) => {
+// ─── Option Button ─────────────────────────────────────────────────────────
+// KEY FIX: `questionIndex` is passed as a prop and included in the useEffect
+// dependency array so animations re-run (and selection resets) on each new question.
+const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Re-animate every time the question changes
   useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 350, delay, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 70, friction: 11, delay, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [questionIndex]); // <-- depends on question index, not just mount
 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }, { scale: scaleAnim }] }}>
@@ -87,11 +92,9 @@ const OptionBtn = ({ label, text, selected, onPress, delay }) => {
         <View style={[styles.optLabelBubble, selected ? styles.optLabelSel : styles.optLabelDef]}>
           <Text style={styles.optLabelTxt}>{label}</Text>
         </View>
-
         <Text style={[styles.optText, selected && styles.optTextSel]} numberOfLines={3}>
           {text}
         </Text>
-
         {selected && (
           <View style={styles.optCheckWrap}>
             <Text style={styles.optCheck}>✓</Text>
@@ -109,7 +112,7 @@ const QuizScreen = ({ route, navigation }) => {
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(null); // null = nothing picked yet
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(30);
 
@@ -125,12 +128,8 @@ const QuizScreen = ({ route, navigation }) => {
   // ── Fetch ──
   useEffect(() => {
     API.get(`/quiz/${quizId}/questions`)
-      .then((res) => {
-        setQuestions(res.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
+      .then((res) => { setQuestions(res.data); setLoading(false); })
+      .catch(() => {
         setLoading(false);
         Alert.alert("Error", "Failed to load questions", [
           { text: "Back", onPress: () => navigation.goBack() },
@@ -138,9 +137,14 @@ const QuizScreen = ({ route, navigation }) => {
       });
   }, []);
 
-  // ── Per-question setup ──
+  // ── Per-question reset & animations ──
   useEffect(() => {
     if (!questions.length) return;
+
+    // ✅ CRITICAL FIX: Explicitly reset selected to null on every question change.
+    // Without this, React may retain the previous selected value in closure
+    // even after setCurrent fires, causing ghost selections on the new question.
+    setSelected(null);
 
     // Card entrance
     cardFade.setValue(0);
@@ -152,21 +156,30 @@ const QuizScreen = ({ route, navigation }) => {
 
     Animated.timing(headerFade, { toValue: 1, duration: 500, useNativeDriver: true }).start();
 
-    // Progress bar
     Animated.timing(progressAnim, {
       toValue: (current + 1) / questions.length,
       duration: 500,
       useNativeDriver: false,
     }).start();
 
-    // Timer
+    // Reset & start timer
     setTimeLeft(TIMER_DURATION);
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
           clearInterval(timerRef.current);
-          goNext(true);
+          // Use functional updater to avoid stale closure on `current`
+          setCurrent((c) => {
+            const newAnswers = { ...answers, [c]: null };
+            if (c < questions.length - 1) {
+              setAnswers(newAnswers);
+              return c + 1;
+            } else {
+              navigation.navigate("Result", { answers: newAnswers, questions });
+              return c;
+            }
+          });
           return 0;
         }
         return t - 1;
@@ -176,16 +189,17 @@ const QuizScreen = ({ route, navigation }) => {
     return () => clearInterval(timerRef.current);
   }, [current, questions.length]);
 
-  const goNext = (timedOut = false) => {
+  const goNext = () => {
     clearInterval(timerRef.current);
-    const newAnswers = { ...answers, [current]: timedOut ? null : selected };
+    const newAnswers = { ...answers, [current]: selected };
 
     if (current < questions.length - 1) {
       setAnswers(newAnswers);
+      // ✅ Reset selected BEFORE incrementing current so the new question
+      // renders with a clean slate — no flicker of the old selection.
       setSelected(null);
       setCurrent((c) => c + 1);
     } else {
-      // ✅ Same navigation as your original code
       navigation.navigate("Result", { answers: newAnswers, questions });
     }
   };
@@ -197,7 +211,6 @@ const QuizScreen = ({ route, navigation }) => {
   const canProceed = selected !== null;
   const options = Array.isArray(q?.options) ? q.options : [];
 
-  // ── Loading ──
   if (loading || !q) {
     return (
       <View style={styles.loaderWrap}>
@@ -217,12 +230,10 @@ const QuizScreen = ({ route, navigation }) => {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" />
       <LinearGradient colors={["#0a0a12", "#0f0a1e", "#0a0a12"]} style={StyleSheet.absoluteFill} />
-
-      {/* Ambient glow — color shifts per palette */}
       <View style={[styles.glowOrb, { backgroundColor: palette.glow }]} pointerEvents="none" />
       <View style={[styles.glowOrb2, { backgroundColor: palette.glow }]} pointerEvents="none" />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <Animated.View style={[styles.header, { opacity: headerFade }]}>
         <TouchableOpacity
           style={styles.exitBtn}
@@ -269,7 +280,6 @@ const QuizScreen = ({ route, navigation }) => {
         </LinearGradient>
       </Animated.View>
 
-      {/* ── Scroll body ── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -282,36 +292,29 @@ const QuizScreen = ({ route, navigation }) => {
         >
           <View style={styles.qTopRow}>
             <View style={[styles.qBadge, { backgroundColor: palette.glow + "22" }]}>
-              <Text style={[styles.qBadgeTxt, { color: palette.light }]}>
-                Question {current + 1}
-              </Text>
+              <Text style={[styles.qBadgeTxt, { color: palette.light }]}>Question {current + 1}</Text>
             </View>
-
             {selected && (
               <View style={styles.selBadge}>
                 <Text style={styles.selBadgeTxt}>Selected ✓</Text>
               </View>
             )}
           </View>
-
-          <LinearGradient
-            colors={palette.accent}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            style={styles.qLine}
-          />
-
+          <LinearGradient colors={palette.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.qLine} />
           <Text style={styles.questionTxt}>{q.question}</Text>
         </Animated.View>
 
-        {/* Options */}
+        {/* Options — `key` forces full unmount/remount on question change,
+            guaranteeing no stale visual state bleeds between questions */}
         <View style={styles.optionsWrap}>
           {options.map((opt, i) => (
             <OptionBtn
-              key={i}
+              key={`q${current}-opt${i}`}   // ✅ unique per question + option
               label={OPTION_LABELS[i] || String(i + 1)}
               text={opt}
               selected={selected === opt}
               delay={i * 65}
+              questionIndex={current}        // ✅ triggers animation reset
               onPress={() => setSelected(opt)}
             />
           ))}
@@ -321,12 +324,8 @@ const QuizScreen = ({ route, navigation }) => {
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             activeOpacity={canProceed ? 0.88 : 1}
-            onPressIn={() =>
-              canProceed && Animated.spring(buttonScale, { toValue: 0.96, useNativeDriver: true }).start()
-            }
-            onPressOut={() =>
-              Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start()
-            }
+            onPressIn={() => canProceed && Animated.spring(buttonScale, { toValue: 0.96, useNativeDriver: true }).start()}
+            onPressOut={() => Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start()}
             onPress={() => canProceed && goNext()}
             style={styles.nextBtnWrap}
           >
@@ -342,9 +341,7 @@ const QuizScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </Animated.View>
 
-        {!canProceed && (
-          <Text style={styles.hintTxt}>Pick an option to continue</Text>
-        )}
+        {!canProceed && <Text style={styles.hintTxt}>Pick an option to continue</Text>}
 
         {/* Dot trail */}
         <View style={styles.dotRow}>
@@ -367,47 +364,20 @@ const QuizScreen = ({ route, navigation }) => {
 
 export default QuizScreen;
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0a0a12" },
-
-  glowOrb: {
-    position: "absolute", width: 340, height: 340,
-    top: -130, right: -90, borderRadius: 999, opacity: 0.11,
-  },
-  glowOrb2: {
-    position: "absolute", width: 200, height: 200,
-    bottom: 60, left: -60, borderRadius: 999, opacity: 0.07,
-  },
-
-  // Loader
+  glowOrb: { position: "absolute", width: 340, height: 340, top: -130, right: -90, borderRadius: 999, opacity: 0.11 },
+  glowOrb2: { position: "absolute", width: 200, height: 200, bottom: 60, left: -60, borderRadius: 999, opacity: 0.07 },
   loaderWrap: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0a0a12" },
-  loaderOrb: {
-    position: "absolute", width: 260, height: 260,
-    top: -60, right: -60, opacity: 0.18, borderRadius: 999,
-  },
+  loaderOrb: { position: "absolute", width: 260, height: 260, top: -60, right: -60, opacity: 0.18, borderRadius: 999 },
   loaderEmoji: { fontSize: 52, marginBottom: 16 },
   loaderTitle: { color: "#fff", fontSize: 22, fontWeight: "800", marginBottom: 6 },
   loaderSub: { color: "#6b7280", fontSize: 14 },
-
-  // Header
-  header: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 10,
-  },
-  exitBtn: {
-    width: 38, height: 38, borderRadius: 11,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
-  },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 60, paddingHorizontal: 20, paddingBottom: 10 },
+  exitBtn: { width: 38, height: 38, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   exitIcon: { color: "#6b7280", fontSize: 13, fontWeight: "700" },
-
   progressWrap: { flex: 1, gap: 6 },
-  progressBg: {
-    height: 7, borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden",
-  },
+  progressBg: { height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" },
   progressTrack: { height: 7, borderRadius: 4, overflow: "hidden" },
   progressFill: { height: 7, borderRadius: 4, width: "100%" },
   progressMeta: { flexDirection: "row", justifyContent: "space-between" },
@@ -415,99 +385,42 @@ const styles = StyleSheet.create({
   progressCurrent: { color: "#fff", fontWeight: "800" },
   progressTotal: { color: "#4b5563", fontWeight: "500" },
   progressPct: { fontSize: 12, fontWeight: "700" },
-
-  // Timer
   timerWrap: { width: 64, height: 64, alignItems: "center", justifyContent: "center" },
-  timerRingBg: {
-    position: "absolute", width: 56, height: 56, borderRadius: 28,
-    borderWidth: 3, borderColor: "rgba(255,255,255,0.07)",
-  },
-  timerRingFill: {
-    position: "absolute", width: 56, height: 56,
-    borderRadius: 28, borderWidth: 3,
-    borderTopColor: "transparent", borderRightColor: "transparent",
-  },
+  timerRingBg: { position: "absolute", width: 56, height: 56, borderRadius: 28, borderWidth: 3, borderColor: "rgba(255,255,255,0.07)" },
+  timerRingFill: { position: "absolute", width: 56, height: 56, borderRadius: 28, borderWidth: 3, borderTopColor: "transparent", borderRightColor: "transparent" },
   timerInner: { alignItems: "center" },
   timerNum: { fontSize: 17, fontWeight: "800", lineHeight: 19 },
   timerSec: { color: "#4b5563", fontSize: 9, fontWeight: "600" },
-
-  // Score pill
   scorePill: { alignSelf: "flex-end", marginRight: 20, marginBottom: 6 },
   scorePillGrad: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99 },
   scorePillTxt: { color: "#fff", fontSize: 12, fontWeight: "700" },
-
-  // Scroll
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 50 },
-
-  // Question card
-  questionCard: {
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderRadius: 24, padding: 22, marginBottom: 18,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
-    overflow: "hidden",
-  },
-  qTopRow: {
-    flexDirection: "row", justifyContent: "space-between",
-    alignItems: "center", marginBottom: 14,
-  },
+  questionCard: { backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 24, padding: 22, marginBottom: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", overflow: "hidden" },
+  qTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   qBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 99 },
   qBadgeTxt: { fontSize: 11, fontWeight: "700", letterSpacing: 0.8 },
-  selBadge: {
-    backgroundColor: "rgba(34,197,94,0.12)", borderRadius: 99,
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 1, borderColor: "rgba(34,197,94,0.3)",
-  },
+  selBadge: { backgroundColor: "rgba(34,197,94,0.12)", borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "rgba(34,197,94,0.3)" },
   selBadgeTxt: { color: "#6ee7b7", fontSize: 11, fontWeight: "700" },
   qLine: { height: 2, borderRadius: 2, marginBottom: 18 },
-  questionTxt: {
-    color: "#f1f5f9", fontSize: 19, fontWeight: "700",
-    lineHeight: 29, letterSpacing: -0.2,
-  },
-
-  // Options
+  questionTxt: { color: "#f1f5f9", fontSize: 19, fontWeight: "700", lineHeight: 29, letterSpacing: -0.2 },
   optionsWrap: { gap: 11, marginBottom: 22 },
-  optBtn: {
-    flexDirection: "row", alignItems: "center", gap: 14,
-    borderRadius: 18, padding: 15, borderWidth: 1.5,
-  },
-  optDefault: {
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderColor: "rgba(255,255,255,0.08)",
-  },
-  optSelected: {
-    backgroundColor: "rgba(124,58,237,0.13)",
-    borderColor: "rgba(167,139,250,0.65)",
-  },
-  optLabelBubble: {
-    width: 36, height: 36, borderRadius: 11,
-    alignItems: "center", justifyContent: "center", flexShrink: 0,
-  },
+  optBtn: { flexDirection: "row", alignItems: "center", gap: 14, borderRadius: 18, padding: 15, borderWidth: 1.5 },
+  optDefault: { backgroundColor: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)" },
+  optSelected: { backgroundColor: "rgba(124,58,237,0.13)", borderColor: "rgba(167,139,250,0.65)" },
+  optLabelBubble: { width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   optLabelDef: { backgroundColor: "rgba(255,255,255,0.08)" },
   optLabelSel: { backgroundColor: "rgba(124,58,237,0.5)" },
   optLabelTxt: { color: "#fff", fontWeight: "800", fontSize: 13 },
   optText: { color: "#9ca3af", fontSize: 15, fontWeight: "500", flex: 1, lineHeight: 22 },
   optTextSel: { color: "#e9d5ff" },
-  optCheckWrap: {
-    width: 22, height: 22, borderRadius: 99,
-    backgroundColor: "rgba(124,58,237,0.4)",
-    alignItems: "center", justifyContent: "center",
-  },
+  optCheckWrap: { width: 22, height: 22, borderRadius: 99, backgroundColor: "rgba(124,58,237,0.4)", alignItems: "center", justifyContent: "center" },
   optCheck: { color: "#fff", fontSize: 12, fontWeight: "800" },
-
-  // Next button
-  nextBtnWrap: {
-    borderRadius: 18, overflow: "hidden", marginBottom: 10,
-    shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35, shadowRadius: 16, elevation: 10,
-  },
+  nextBtnWrap: { borderRadius: 18, overflow: "hidden", marginBottom: 10, shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
   nextBtn: { paddingVertical: 18, alignItems: "center" },
   nextBtnTxt: { color: "#fff", fontSize: 16, fontWeight: "800", letterSpacing: 0.2 },
   nextBtnTxtDim: { color: "#374151" },
-
   hintTxt: { color: "#4b5563", fontSize: 13, textAlign: "center", marginBottom: 20 },
-
-  // Dot trail
   dotRow: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 8, flexWrap: "wrap" },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)" },
   dotActive: { width: 22, borderRadius: 4, backgroundColor: "#7c3aed" },
