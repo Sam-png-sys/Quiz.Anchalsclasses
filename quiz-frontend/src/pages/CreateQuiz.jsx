@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   PlusCircle, Trash2, ChevronDown, ChevronUp,
   CheckCircle2, BookOpen, Clock, AlignLeft,
-  Lightbulb, Save, ArrowLeft,
+  Lightbulb, Save, ArrowLeft, GraduationCap, BarChart2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
@@ -14,12 +14,24 @@ const fadeUp = {
   exit:   { opacity: 0, y: -8, transition: { duration: 0.2 } },
 };
 
+const DIFFICULTY_LEVELS = [
+  { value: "easy",   label: "Easy",   color: "text-emerald-400", ring: "border-emerald-500/40 bg-emerald-500/8", dot: "bg-emerald-400", badge: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
+  { value: "medium", label: "Medium", color: "text-amber-400",   ring: "border-amber-500/40 bg-amber-500/8",     dot: "bg-amber-400",   badge: "text-amber-400 bg-amber-400/10 border-amber-400/20"   },
+  { value: "hard",   label: "Hard",   color: "text-rose-400",    ring: "border-rose-500/40 bg-rose-500/8",       dot: "bg-rose-400",    badge: "text-rose-400 bg-rose-400/10 border-rose-400/20"      },
+];
+
 export default function CreateQuiz() {
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
   const scrollRef = useRef(null);
 
-  const [quiz, setQuiz] = useState({ title: "", description: "", duration: "" });
+  const [quiz, setQuiz] = useState({
+    title: "",
+    description: "",
+    duration: "",
+    course: "",          // ← new
+    difficulty: "",      // ← new
+  });
   const [questions, setQuestions] = useState([newQuestion()]);
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState({});
@@ -62,6 +74,8 @@ export default function CreateQuiz() {
 
   const validate = () => {
     if (!quiz.title.trim() || !quiz.duration) { alert("Title and duration are required"); return false; }
+    if (!quiz.course.trim()) { alert("Course name is required"); return false; }
+    if (!quiz.difficulty) { alert("Please select a difficulty level"); return false; }
     for (let q of questions) {
       if (!q.questionText.trim()) { alert("All questions need text"); return false; }
       if (q.options.some(o => !o.trim())) { alert("Fill all options"); return false; }
@@ -77,8 +91,12 @@ export default function CreateQuiz() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          title: quiz.title, description: quiz.description,
-          duration: Number(quiz.duration), totalQuestions: questions.length,
+          title: quiz.title,
+          description: quiz.description,
+          duration: Number(quiz.duration),
+          totalQuestions: questions.length,
+          course: quiz.course,           // ← sent to backend
+          difficulty: quiz.difficulty,   // ← sent to backend
         }),
       });
       const quizData = await quizRes.json();
@@ -88,11 +106,17 @@ export default function CreateQuiz() {
         await fetch("http://127.0.0.1:8000/admin/question", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ quizId, questionText: q.questionText, options: q.options, correctAnswer: q.correctAnswer, explanation: q.explanation }),
+          body: JSON.stringify({
+            quizId,
+            questionText: q.questionText,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation,
+          }),
         });
       }
       alert("Quiz created successfully 🚀");
-      setQuiz({ title: "", description: "", duration: "" });
+      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "" });
       setQuestions([newQuestion()]);
     } catch (err) {
       console.error(err);
@@ -102,18 +126,21 @@ export default function CreateQuiz() {
     }
   };
 
+  const selectedDifficulty = DIFFICULTY_LEVELS.find(d => d.value === quiz.difficulty);
+
   return (
     <div className="h-screen flex flex-col bg-[#080810] text-white overflow-hidden">
       <Navbar />
 
-      {/* This div is now the scroll container */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-3xl mx-auto w-full px-4 py-8">
 
           {/* Page header */}
           <div className="flex items-center gap-4 mb-8">
-            <button onClick={() => navigate("/dashboard")}
-              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
               <ArrowLeft size={16} />
             </button>
             <div>
@@ -122,7 +149,7 @@ export default function CreateQuiz() {
             </div>
           </div>
 
-          {/* Quiz info card */}
+          {/* ── Quiz Details card ── */}
           <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6 mb-5">
             <div className="flex items-center gap-2 mb-5">
               <BookOpen size={15} className="text-cyan-400" />
@@ -130,6 +157,7 @@ export default function CreateQuiz() {
             </div>
 
             <div className="flex flex-col gap-4">
+              {/* Title */}
               <Field icon={<BookOpen size={14} className="text-white/30" />} label="Quiz Title">
                 <input
                   value={quiz.title}
@@ -139,6 +167,7 @@ export default function CreateQuiz() {
                 />
               </Field>
 
+              {/* Description */}
               <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Description">
                 <textarea
                   rows={2}
@@ -149,19 +178,67 @@ export default function CreateQuiz() {
                 />
               </Field>
 
-              <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
-                <input
-                  type="number" min={1}
-                  value={quiz.duration}
-                  onChange={e => handleQuizChange("duration", e.target.value)}
-                  placeholder="e.g. 30"
-                  className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
-                />
-              </Field>
+              {/* Course + Duration — side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Course */}
+                <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
+                  <input
+                    value={quiz.course}
+                    onChange={e => handleQuizChange("course", e.target.value)}
+                    placeholder="e.g. BDS Year 2"
+                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                  />
+                </Field>
+
+                {/* Duration */}
+                <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
+                  <input
+                    type="number" min={1}
+                    value={quiz.duration}
+                    onChange={e => handleQuizChange("duration", e.target.value)}
+                    placeholder="e.g. 30"
+                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                  />
+                </Field>
+              </div>
+
+              {/* ── Difficulty selector ── */}
+              <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 transition-all duration-200">
+                <div className="mt-0.5 flex-shrink-0">
+                  <BarChart2 size={14} className={selectedDifficulty ? selectedDifficulty.color : "text-white/30"} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">
+                    Difficulty Level
+                  </label>
+                  <div className="flex gap-2">
+                    {DIFFICULTY_LEVELS.map(level => {
+                      const active = quiz.difficulty === level.value;
+                      return (
+                        <button
+                          key={level.value}
+                          type="button"
+                          onClick={() => handleQuizChange("difficulty", level.value)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] font-bold transition-all duration-200
+                            ${active
+                              ? `${level.badge} border-current`
+                              : "text-white/25 border-white/[0.07] hover:text-white/50 hover:border-white/20"
+                            }`}
+                        >
+                          {/* Dot indicator */}
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all ${active ? level.dot : "bg-white/20"}`} />
+                          {level.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          {/* Questions */}
+          {/* ── Questions ── */}
           <div className="flex flex-col gap-4 mb-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -175,10 +252,11 @@ export default function CreateQuiz() {
 
             <AnimatePresence>
               {questions.map((q, index) => (
-                <motion.div key={index}
+                <motion.div
+                  key={index}
                   variants={fadeUp} initial="hidden" animate="show" exit="exit"
-                  className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl overflow-hidden">
-
+                  className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl overflow-hidden"
+                >
                   {/* Question header */}
                   <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
                     <div className="flex items-center gap-3">
@@ -190,13 +268,17 @@ export default function CreateQuiz() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => toggleCollapse(index)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.06] transition-all">
+                      <button
+                        onClick={() => toggleCollapse(index)}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.06] transition-all"
+                      >
                         {collapsed[index] ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
                       </button>
                       {questions.length > 1 && (
-                        <button onClick={() => removeQuestion(index)}
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                        <button
+                          onClick={() => removeQuestion(index)}
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        >
                           <Trash2 size={14} />
                         </button>
                       )}
@@ -207,7 +289,8 @@ export default function CreateQuiz() {
                   {!collapsed[index] && (
                     <div className="p-5 flex flex-col gap-4">
                       <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Question">
-                        <textarea rows={2}
+                        <textarea
+                          rows={2}
                           value={q.questionText}
                           onChange={e => handleQuestionChange(index, "questionText", e.target.value)}
                           placeholder="Type your question here..."
@@ -224,15 +307,18 @@ export default function CreateQuiz() {
                           {q.options.map((opt, i) => {
                             const isCorrect = q.correctAnswer === i;
                             return (
-                              <div key={i}
+                              <div
+                                key={i}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200
                                   ${isCorrect
                                     ? "border-cyan-500/40 bg-cyan-500/8"
-                                    : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.10]"}`}>
+                                    : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.10]"}`}
+                              >
                                 <button
                                   onClick={() => handleQuestionChange(index, "correctAnswer", i)}
                                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                    ${isCorrect ? "border-cyan-400 bg-cyan-400" : "border-white/20 hover:border-cyan-400/50"}`}>
+                                    ${isCorrect ? "border-cyan-400 bg-cyan-400" : "border-white/20 hover:border-cyan-400/50"}`}
+                                >
                                   {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
                                 </button>
                                 <span className={`text-[12px] font-bold flex-shrink-0 w-5 ${isCorrect ? "text-cyan-400" : "text-white/25"}`}>
@@ -257,8 +343,9 @@ export default function CreateQuiz() {
                       </div>
 
                       {/* Explanation */}
-                      <Field icon={<Lightbulb size={14} className="text-amber-400/60" />} label="AI Explanation (optional)">
-                        <textarea rows={2}
+                      <Field icon={<Lightbulb size={14} className="text-amber-400/60" />} label="Explanation (optional)">
+                        <textarea
+                          rows={2}
                           value={q.explanation}
                           onChange={e => handleQuestionChange(index, "explanation", e.target.value)}
                           placeholder="Explain why the correct answer is right..."
@@ -272,9 +359,11 @@ export default function CreateQuiz() {
             </AnimatePresence>
           </div>
 
-          {/* Add question button */}
-          <button onClick={addQuestion}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed border-white/[0.10] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 mb-6 text-[13px] font-semibold">
+          {/* Add question */}
+          <button
+            onClick={addQuestion}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed border-white/[0.10] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 mb-6 text-[13px] font-semibold"
+          >
             <PlusCircle size={16} />
             Add Question
           </button>
@@ -286,7 +375,9 @@ export default function CreateQuiz() {
             className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-[15px] hover:opacity-90 hover:shadow-xl hover:shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
           >
             <Save size={17} />
-            {loading ? "Creating Quiz..." : `Create Quiz · ${questions.length} Question${questions.length !== 1 ? "s" : ""}`}
+            {loading
+              ? "Creating Quiz..."
+              : `Create Quiz · ${questions.length} Question${questions.length !== 1 ? "s" : ""}`}
           </button>
 
         </div>

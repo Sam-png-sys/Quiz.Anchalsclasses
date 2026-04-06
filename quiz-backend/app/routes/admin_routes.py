@@ -176,6 +176,78 @@ def get_stats(current_user=Depends(get_current_user)):
     }
 
 
+# =========================
+# GET SINGLE QUIZ (EDIT)
+# =========================
+@router.get("/quiz-details/{quiz_id}")
+def get_quiz(quiz_id: str, admin=Depends(admin_only)):
+
+    quiz = quiz_collection.find_one({"_id": ObjectId(quiz_id)})
+
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    questions = list(question_collection.find({
+        "quizId": ObjectId(quiz_id)
+    }))
+
+    # OBJECT IDs
+    quiz["_id"] = str(quiz["_id"])
+
+    for q in questions:
+        q["_id"] = str(q["_id"])
+        q["quizId"] = str(q["quizId"])  
+
+    quiz["questions"] = questions
+
+    return quiz
+
+# =========================
+# UPDATE QUIZ (EDIT SAVE)
+# =========================
+@router.put("/quiz-update/{quiz_id}")
+def update_quiz(quiz_id: str, data: dict, admin=Depends(admin_only)):
+
+    quiz = quiz_collection.find_one({"_id": ObjectId(quiz_id)})
+
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    # UPDATE MAIN QUIZ
+    quiz_collection.update_one(
+        {"_id": ObjectId(quiz_id)},
+        {
+            "$set": {
+                "title": data.get("title"),
+                "description": data.get("description"),
+                "duration": data.get("duration"),
+                "difficulty": data.get("difficulty", "medium"),
+                "course": data.get("course", "")
+            }
+        }
+    )
+
+    # DELETE OLD QUESTIONS
+    question_collection.delete_many({"quizId": ObjectId(quiz_id)})
+
+    # INSERT UPDATED QUESTIONS
+    for q in data.get("questions", []):
+        question_collection.insert_one({
+            "quizId": ObjectId(quiz_id),
+            "questionText": q.get("questionText"),
+            "options": q.get("options"),
+            "correctAnswer": q.get("correctAnswer"),
+            "explanation": q.get("explanation", "")
+        })
+
+    # ACTIVITY LOG
+    activity_collection.insert_one({
+        "type": "quiz_updated",
+        "message": f"Quiz '{data.get('title', 'Unknown')}' updated",
+        "createdAt": datetime.utcnow()
+    })
+
+    return {"message": "Quiz updated successfully"}
 
 #  ACTIVITY ROUTE (IMPORTANT)
 

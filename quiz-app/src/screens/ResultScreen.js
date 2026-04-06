@@ -89,10 +89,10 @@ const ResultScreen = ({ route, navigation }) => {
   const grade = pct >= 80
     ? { label: "Excellent!", emoji: "🏆", colors: ["#059669", "#10b981"], textColor: "#6ee7b7" }
     : pct >= 60
-    ? { label: "Good Job!", emoji: "⭐", colors: ["#d97706", "#f59e0b"], textColor: "#fcd34d" }
-    : pct >= 40
-    ? { label: "Keep Going!", emoji: "💪", colors: ["#7c3aed", "#9333ea"], textColor: "#a78bfa" }
-    : { label: "Try Again!", emoji: "🔄", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
+      ? { label: "Good Job!", emoji: "⭐", colors: ["#d97706", "#f59e0b"], textColor: "#fcd34d" }
+      : pct >= 40
+        ? { label: "Keep Going!", emoji: "💪", colors: ["#7c3aed", "#9333ea"], textColor: "#a78bfa" }
+        : { label: "Try Again!", emoji: "🔄", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
 
   // Entrance animations
   const headerFade = useRef(new Animated.Value(0)).current;
@@ -194,7 +194,17 @@ const ResultScreen = ({ route, navigation }) => {
 
           <TouchableOpacity
             style={styles.btnPrimaryWrap}
-            onPress={() => navigation.replace("Quiz", { quizId: route.params?.quizId })}
+            onPress={() => {
+              const quizId = route.params?.quizId;
+
+              if (!quizId) {
+                console.log("❌ Quiz ID missing");
+                navigation.replace("Home"); // fallback
+                return;
+              }
+
+              navigation.replace("Quiz", { quizId });
+            }}
           >
             <LinearGradient
               colors={grade.colors}

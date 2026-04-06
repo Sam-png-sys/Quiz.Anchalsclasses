@@ -78,14 +78,15 @@ export default function QuizList() {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`http://127.0.0.1:8000/admin/quiz/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setQuizzes(prev => prev.filter(q => q._id !== id && q.id !== id));
+      await apiRequest(`/admin/course/${id}`, "DELETE");
+
+      setQuizzes(prev => prev.filter(q => (q._id || q.id) !== id));
+
       setDeleteId(null);
-    } catch {
+
+    } catch (err) {
       alert("Failed to delete quiz");
+      console.error(err);
     }
   };
 

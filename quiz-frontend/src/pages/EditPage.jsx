@@ -1,0 +1,437 @@
+import { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    ArrowLeft, BookOpen, AlignLeft, Clock, Save,
+    CheckCircle2, ChevronDown, ChevronUp, Trash2,
+    Lightbulb, GraduationCap, BarChart2, PlusCircle,
+    RotateCcw,
+} from "lucide-react";
+import { apiRequest } from "../utils/api";
+import Navbar from "./Navbar";
+import { Toaster } from "react-hot-toast";
+
+const fadeUp = {
+    hidden: { opacity: 0, y: 12 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
+    exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
+};
+
+const DIFFICULTY_LEVELS = [
+    { value: "easy", label: "Easy", color: "text-emerald-400", dot: "bg-emerald-400", badge: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
+    { value: "medium", label: "Medium", color: "text-amber-400", dot: "bg-amber-400", badge: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+    { value: "hard", label: "Hard", color: "text-rose-400", dot: "bg-rose-400", badge: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
+];
+
+function newQuestion() {
+    return { questionText: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" };
+}
+
+// ── Reusable field wrapper ────────────────────────────────────────────────────
+function Field({ icon, label, children }) {
+    return (
+        <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 focus-within:bg-cyan-500/[0.03] transition-all duration-200">
+            <div className="mt-0.5 flex-shrink-0">{icon}</div>
+            <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-1">{label}</label>
+                {children}
+            </div>
+        </div>
+    );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function EditQuiz() {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const scrollRef = useRef(null);
+
+    const [quiz, setQuiz] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [fetching, setFetching] = useState(true);
+    const [collapsed, setCollapsed] = useState({});
+    const [saved, setSaved] = useState(false);
+
+    // ── Fetch ──
+    useEffect(() => {
+        const fetchQuiz = async () => {
+            try {
+                const data = await apiRequest(`/admin/quiz-details/${id}`);
+                setQuiz(data);
+            } catch (err) {
+                console.error(err);
+                toast.error("Failed to load quiz");
+            } finally {
+                setFetching(false);
+            }
+        };
+        fetchQuiz();
+    }, [id]);
+
+    // ── Quiz-level changes ──
+    const handleChange = (field, value) => setQuiz({ ...quiz, [field]: value });
+
+    // ── Question-level changes ──
+    const handleQuestionChange = (index, field, value) => {
+        const updated = [...quiz.questions];
+        updated[index] = { ...updated[index], [field]: value };
+        setQuiz({ ...quiz, questions: updated });
+    };
+
+    const handleOptionChange = (qIndex, oIndex, value) => {
+        const updated = [...quiz.questions];
+        const opts = [...updated[qIndex].options];
+        opts[oIndex] = value;
+        updated[qIndex] = { ...updated[qIndex], options: opts };
+        setQuiz({ ...quiz, questions: updated });
+    };
+
+    const addQuestion = () => {
+        setQuiz({ ...quiz, questions: [...quiz.questions, newQuestion()] });
+        setTimeout(() => {
+            scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+        }, 50);
+    };
+
+    const removeQuestion = (index) => {
+        if (quiz.questions.length === 1) return;
+        setQuiz({ ...quiz, questions: quiz.questions.filter((_, i) => i !== index) });
+    };
+
+    const toggleCollapse = (index) =>
+        setCollapsed(prev => ({ ...prev, [index]: !prev[index] }));
+
+    // ── Save ──
+    const handleSave = async () => {
+        if (!quiz.title?.trim()) {
+            toast.error("Title is required");
+            return;
+        }
+
+        try {
+            setLoading(true);
+
+            //  FIX PAYLOAD
+            const payload = {
+                ...quiz,
+                questions: quiz.questions.map(q => ({
+                    questionText: q.questionText,
+                    options: q.options,
+                    correctAnswer: q.options[q.correctAnswer], // 
+                    explanation: q.explanation || ""
+                }))
+            };
+
+            await apiRequest(`/admin/quiz-update/${id}`, "PUT", payload);
+
+            toast.success("Quiz updated successfully ");
+
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2500);
+
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to save changes");
+        } finally {
+            setLoading(false);
+        }
+    };
+    const selectedDifficulty = DIFFICULTY_LEVELS.find(d => d.value === quiz?.difficulty);
+
+    // ── Loading skeleton ──
+    if (fetching) {
+        return (
+            <div className="h-screen flex flex-col bg-[#080810] text-white overflow-hidden">
+                <Navbar />
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center animate-pulse">
+                            <RotateCcw size={18} className="text-cyan-400 animate-spin" />
+                        </div>
+                        <p className="text-[13px] text-white/30 font-medium">Loading quiz…</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!quiz) return null;
+
+    return (
+        <div className="h-screen flex flex-col bg-[#080810] text-white overflow-hidden">
+            <Navbar />
+
+            <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
+                <div className="max-w-3xl mx-auto w-full px-4 py-8">
+
+                    {/* ── Page header ── */}
+                    <div className="flex items-center gap-4 mb-8">
+                        <button
+                            onClick={() => navigate("/quizzes")}
+                            className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+                        >
+                            <ArrowLeft size={16} />
+                        </button>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-2xl font-bold text-white tracking-tight">Edit Quiz</h1>
+                            <p className="text-sm text-white/35 mt-0.5 truncate">
+                                Editing: <span className="text-white/50">{quiz.title || "Untitled"}</span>
+                            </p>
+                        </div>
+                        {/* Unsaved indicator */}
+                        <div className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all duration-300 ${saved
+                            ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
+                            : "text-white/20 bg-white/[0.03] border-white/[0.06]"
+                            }`}>
+                            {saved ? "✓ Saved" : "Unsaved"}
+                        </div>
+                    </div>
+
+                    {/* ── Quiz Details card ── */}
+                    <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6 mb-5">
+                        <div className="flex items-center gap-2 mb-5">
+                            <BookOpen size={15} className="text-cyan-400" />
+                            <h2 className="text-[14px] font-bold text-white">Quiz Details</h2>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            {/* Title */}
+                            <Field icon={<BookOpen size={14} className="text-white/30" />} label="Quiz Title">
+                                <input
+                                    value={quiz.title ?? ""}
+                                    onChange={e => handleChange("title", e.target.value)}
+                                    placeholder="e.g. Oral Anatomy — Chapter 1"
+                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                />
+                            </Field>
+
+                            {/* Description */}
+                            <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Description">
+                                <textarea
+                                    rows={2}
+                                    value={quiz.description ?? ""}
+                                    onChange={e => handleChange("description", e.target.value)}
+                                    placeholder="Brief description of this quiz..."
+                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none"
+                                />
+                            </Field>
+
+                            {/* Course + Duration side by side */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
+                                    <input
+                                        value={quiz.course ?? ""}
+                                        onChange={e => handleChange("course", e.target.value)}
+                                        placeholder="e.g. BDS Year 2"
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                    />
+                                </Field>
+
+                                <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
+                                    <input
+                                        type="number" min={1}
+                                        value={quiz.duration ?? ""}
+                                        onChange={e => handleChange("duration", e.target.value)}
+                                        placeholder="e.g. 30"
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                    />
+                                </Field>
+                            </div>
+
+                            {/* Difficulty selector */}
+                            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 transition-all duration-200">
+                                <div className="mt-0.5 flex-shrink-0">
+                                    <BarChart2 size={14} className={selectedDifficulty ? selectedDifficulty.color : "text-white/30"} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">
+                                        Difficulty Level
+                                    </label>
+                                    <div className="flex gap-2">
+                                        {DIFFICULTY_LEVELS.map(level => {
+                                            const active = quiz.difficulty === level.value;
+                                            return (
+                                                <button
+                                                    key={level.value}
+                                                    type="button"
+                                                    onClick={() => handleChange("difficulty", level.value)}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] font-bold transition-all duration-200
+                            ${active
+                                                            ? `${level.badge} border-current`
+                                                            : "text-white/25 border-white/[0.07] hover:text-white/50 hover:border-white/20"
+                                                        }`}
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${active ? level.dot : "bg-white/20"}`} />
+                                                    {level.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Questions ── */}
+                    <div className="flex flex-col gap-4 mb-5">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 size={15} className="text-cyan-400" />
+                            <h2 className="text-[14px] font-bold text-white">Questions</h2>
+                            <span className="text-[11px] font-bold text-white/30 bg-white/[0.05] px-2 py-0.5 rounded-full">
+                                {quiz.questions?.length ?? 0}
+                            </span>
+                        </div>
+
+                        <AnimatePresence>
+                            {quiz.questions?.map((q, index) => (
+                                <motion.div
+                                    key={q._id ?? q.id ?? index}
+                                    variants={fadeUp} initial="hidden" animate="show" exit="exit"
+                                    className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl overflow-hidden"
+                                >
+                                    {/* Question header */}
+                                    <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-[12px] font-bold text-cyan-400">
+                                                {index + 1}
+                                            </div>
+                                            <span className="text-[13px] font-semibold text-white/60 truncate max-w-[240px]">
+                                                {q.questionText || `Question ${index + 1}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => toggleCollapse(index)}
+                                                className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.06] transition-all"
+                                            >
+                                                {collapsed[index] ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                                            </button>
+                                            {quiz.questions.length > 1 && (
+                                                <button
+                                                    onClick={() => removeQuestion(index)}
+                                                    className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Question body */}
+                                    {!collapsed[index] && (
+                                        <div className="p-5 flex flex-col gap-4">
+                                            <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Question">
+                                                <textarea
+                                                    rows={2}
+                                                    value={q.questionText ?? ""}
+                                                    onChange={e => handleQuestionChange(index, "questionText", e.target.value)}
+                                                    placeholder="Type your question here..."
+                                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none"
+                                                />
+                                            </Field>
+
+                                            {/* Options */}
+                                            <div>
+                                                <label className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-3 block">
+                                                    Options — click radio to mark correct answer
+                                                </label>
+                                                <div className="flex flex-col gap-2">
+                                                    {q.options?.map((opt, i) => {
+                                                        const isCorrect = Number(q.correctAnswer) === i;
+                                                        return (
+                                                            <div
+                                                                key={i}
+                                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200
+                                  ${isCorrect
+                                                                        ? "border-cyan-500/40 bg-cyan-500/[0.08]"
+                                                                        : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.10]"}`}
+                                                            >
+                                                                <button
+                                                                    onClick={() => handleQuestionChange(index, "correctAnswer", i)}
+                                                                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
+                                    ${isCorrect ? "border-cyan-400 bg-cyan-400" : "border-white/20 hover:border-cyan-400/50"}`}
+                                                                >
+                                                                    {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
+                                                                </button>
+                                                                <span className={`text-[12px] font-bold flex-shrink-0 w-5 ${isCorrect ? "text-cyan-400" : "text-white/25"}`}>
+                                                                    {String.fromCharCode(65 + i)}
+                                                                </span>
+                                                                <input
+                                                                    value={opt ?? ""}
+                                                                    onChange={e => handleOptionChange(index, i, e.target.value)}
+                                                                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                                                                    className={`flex-1 bg-transparent text-[13px] outline-none placeholder:text-white/20
+                                    ${isCorrect ? "text-cyan-300" : "text-white/70"}`}
+                                                                />
+                                                                {isCorrect && (
+                                                                    <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20 flex-shrink-0">
+                                                                        Correct
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* Explanation */}
+                                            <Field icon={<Lightbulb size={14} className="text-amber-400/60" />} label="Explanation (optional)">
+                                                <textarea
+                                                    rows={2}
+                                                    value={q.explanation ?? ""}
+                                                    onChange={e => handleQuestionChange(index, "explanation", e.target.value)}
+                                                    placeholder="Explain why the correct answer is right..."
+                                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none"
+                                                />
+                                            </Field>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Add question */}
+                    <button
+                        onClick={addQuestion}
+                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed border-white/[0.10] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 mb-6 text-[13px] font-semibold"
+                    >
+                        <PlusCircle size={16} />
+                        Add Question
+                    </button>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => navigate("/quizzes")}
+                            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border border-white/[0.08] text-white/40 hover:text-white hover:bg-white/[0.04] text-[14px] font-semibold transition-all"
+                        >
+                            <ArrowLeft size={15} />
+                            Discard
+                        </button>
+
+                        <button
+                            onClick={handleSave}
+                            disabled={loading}
+                            className="flex-[2] flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-[15px] hover:opacity-90 hover:shadow-xl hover:shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={17} />
+                                    Save Changes
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="h-8" />
+                </div>
+            </div>
+        </div>
+    );
+}

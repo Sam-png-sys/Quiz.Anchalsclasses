@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {Toaster} from "react-hot-toast";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -10,9 +11,12 @@ import Students from "./pages/Students";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
+import EditQuiz from "./pages/EditPage";
 
 export default function App() {
   return (
+    <>
+    <Toaster position="top-right" />
     <Router>
       <Routes>
 
@@ -30,11 +34,11 @@ export default function App() {
         <Route path="/students" element={<Students />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
-
+        <Route path="/edit-quiz/:id" element={<EditQuiz />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
       
-        
       </Routes>
     </Router>
+    </>
   );
 }

@@ -40,7 +40,7 @@ def generate_otp(email):
         "expires": time.time() + OTP_EXPIRY
     }
 
-    print(f"OTP (dev): {otp}")
+    #print(f"OTP (dev): {otp}")
 
     #  SEND EMAIL
     send_email(

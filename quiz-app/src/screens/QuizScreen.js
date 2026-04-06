@@ -176,7 +176,7 @@ const QuizScreen = ({ route, navigation }) => {
               setAnswers(newAnswers);
               return c + 1;
             } else {
-              navigation.navigate("Result", { answers: newAnswers, questions });
+              navigation.navigate("Result", { answers: newAnswers, questions , quizId });
               return c;
             }
           });
@@ -195,7 +195,7 @@ const QuizScreen = ({ route, navigation }) => {
 
     if (current < questions.length - 1) {
       setAnswers(newAnswers);
-      // ✅ Reset selected BEFORE incrementing current so the new question
+      //  Reset selected BEFORE incrementing current so the new question
       // renders with a clean slate — no flicker of the old selection.
       setSelected(null);
       setCurrent((c) => c + 1);
