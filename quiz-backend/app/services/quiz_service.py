@@ -51,7 +51,7 @@ def get_quiz_questions(quiz_id: str):
             "_id": str(q["_id"]),
             "quizId": str(q["quizId"]),
 
-            # ✅ Normalized to what the frontend expects
+            #  Normalized to what the frontend expects
             "question": q.get("question") or q.get("questionText", ""),
             "options": q.get("options", []),
             "correct_answer": q.get("correct_answer") or q.get("correctAnswer", ""),
