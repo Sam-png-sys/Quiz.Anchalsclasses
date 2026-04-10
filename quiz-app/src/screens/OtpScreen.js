@@ -86,7 +86,7 @@ const OtpScreen = ({ navigation }) => {
 
         try {
             const response = await fetch(
-                "http://192.168.1.6:8000/auth/verify-otp",
+                "http://192.168.1.8:8000/auth/verify-otp",
                 {
                     method: "POST",
                     headers: {

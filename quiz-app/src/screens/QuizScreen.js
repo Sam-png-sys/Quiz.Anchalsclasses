@@ -25,7 +25,7 @@ const PALETTES = [
 
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
 
-// ─── Timer Ring ──────────────────────────────────────────────────────────────
+// ─── Timer Ring ───────────────────────────────────────────────────────────────
 const TimerRing = ({ timeLeft, totalTime }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const isUrgent = timeLeft <= 10;
@@ -58,15 +58,12 @@ const TimerRing = ({ timeLeft, totalTime }) => {
   );
 };
 
-// ─── Option Button ─────────────────────────────────────────────────────────
-// KEY FIX: `questionIndex` is passed as a prop and included in the useEffect
-// dependency array so animations re-run (and selection resets) on each new question.
+// ─── Option Button ────────────────────────────────────────────────────────────
 const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Re-animate every time the question changes
   useEffect(() => {
     fadeAnim.setValue(0);
     slideAnim.setValue(20);
@@ -74,7 +71,7 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => 
       Animated.timing(fadeAnim, { toValue: 1, duration: 350, delay, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 70, friction: 11, delay, useNativeDriver: true }),
     ]).start();
-  }, [questionIndex]); // <-- depends on question index, not just mount
+  }, [questionIndex]);
 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }, { scale: scaleAnim }] }}>
@@ -105,16 +102,20 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => 
   );
 };
 
-// ─── Main QuizScreen ─────────────────────────────────────────────────────────
+// ─── Main QuizScreen ──────────────────────────────────────────────────────────
 const QuizScreen = ({ route, navigation }) => {
   const { quizId } = route.params;
 
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [selected, setSelected] = useState(null); // null = nothing picked yet
+  const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(30);
+
+  // ✅ FIX 1: answersRef mirrors the answers state so the timer interval
+  //    always reads the latest value (no stale closure).
+  const answersRef = useRef({});
 
   const timerRef = useRef(null);
   const TIMER_DURATION = 30;
@@ -125,13 +126,25 @@ const QuizScreen = ({ route, navigation }) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
-  // ── Fetch ──
+  // ✅ Helper: always update both state and ref together
+  const saveAnswers = (newAnswers) => {
+    answersRef.current = newAnswers;
+    setAnswers(newAnswers);
+  };
+
+  // ── Fetch questions ──
   useEffect(() => {
+    console.log("Fetching questions for quizId:", quizId);
     API.get(`/quiz/${quizId}/questions`)
-      .then((res) => { setQuestions(res.data); setLoading(false); })
-      .catch(() => {
+      .then((res) => {
+        console.log("Questions received:", JSON.stringify(res.data));
+        setQuestions(res.data);
         setLoading(false);
-        Alert.alert("Error", "Failed to load questions", [
+      })
+      .catch((err) => {
+        console.log("Questions fetch error:", err.message);
+        setLoading(false);
+        Alert.alert("Error", "Failed to load questions. Check your network.", [
           { text: "Back", onPress: () => navigation.goBack() },
         ]);
       });
@@ -141,12 +154,9 @@ const QuizScreen = ({ route, navigation }) => {
   useEffect(() => {
     if (!questions.length) return;
 
-    // ✅ CRITICAL FIX: Explicitly reset selected to null on every question change.
-    // Without this, React may retain the previous selected value in closure
-    // even after setCurrent fires, causing ghost selections on the new question.
     setSelected(null);
 
-    // Card entrance
+    // Card entrance animation
     cardFade.setValue(0);
     cardSlide.setValue(width * 0.25);
     Animated.parallel([
@@ -169,14 +179,15 @@ const QuizScreen = ({ route, navigation }) => {
       setTimeLeft((t) => {
         if (t <= 1) {
           clearInterval(timerRef.current);
-          // Use functional updater to avoid stale closure on `current`
           setCurrent((c) => {
-            const newAnswers = { ...answers, [c]: null };
+            // ✅ FIX 2: Use answersRef.current (not stale `answers`) so
+            //    previously saved answers are NOT lost when timer fires.
+            const newAnswers = { ...answersRef.current, [c]: null };
             if (c < questions.length - 1) {
-              setAnswers(newAnswers);
+              saveAnswers(newAnswers);
               return c + 1;
             } else {
-              navigation.navigate("Result", { answers: newAnswers, questions , quizId });
+              navigation.navigate("Result", { answers: newAnswers, questions, quizId });
               return c;
             }
           });
@@ -189,18 +200,18 @@ const QuizScreen = ({ route, navigation }) => {
     return () => clearInterval(timerRef.current);
   }, [current, questions.length]);
 
+  // ── Go to next question / submit ──
   const goNext = () => {
     clearInterval(timerRef.current);
-    const newAnswers = { ...answers, [current]: selected };
+    // ✅ FIX 3: Use answersRef.current here too for consistency
+    const newAnswers = { ...answersRef.current, [current]: selected };
+    saveAnswers(newAnswers);
 
     if (current < questions.length - 1) {
-      setAnswers(newAnswers);
-      //  Reset selected BEFORE incrementing current so the new question
-      // renders with a clean slate — no flicker of the old selection.
       setSelected(null);
       setCurrent((c) => c + 1);
     } else {
-      navigation.navigate("Result", { answers: newAnswers, questions });
+      navigation.navigate("Result", { answers: newAnswers, questions, quizId });
     }
   };
 
@@ -209,6 +220,8 @@ const QuizScreen = ({ route, navigation }) => {
   const q = questions[current];
   const isLast = current === questions.length - 1;
   const canProceed = selected !== null;
+
+  // ✅ FIX 4: Backend now returns `options` as array — this stays the same
   const options = Array.isArray(q?.options) ? q.options : [];
 
   if (loading || !q) {
@@ -301,20 +314,20 @@ const QuizScreen = ({ route, navigation }) => {
             )}
           </View>
           <LinearGradient colors={palette.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.qLine} />
+          {/* ✅ FIX 5: field is now always `question` (normalized in backend) */}
           <Text style={styles.questionTxt}>{q.question}</Text>
         </Animated.View>
 
-        {/* Options — `key` forces full unmount/remount on question change,
-            guaranteeing no stale visual state bleeds between questions */}
+        {/* Options */}
         <View style={styles.optionsWrap}>
           {options.map((opt, i) => (
             <OptionBtn
-              key={`q${current}-opt${i}`}   // ✅ unique per question + option
+              key={`q${current}-opt${i}`}
               label={OPTION_LABELS[i] || String(i + 1)}
               text={opt}
               selected={selected === opt}
               delay={i * 65}
-              questionIndex={current}        // ✅ triggers animation reset
+              questionIndex={current}
               onPress={() => setSelected(opt)}
             />
           ))}

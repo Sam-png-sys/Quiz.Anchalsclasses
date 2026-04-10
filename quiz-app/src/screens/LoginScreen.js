@@ -174,10 +174,11 @@ const LoginScreen = ({ navigation }) => {
 
     const handleLogin = async () => {
         console.log("🔥 LOGIN CLICKED");
+        console.log("FULL URL:", `http://192.168.1.8:8000/auth/login`);
 
         try {
             const response = await fetch(
-                "http://192.168.1.6:8000/auth/login",
+                "http://192.168.1.8:8000/auth/login",
                 {
                     method: "POST",
                     headers: {

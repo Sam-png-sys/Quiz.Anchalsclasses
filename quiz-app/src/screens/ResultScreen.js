@@ -13,7 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
 
-// ─── Review card per question ────────────────────────────────────────────────
+// ─── Review card per question ─────────────────────────────────────────────────
 const ReviewCard = ({ question, userAnswer, index, delay }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
@@ -25,19 +25,19 @@ const ReviewCard = ({ question, userAnswer, index, delay }) => {
     ]).start();
   }, []);
 
-  const isCorrect = userAnswer === question.correct_answer;
+  // ✅ FIX: field is `correct_answer` (normalized in backend)
+  const correctAnswer = question.correct_answer;
+  const isCorrect = userAnswer === correctAnswer;
   const skipped = userAnswer === null || userAnswer === undefined;
 
   return (
     <Animated.View style={[styles.reviewCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-      {/* Status stripe */}
       <View style={[
         styles.reviewStripe,
         skipped ? styles.stripeSkipped : isCorrect ? styles.stripeCorrect : styles.stripeWrong,
       ]} />
 
       <View style={styles.reviewBody}>
-        {/* Q number + status chip */}
         <View style={styles.reviewTop}>
           <Text style={styles.reviewNum}>Q{index + 1}</Text>
           <View style={[
@@ -53,9 +53,9 @@ const ReviewCard = ({ question, userAnswer, index, delay }) => {
           </View>
         </View>
 
+        {/* ✅ FIX: field is `question` (normalized in backend) */}
         <Text style={styles.reviewQuestion} numberOfLines={3}>{question.question}</Text>
 
-        {/* Answer rows */}
         {!skipped && !isCorrect && (
           <View style={styles.reviewAnswerRow}>
             <Text style={styles.reviewAnswerLabel}>Your answer: </Text>
@@ -64,25 +64,30 @@ const ReviewCard = ({ question, userAnswer, index, delay }) => {
         )}
         <View style={styles.reviewAnswerRow}>
           <Text style={styles.reviewAnswerLabel}>Correct: </Text>
-          <Text style={styles.reviewAnswerCorrect}>{question.correct_answer}</Text>
+          <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
         </View>
       </View>
     </Animated.View>
   );
 };
 
-// ─── ResultScreen ────────────────────────────────────────────────────────────
+// ─── ResultScreen ─────────────────────────────────────────────────────────────
 const ResultScreen = ({ route, navigation }) => {
-  const { answers, questions } = route.params;
+  const { answers, questions, quizId } = route.params;
 
-  // ✅ Your exact scoring logic
+  // ✅ FIX: Compare user answer (option text) with correct_answer (option text)
+  //    Both are now strings from the options array — apples to apples.
   let score = 0;
   questions.forEach((q, i) => {
-    if (answers[i] === q.correct_answer) score++;
+    const userAnswer = answers[i];
+    const correct = q.correct_answer;
+    if (userAnswer && correct && userAnswer.trim() === correct.trim()) {
+      score++;
+    }
   });
 
   const total = questions.length;
-  const pct = Math.round((score / total) * 100);
+  const pct = total > 0 ? Math.round((score / total) * 100) : 0;
   const skipped = Object.values(answers).filter((a) => a === null || a === undefined).length;
   const wrong = total - score - skipped;
 
@@ -94,7 +99,6 @@ const ResultScreen = ({ route, navigation }) => {
         ? { label: "Keep Going!", emoji: "💪", colors: ["#7c3aed", "#9333ea"], textColor: "#a78bfa" }
         : { label: "Try Again!", emoji: "🔄", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
 
-  // Entrance animations
   const headerFade = useRef(new Animated.Value(0)).current;
   const scoreScale = useRef(new Animated.Value(0.6)).current;
   const scoreOpacity = useRef(new Animated.Value(0)).current;
@@ -124,7 +128,6 @@ const ResultScreen = ({ route, navigation }) => {
       <StatusBar barStyle="light-content" />
       <LinearGradient colors={["#0a0a12", "#0f0a1e", "#0a0a12"]} style={StyleSheet.absoluteFill} />
 
-      {/* Ambient orbs */}
       <View style={[styles.orb1, { backgroundColor: grade.colors[0] }]} pointerEvents="none" />
       <View style={styles.orb2} pointerEvents="none" />
 
@@ -133,14 +136,14 @@ const ResultScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Hero section ── */}
+        {/* Hero */}
         <Animated.View style={[styles.hero, { opacity: headerFade }]}>
           <Text style={styles.heroEmoji}>{grade.emoji}</Text>
           <Text style={[styles.heroLabel, { color: grade.textColor }]}>{grade.label}</Text>
           <Text style={styles.heroSub}>Quiz Complete</Text>
         </Animated.View>
 
-        {/* ── Score circle ── */}
+        {/* Score circle */}
         <Animated.View style={[styles.scoreWrap, { opacity: scoreOpacity, transform: [{ scale: scoreScale }] }]}>
           <LinearGradient colors={grade.colors} style={styles.scoreRingOuter}>
             <View style={styles.scoreRingInner}>
@@ -151,7 +154,7 @@ const ResultScreen = ({ route, navigation }) => {
           </LinearGradient>
         </Animated.View>
 
-        {/* ── Score bar ── */}
+        {/* Score bar */}
         <Animated.View style={[styles.barSection, { opacity: statsFade, transform: [{ translateY: statsSlide }] }]}>
           <View style={styles.barBg}>
             <Animated.View style={[styles.barTrack, { width: animatedBarWidth }]}>
@@ -164,7 +167,7 @@ const ResultScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
 
-        {/* ── Stats row ── */}
+        {/* Stats row */}
         <Animated.View style={[styles.statsRow, { opacity: statsFade, transform: [{ translateY: statsSlide }] }]}>
           <View style={[styles.statCard, styles.statCardCorrect]}>
             <Text style={styles.statEmoji}>✓</Text>
@@ -183,7 +186,7 @@ const ResultScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
 
-        {/* ── Action buttons ── */}
+        {/* Action buttons */}
         <Animated.View style={[styles.btnRow, { opacity: statsFade }]}>
           <TouchableOpacity
             style={styles.btnSecondary}
@@ -195,14 +198,10 @@ const ResultScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.btnPrimaryWrap}
             onPress={() => {
-              const quizId = route.params?.quizId;
-
               if (!quizId) {
-                console.log("❌ Quiz ID missing");
-                navigation.replace("Home"); // fallback
+                navigation.replace("Home");
                 return;
               }
-
               navigation.replace("Quiz", { quizId });
             }}
           >
@@ -216,7 +215,7 @@ const ResultScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* ── Review section ── */}
+        {/* Review section */}
         <Animated.View style={{ opacity: statsFade }}>
           <View style={styles.reviewHeader}>
             <View style={styles.reviewHeaderLine} />
@@ -247,17 +246,12 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0a0a12" },
   orb1: { position: "absolute", width: 320, height: 320, top: -80, right: -80, borderRadius: 999, opacity: 0.12 },
   orb2: { position: "absolute", width: 200, height: 200, bottom: 100, left: -60, borderRadius: 999, backgroundColor: "#7c3aed", opacity: 0.07 },
-
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 22, paddingTop: 70, paddingBottom: 30 },
-
-  // Hero
   hero: { alignItems: "center", marginBottom: 28 },
   heroEmoji: { fontSize: 52, marginBottom: 10 },
   heroLabel: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5, marginBottom: 4 },
   heroSub: { color: "#6b7280", fontSize: 14, fontWeight: "500" },
-
-  // Score circle
   scoreWrap: { alignItems: "center", marginBottom: 28 },
   scoreRingOuter: {
     width: 160, height: 160, borderRadius: 80,
@@ -273,27 +267,18 @@ const styles = StyleSheet.create({
   scorePct: { color: "#fff", fontSize: 42, fontWeight: "900", letterSpacing: -2 },
   scoreRatio: { color: "#6b7280", fontSize: 15, fontWeight: "600", marginTop: 2 },
   scoreCorrectLabel: { color: "#4b5563", fontSize: 11, fontWeight: "600", letterSpacing: 1 },
-
-  // Bar
   barSection: { marginBottom: 22 },
   barBg: { height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" },
   barTrack: { height: 8, borderRadius: 4, overflow: "hidden" },
   barFill: { height: 8, borderRadius: 4, width: "100%" },
-
-  // Stats
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
-  statCard: {
-    flex: 1, borderRadius: 18, padding: 16,
-    alignItems: "center", borderWidth: 1,
-  },
+  statCard: { flex: 1, borderRadius: 18, padding: 16, alignItems: "center", borderWidth: 1 },
   statCardCorrect: { backgroundColor: "rgba(5,150,105,0.08)", borderColor: "rgba(5,150,105,0.25)" },
   statCardWrong: { backgroundColor: "rgba(220,38,38,0.08)", borderColor: "rgba(220,38,38,0.25)" },
   statCardSkipped: { backgroundColor: "rgba(217,119,6,0.08)", borderColor: "rgba(217,119,6,0.25)" },
   statEmoji: { fontSize: 18, marginBottom: 6 },
   statNum: { fontSize: 26, fontWeight: "900" },
   statLbl: { color: "#6b7280", fontSize: 11, fontWeight: "600", marginTop: 2, letterSpacing: 0.5 },
-
-  // Buttons
   btnRow: { flexDirection: "row", gap: 12, marginBottom: 36 },
   btnSecondary: {
     flex: 1, borderRadius: 16, borderWidth: 1,
@@ -305,12 +290,9 @@ const styles = StyleSheet.create({
   btnPrimaryWrap: { flex: 1, borderRadius: 16, overflow: "hidden" },
   btnPrimary: { paddingVertical: 16, alignItems: "center" },
   btnPrimaryTxt: { color: "#fff", fontWeight: "800", fontSize: 15 },
-
-  // Review
   reviewHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
   reviewHeaderLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.07)" },
   reviewHeaderTxt: { color: "#4b5563", fontSize: 11, fontWeight: "700", letterSpacing: 2.5 },
-
   reviewCard: {
     flexDirection: "row", borderRadius: 18, marginBottom: 12,
     backgroundColor: "rgba(255,255,255,0.04)",
@@ -321,7 +303,6 @@ const styles = StyleSheet.create({
   stripeCorrect: { backgroundColor: "#059669" },
   stripeWrong: { backgroundColor: "#dc2626" },
   stripeSkipped: { backgroundColor: "#d97706" },
-
   reviewBody: { flex: 1, padding: 14 },
   reviewTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   reviewNum: { color: "#6b7280", fontSize: 12, fontWeight: "700" },
@@ -333,7 +314,6 @@ const styles = StyleSheet.create({
   chipTxtCorrect: { color: "#6ee7b7" },
   chipTxtWrong: { color: "#fca5a5" },
   chipTxtSkipped: { color: "#fcd34d" },
-
   reviewQuestion: { color: "#d1d5db", fontSize: 13, lineHeight: 20, marginBottom: 10 },
   reviewAnswerRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", marginTop: 2 },
   reviewAnswerLabel: { color: "#6b7280", fontSize: 12, fontWeight: "600" },
