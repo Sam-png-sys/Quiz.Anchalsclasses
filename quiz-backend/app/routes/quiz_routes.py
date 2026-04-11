@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from app.dependencies.auth_dependency import get_current_user
-from app.services.quiz_service import get_quizzes, get_quiz_questions, get_quiz_by_id
+from app.config.database import quiz_collection, question_collection
+from app.utils.serializer import serialize
+from bson import ObjectId
 
 router = APIRouter(prefix="/quiz", tags=["Quiz"])
 
