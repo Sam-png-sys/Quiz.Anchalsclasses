@@ -9,7 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 
-// ✅ Change to your droplet IP or domain after deployment
+//  Change to your droplet IP or domain after deployment
 const API_BASE = import.meta.env.VITE_API_URL || "http://192.168.1.8:8000";
 
 const fadeUp = {
@@ -30,7 +30,7 @@ function newQuestion() {
     options:      ["", "", "", ""],
     correctAnswer: 0,
     explanation:  "",
-    imageUrl:     null,   // ✅ Cloudinary URL after upload
+    imageUrl:     null,   //  Cloudinary URL after upload
     imageFile:    null,   // local preview only
     imagePreview: null,   // base64 preview
     uploading:    false,  // per-question upload spinner
@@ -114,7 +114,7 @@ export default function CreateQuiz() {
       const data = await res.json();
 
       const done = [...questions];
-      done[index].imageUrl     = data.url;   // ✅ Cloudinary URL saved
+      done[index].imageUrl     = data.url;   //  Cloudinary URL saved
       done[index].uploading    = false;
       setQuestions(done);
     } catch (err) {
@@ -182,9 +182,9 @@ export default function CreateQuiz() {
             quizId,
             question:       q.questionText,
             options:        q.options,
-            correct_answer: q.options[q.correctAnswer], // ✅ send text not index
+            correct_answer: q.options[q.correctAnswer], //  send text not index
             explanation:    q.explanation,
-            imageUrl:       q.imageUrl || null,          // ✅ Cloudinary URL
+            imageUrl:       q.imageUrl || null,          //  Cloudinary URL
           }),
         });
       }
