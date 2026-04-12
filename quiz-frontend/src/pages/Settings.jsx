@@ -9,6 +9,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 
+// ✅ Change this to your droplet IP or domain after deployment
+const API_BASE = import.meta.env.VITE_API_URL || "http://192.168.1.8:8000";
+
 function decodeToken(token) {
   try { return JSON.parse(atob(token.split(".")[1])); }
   catch { return null; }
@@ -36,6 +39,7 @@ export default function Settings() {
   const [tab, setTab]       = useState("profile");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+  const [error, setError]   = useState("");
   const [darkMode, setDarkMode] = useState(
     document.documentElement.classList.contains("dark")
   );
@@ -66,7 +70,11 @@ export default function Settings() {
 
   const initial = profile.name?.charAt(0)?.toUpperCase() || "A";
 
-  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
+  const flash = () => {
+    setError("");
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
@@ -76,44 +84,92 @@ export default function Settings() {
     reader.readAsDataURL(file);
   };
 
+  // ── Save profile ──────────────────────────────────────────────────────────
   const handleSaveProfile = async () => {
+    setError("");
     setSaving(true);
     try {
-      const body = new FormData();
-      if (profile.avatarFile) body.append("avatar", profile.avatarFile);
-      body.append("name",  profile.name);
-      body.append("email", profile.email);
-      body.append("phone", profile.phone);
-      body.append("bio",   profile.bio);
-      await fetch("http://127.0.0.1:8000/admin/profile", {
+      let avatarUrl = null;
+
+      // Upload avatar to Cloudinary first if a new file was picked
+      if (profile.avatarFile) {
+        const formData = new FormData();
+        formData.append("file", profile.avatarFile);
+        const upRes = await fetch(`${API_BASE}/admin/upload-avatar`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (!upRes.ok) throw new Error("Avatar upload failed");
+        const upData = await upRes.json();
+        avatarUrl = upData.url;
+      }
+
+      // Save profile fields
+      const res = await fetch(`${API_BASE}/admin/profile`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-        body,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name:   profile.name,
+          email:  profile.email,
+          phone:  profile.phone,
+          bio:    profile.bio,
+          ...(avatarUrl && { avatarUrl }),
+        }),
       });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.detail || "Failed to save profile");
+      }
+
       flash();
-    } catch { alert("Failed to save"); }
-    finally { setSaving(false); }
+    } catch (err) {
+      setError(err.message || "Failed to save profile");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  // ── Change password ───────────────────────────────────────────────────────
   const handleChangePassword = async () => {
     setPassError("");
-    if (!passwords.current)        return setPassError("Enter your current password");
-    if (passwords.newp.length < 8) return setPassError("New password must be at least 8 characters");
+    if (!passwords.current)          return setPassError("Enter your current password");
+    if (passwords.newp.length < 8)   return setPassError("New password must be at least 8 characters");
     if (passwords.newp !== passwords.confirm) return setPassError("Passwords do not match");
+
     setSaving(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/admin/change-password", {
+      const res = await fetch(`${API_BASE}/admin/change-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ currentPassword: passwords.current, newPassword: passwords.newp }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword: passwords.current,
+          newPassword: passwords.newp,
+        }),
       });
-      if (!res.ok) { const d = await res.json(); return setPassError(d.detail || "Wrong password"); }
+
+      if (!res.ok) {
+        const d = await res.json();
+        return setPassError(d.detail || "Wrong current password");
+      }
+
       setPasswords({ current: "", newp: "", confirm: "" });
       flash();
-    } catch { setPassError("Server error"); }
-    finally { setSaving(false); }
+    } catch {
+      setPassError("Server error — try again");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  // ── Dark mode ─────────────────────────────────────────────────────────────
   const handleToggleDark = () => {
     const next = !darkMode;
     setDarkMode(next);
@@ -121,15 +177,19 @@ export default function Settings() {
     localStorage.setItem("theme", next ? "dark" : "light");
   };
 
+  // ── Delete account ────────────────────────────────────────────────────────
   const handleDeleteAccount = async () => {
     if (deleteInput !== "DELETE") return;
     try {
-      await fetch("http://127.0.0.1:8000/admin/account", {
-        method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+      await fetch(`${API_BASE}/admin/account`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
       localStorage.removeItem("token");
       navigate("/login");
-    } catch { alert("Failed to delete account"); }
+    } catch {
+      alert("Failed to delete account");
+    }
   };
 
   return (
@@ -212,23 +272,35 @@ export default function Settings() {
                     <SectionTitle>Personal Information</SectionTitle>
                     <div className="flex flex-col gap-3">
                       <Field icon={<User size={14} className="text-white/30" />} label="Full Name">
-                        <input value={profile.name} onChange={e => setProfile(p => ({...p, name: e.target.value}))}
+                        <input value={profile.name}
+                          onChange={e => setProfile(p => ({...p, name: e.target.value}))}
                           placeholder="Your full name" className="field-input" />
                       </Field>
                       <Field icon={<Mail size={14} className="text-white/30" />} label="Email Address">
-                        <input type="email" value={profile.email} onChange={e => setProfile(p => ({...p, email: e.target.value}))}
+                        <input type="email" value={profile.email}
+                          onChange={e => setProfile(p => ({...p, email: e.target.value}))}
                           placeholder="you@example.com" className="field-input" />
                       </Field>
                       <Field icon={<Phone size={14} className="text-white/30" />} label="Mobile Number">
-                        <input type="tel" value={profile.phone} onChange={e => setProfile(p => ({...p, phone: e.target.value}))}
+                        <input type="tel" value={profile.phone}
+                          onChange={e => setProfile(p => ({...p, phone: e.target.value}))}
                           placeholder="+91 98765 43210" className="field-input" />
                       </Field>
                       <Field icon={<Globe size={14} className="text-white/30" />} label="Bio">
-                        <textarea rows={2} value={profile.bio} onChange={e => setProfile(p => ({...p, bio: e.target.value}))}
+                        <textarea rows={2} value={profile.bio}
+                          onChange={e => setProfile(p => ({...p, bio: e.target.value}))}
                           placeholder="A short bio about yourself..." className="field-input resize-none" />
                       </Field>
                     </div>
                   </div>
+
+                  {/* Error banner */}
+                  {error && (
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <X size={13} className="text-red-400 flex-shrink-0" />
+                      <p className="text-[12px] text-red-400">{error}</p>
+                    </div>
+                  )}
 
                   <SaveBtn saving={saving} saved={saved} onClick={handleSaveProfile} />
                 </motion.div>
@@ -237,7 +309,6 @@ export default function Settings() {
               {/* ──── SECURITY ──── */}
               {tab === "security" && (
                 <motion.div key="security" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
-
                   <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
                     <SectionTitle>Change Password</SectionTitle>
                     <div className="flex flex-col gap-3">
@@ -277,7 +348,7 @@ export default function Settings() {
                   <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
                     <SectionTitle>Active Sessions</SectionTitle>
                     {[
-                      { device: "Chrome — Windows", location: "Aurangabad, IN", time: "Now",       current: true },
+                      { device: "Chrome — Windows", location: "Aurangabad, IN", time: "Now",        current: true },
                       { device: "Safari — iPhone",  location: "Aurangabad, IN", time: "2 days ago", current: false },
                     ].map((s, i) => (
                       <div key={i} className="flex items-center justify-between py-3.5 border-b border-white/[0.04] last:border-0">
@@ -305,11 +376,11 @@ export default function Settings() {
                   <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
                     <SectionTitle>Notification Preferences</SectionTitle>
                     {[
-                      { key: "newStudent",   label: "New student registered",    sub: "Get notified when a new student signs up" },
-                      { key: "quizAttempt",  label: "Quiz attempt completed",     sub: "When any student completes a quiz" },
-                      { key: "weeklyReport", label: "Weekly performance report",  sub: "Summary of all activity sent every Monday" },
-                      { key: "systemAlerts", label: "System alerts",              sub: "Critical server or application alerts" },
-                      { key: "emailDigest",  label: "Email digest",               sub: "Daily summary delivered to your email" },
+                      { key: "newStudent",   label: "New student registered",   sub: "Get notified when a new student signs up" },
+                      { key: "quizAttempt",  label: "Quiz attempt completed",    sub: "When any student completes a quiz" },
+                      { key: "weeklyReport", label: "Weekly performance report", sub: "Summary of all activity sent every Monday" },
+                      { key: "systemAlerts", label: "System alerts",             sub: "Critical server or application alerts" },
+                      { key: "emailDigest",  label: "Email digest",              sub: "Daily summary delivered to your email" },
                     ].map(({ key, label, sub }) => (
                       <div key={key} className="flex items-center justify-between py-4 border-b border-white/[0.04] last:border-0">
                         <div>
@@ -334,12 +405,12 @@ export default function Settings() {
                     <SectionTitle>Theme</SectionTitle>
                     <div className="grid grid-cols-2 gap-3">
                       {[
-                        { id: "dark",  label: "Dark mode",  icon: Moon, preview: "bg-[#080810]",  active: darkMode },
-                        { id: "light", label: "Light mode", icon: Sun,  preview: "bg-gray-100",   active: !darkMode },
+                        { id: "dark",  label: "Dark mode",  icon: Moon, preview: "bg-[#080810]", active: darkMode },
+                        { id: "light", label: "Light mode", icon: Sun,  preview: "bg-gray-100",  active: !darkMode },
                       ].map(({ id, label, icon: Icon, preview, active }) => (
                         <button key={id}
                           onClick={() => { if ((id === "dark" && !darkMode) || (id === "light" && darkMode)) handleToggleDark(); }}
-                          className={`relative p-5 rounded-2xl border transition-all duration-200 text-left group
+                          className={`relative p-5 rounded-2xl border transition-all duration-200 text-left
                             ${active ? "border-cyan-500/40 bg-cyan-500/[0.06]" : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]"}`}>
                           <div className={`w-full h-14 rounded-xl ${preview} mb-3 border border-white/[0.06] flex items-center justify-center`}>
                             <Icon size={18} className={active ? "text-cyan-400" : "text-white/20"} />
@@ -384,9 +455,9 @@ export default function Settings() {
                       <span className="text-[13px] font-bold text-red-400 uppercase tracking-widest">Danger Zone</span>
                     </div>
                     {[
-                      { label: "Sign out all devices", sub: "Revoke all active sessions immediately.", btn: "Sign out all", col: "amber", fn: () => alert("Coming soon") },
-                      { label: "Export my data",       sub: "Download your account data as JSON.",     btn: "Export",       col: "blue",  fn: () => alert("Coming soon") },
-                      { label: "Delete account",       sub: "Permanently delete your account and all data. Cannot be undone.", btn: "Delete account", col: "red", fn: () => setDeleteModal(true) },
+                      { label: "Sign out all devices", sub: "Revoke all active sessions immediately.",    btn: "Sign out all",   col: "amber", fn: () => alert("Coming soon") },
+                      { label: "Export my data",        sub: "Download your account data as JSON.",       btn: "Export",         col: "blue",  fn: () => alert("Coming soon") },
+                      { label: "Delete account",        sub: "Permanently delete your account and all data. Cannot be undone.", btn: "Delete account", col: "red", fn: () => setDeleteModal(true) },
                     ].map(({ label, sub, btn, col, fn }) => {
                       const styles = {
                         amber: "text-amber-400 bg-amber-400/10 border-amber-400/20 hover:bg-amber-400/15",
@@ -511,10 +582,10 @@ function SaveBtn({ saving, saved, onClick, label = "Save Changes" }) {
 
 function StrengthBar({ password }) {
   const checks = [
-    { label: "8+ chars",   pass: password.length >= 8 },
-    { label: "Uppercase",  pass: /[A-Z]/.test(password) },
-    { label: "Number",     pass: /\d/.test(password) },
-    { label: "Special",    pass: /[!@#$%^&*]/.test(password) },
+    { label: "8+ chars",  pass: password.length >= 8 },
+    { label: "Uppercase", pass: /[A-Z]/.test(password) },
+    { label: "Number",    pass: /\d/.test(password) },
+    { label: "Special",   pass: /[!@#$%^&*]/.test(password) },
   ];
   const score  = checks.filter(c => c.pass).length;
   const colors = ["", "bg-red-500", "bg-amber-500", "bg-amber-400", "bg-emerald-400"];
