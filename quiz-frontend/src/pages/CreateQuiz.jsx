@@ -4,12 +4,11 @@ import {
   PlusCircle, Trash2, ChevronDown, ChevronUp,
   CheckCircle2, BookOpen, Clock, AlignLeft,
   Lightbulb, Save, ArrowLeft, GraduationCap, BarChart2,
-  ImagePlus, X, Upload,
+  ImagePlus, X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 
-//  Change to your droplet IP or domain after deployment
 const API_BASE = import.meta.env.VITE_API_URL || "http://192.168.1.8:8000";
 
 const fadeUp = {
@@ -20,8 +19,8 @@ const fadeUp = {
 
 const DIFFICULTY_LEVELS = [
   { value: "easy",   label: "Easy",   color: "text-emerald-400", dot: "bg-emerald-400", badge: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
-  { value: "medium", label: "Medium", color: "text-amber-400",   dot: "bg-amber-400",   badge: "text-amber-400 bg-amber-400/10 border-amber-400/20"   },
-  { value: "hard",   label: "Hard",   color: "text-rose-400",    dot: "bg-rose-400",    badge: "text-rose-400 bg-rose-400/10 border-rose-400/20"      },
+  { value: "medium", label: "Medium", color: "text-amber-400",   dot: "bg-amber-400",   badge: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+  { value: "hard",   label: "Hard",   color: "text-rose-400",    dot: "bg-rose-400",    badge: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
 ];
 
 function newQuestion() {
@@ -30,17 +29,17 @@ function newQuestion() {
     options:      ["", "", "", ""],
     correctAnswer: 0,
     explanation:  "",
-    imageUrl:     null,   //  Cloudinary URL after upload
-    imageFile:    null,   // local preview only
-    imagePreview: null,   // base64 preview
-    uploading:    false,  // per-question upload spinner
+    imageUrl:     null,
+    imagePreview: null,
+    uploading:    false,
   };
 }
 
 export default function CreateQuiz() {
-  const token     = localStorage.getItem("token");
-  const navigate  = useNavigate();
+  const token    = localStorage.getItem("token");
+  const navigate = useNavigate();
   const scrollRef = useRef(null);
+  const imageRefs = useRef([]);
 
   const [quiz, setQuiz] = useState({
     title: "", description: "", duration: "", course: "", difficulty: "",
@@ -49,25 +48,32 @@ export default function CreateQuiz() {
   const [loading, setLoading]     = useState(false);
   const [collapsed, setCollapsed] = useState({});
 
-  // ── Image file refs per question ──────────────────────────────────────────
-  const imageRefs = useRef([]);
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const handleQuizChange = (field, value) =>
+    setQuiz(prev => ({ ...prev, [field]: value }));
 
-  const handleQuizChange = (field, value) => setQuiz({ ...quiz, [field]: value });
+  // ✅ Use functional updater everywhere to avoid stale state
+  const updateQuestion = (index, patch) =>
+    setQuestions(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...patch };
+      return next;
+    });
 
-  const handleQuestionChange = (index, field, value) => {
-    const updated = [...questions];
-    updated[index][field] = value;
-    setQuestions(updated);
-  };
+  const handleQuestionChange = (index, field, value) =>
+    updateQuestion(index, { [field]: value });
 
-  const handleOptionChange = (qIndex, oIndex, value) => {
-    const updated = [...questions];
-    updated[qIndex].options[oIndex] = value;
-    setQuestions(updated);
-  };
+  const handleOptionChange = (qIndex, oIndex, value) =>
+    setQuestions(prev => {
+      const next = [...prev];
+      const opts = [...next[qIndex].options];
+      opts[oIndex] = value;
+      next[qIndex] = { ...next[qIndex], options: opts };
+      return next;
+    });
 
   const addQuestion = () => {
-    setQuestions([...questions, newQuestion()]);
+    setQuestions(prev => [...prev, newQuestion()]);
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }, 50);
@@ -75,66 +81,55 @@ export default function CreateQuiz() {
 
   const removeQuestion = (index) => {
     if (questions.length === 1) return;
-    setQuestions(questions.filter((_, i) => i !== index));
+    setQuestions(prev => prev.filter((_, i) => i !== index));
   };
 
   const toggleCollapse = (index) =>
     setCollapsed(prev => ({ ...prev, [index]: !prev[index] }));
 
-  // ── Image pick + upload to Cloudinary ────────────────────────────────────
+  // ── Image upload ──────────────────────────────────────────────────────────
   const handleImagePick = async (index, file) => {
     if (!file) return;
 
-    // Show local preview immediately
+    // 1. Show local preview immediately
     const reader = new FileReader();
-    reader.onload = () => {
-      const updated = [...questions];
-      updated[index].imagePreview = reader.result;
-      updated[index].imageFile    = file;
-      setQuestions(updated);
+    reader.onload = (e) => {
+      updateQuestion(index, { imagePreview: e.target.result, uploading: true });
     };
     reader.readAsDataURL(file);
 
-    // Upload to Cloudinary via backend
-    const updated = [...questions];
-    updated[index].uploading = true;
-    setQuestions([...updated]);
-
+    // 2. Upload to backend → Cloudinary
     try {
       const formData = new FormData();
       formData.append("file", file);
+
+      console.log("Uploading to:", `${API_BASE}/admin/upload-question-image`);
 
       const res = await fetch(`${API_BASE}/admin/upload-question-image`, {
         method:  "POST",
         headers: { Authorization: `Bearer ${token}` },
         body:    formData,
+        // ✅ Do NOT set Content-Type — browser sets it with boundary for multipart
       });
 
-      if (!res.ok) throw new Error("Upload failed");
-      const data = await res.json();
+      const text = await res.text(); // read as text first for better error logging
+      console.log("Upload response:", res.status, text);
 
-      const done = [...questions];
-      done[index].imageUrl     = data.url;   //  Cloudinary URL saved
-      done[index].uploading    = false;
-      setQuestions(done);
+      if (!res.ok) throw new Error(`Upload failed: ${res.status} ${text}`);
+
+      const data = JSON.parse(text);
+      // ✅ functional updater — no stale closure
+      updateQuestion(index, { imageUrl: data.url, uploading: false });
+
     } catch (err) {
-      alert("Image upload failed. Try again.");
-      const done = [...questions];
-      done[index].uploading    = false;
-      done[index].imagePreview = null;
-      done[index].imageFile    = null;
-      done[index].imageUrl     = null;
-      setQuestions(done);
+      console.error("Image upload error:", err.message);
+      alert(`Image upload failed: ${err.message}`);
+      updateQuestion(index, { imageUrl: null, imagePreview: null, uploading: false });
     }
   };
 
-  const removeImage = (index) => {
-    const updated = [...questions];
-    updated[index].imageUrl     = null;
-    updated[index].imageFile    = null;
-    updated[index].imagePreview = null;
-    setQuestions(updated);
-  };
+  const removeImage = (index) =>
+    updateQuestion(index, { imageUrl: null, imagePreview: null });
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
@@ -142,9 +137,9 @@ export default function CreateQuiz() {
     if (!quiz.course.trim())  { alert("Course name is required"); return false; }
     if (!quiz.difficulty)     { alert("Please select a difficulty level"); return false; }
     for (let q of questions) {
-      if (!q.questionText.trim())       { alert("All questions need text"); return false; }
-      if (q.options.some(o => !o.trim())) { alert("Fill all options"); return false; }
-      if (q.uploading) { alert("Please wait for image uploads to finish"); return false; }
+      if (!q.questionText.trim())            { alert("All questions need text"); return false; }
+      if (q.options.some(o => !o.trim()))    { alert("Fill all options"); return false; }
+      if (q.uploading)                       { alert("Please wait for image uploads to finish"); return false; }
     }
     return true;
   };
@@ -155,7 +150,6 @@ export default function CreateQuiz() {
     try {
       setLoading(true);
 
-      // 1. Create quiz
       const quizRes = await fetch(`${API_BASE}/admin/quiz`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -168,25 +162,29 @@ export default function CreateQuiz() {
           difficulty:     quiz.difficulty,
         }),
       });
+
       const quizData = await quizRes.json();
       if (!quizRes.ok) { alert(quizData.detail || "Quiz creation failed"); return; }
 
       const quizId = quizData.quiz_id;
 
-      // 2. Add each question (imageUrl already uploaded, just send the URL)
       for (let q of questions) {
-        await fetch(`${API_BASE}/admin/question`, {
+        const qRes = await fetch(`${API_BASE}/admin/question`, {
           method:  "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             quizId,
             question:       q.questionText,
             options:        q.options,
-            correct_answer: q.options[q.correctAnswer], //  send text not index
+            correct_answer: q.options[q.correctAnswer], // ✅ text not index
             explanation:    q.explanation,
-            imageUrl:       q.imageUrl || null,          //  Cloudinary URL
+            imageUrl:       q.imageUrl || null,
           }),
         });
+        if (!qRes.ok) {
+          const err = await qRes.json();
+          console.error("Question add failed:", err);
+        }
       }
 
       alert("Quiz created successfully 🚀");
@@ -194,7 +192,7 @@ export default function CreateQuiz() {
       setQuestions([newQuestion()]);
     } catch (err) {
       console.error(err);
-      alert("Server error");
+      alert("Server error: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -209,7 +207,7 @@ export default function CreateQuiz() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-3xl mx-auto w-full px-4 py-8">
 
-          {/* Page header */}
+          {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <button onClick={() => navigate("/dashboard")}
               className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
@@ -221,26 +219,23 @@ export default function CreateQuiz() {
             </div>
           </div>
 
-          {/* ── Quiz Details ── */}
+          {/* Quiz Details */}
           <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6 mb-5">
             <div className="flex items-center gap-2 mb-5">
               <BookOpen size={15} className="text-cyan-400" />
               <h2 className="text-[14px] font-bold text-white">Quiz Details</h2>
             </div>
-
             <div className="flex flex-col gap-4">
               <Field icon={<BookOpen size={14} className="text-white/30" />} label="Quiz Title">
                 <input value={quiz.title} onChange={e => handleQuizChange("title", e.target.value)}
                   placeholder="e.g. Oral Anatomy — Chapter 1"
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
               </Field>
-
               <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Description">
                 <textarea rows={2} value={quiz.description} onChange={e => handleQuizChange("description", e.target.value)}
                   placeholder="Brief description of this quiz..."
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
               </Field>
-
               <div className="grid grid-cols-2 gap-3">
                 <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
                   <input value={quiz.course} onChange={e => handleQuizChange("course", e.target.value)}
@@ -253,12 +248,8 @@ export default function CreateQuiz() {
                     className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
                 </Field>
               </div>
-
-              {/* Difficulty */}
               <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] transition-all duration-200">
-                <div className="mt-0.5 flex-shrink-0">
-                  <BarChart2 size={14} className={selectedDifficulty ? selectedDifficulty.color : "text-white/30"} />
-                </div>
+                <BarChart2 size={14} className={`mt-0.5 flex-shrink-0 ${selectedDifficulty ? selectedDifficulty.color : "text-white/30"}`} />
                 <div className="flex-1 min-w-0">
                   <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">Difficulty Level</label>
                   <div className="flex gap-2">
@@ -279,14 +270,12 @@ export default function CreateQuiz() {
             </div>
           </div>
 
-          {/* ── Questions ── */}
+          {/* Questions */}
           <div className="flex flex-col gap-4 mb-5">
             <div className="flex items-center gap-2">
               <CheckCircle2 size={15} className="text-cyan-400" />
               <h2 className="text-[14px] font-bold text-white">Questions</h2>
-              <span className="text-[11px] font-bold text-white/30 bg-white/[0.05] px-2 py-0.5 rounded-full">
-                {questions.length}
-              </span>
+              <span className="text-[11px] font-bold text-white/30 bg-white/[0.05] px-2 py-0.5 rounded-full">{questions.length}</span>
             </div>
 
             <AnimatePresence>
@@ -300,10 +289,9 @@ export default function CreateQuiz() {
                       <div className="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-[12px] font-bold text-cyan-400">
                         {index + 1}
                       </div>
-                      <span className="text-[13px] font-semibold text-white/60 truncate max-w-[240px]">
+                      <span className="text-[13px] font-semibold text-white/60 truncate max-w-[200px]">
                         {q.questionText || `Question ${index + 1}`}
                       </span>
-                      {/* Image indicator badge */}
                       {q.imageUrl && (
                         <span className="text-[10px] font-bold text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2 py-0.5 rounded-full flex items-center gap-1">
                           <ImagePlus size={9} /> Image
@@ -324,7 +312,6 @@ export default function CreateQuiz() {
                     </div>
                   </div>
 
-                  {/* Question body */}
                   {!collapsed[index] && (
                     <div className="p-5 flex flex-col gap-4">
 
@@ -336,34 +323,30 @@ export default function CreateQuiz() {
                           className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
                       </Field>
 
-                      {/* ── Image upload section ── */}
+                      {/* Image upload */}
                       <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block">
+                        <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
                           Question Image <span className="text-white/15 normal-case font-normal">(optional)</span>
                         </label>
 
                         {q.imagePreview ? (
-                          // Image preview with remove button
                           <div className="relative rounded-xl overflow-hidden border border-white/[0.08] group">
                             <img src={q.imagePreview} alt="question"
                               className="w-full max-h-52 object-contain bg-white/[0.02]" />
 
-                            {/* Upload progress overlay */}
                             {q.uploading && (
                               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
                                 <div className="w-6 h-6 border-2 border-white/20 border-t-cyan-400 rounded-full animate-spin" />
-                                <span className="text-[11px] text-white/60">Uploading to Cloudinary...</span>
+                                <span className="text-[11px] text-white/60">Uploading...</span>
                               </div>
                             )}
 
-                            {/* Cloudinary success indicator */}
                             {q.imageUrl && !q.uploading && (
                               <div className="absolute top-2 left-2 flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/25 px-2 py-1 rounded-lg">
                                 <CheckCircle2 size={10} /> Uploaded
                               </div>
                             )}
 
-                            {/* Remove button */}
                             {!q.uploading && (
                               <button onClick={() => removeImage(index)}
                                 className="absolute top-2 right-2 w-7 h-7 rounded-xl bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/40 transition-all opacity-0 group-hover:opacity-100">
@@ -372,27 +355,17 @@ export default function CreateQuiz() {
                             )}
                           </div>
                         ) : (
-                          // Upload drop zone
-                          <button
-                            onClick={() => {
-                              if (!imageRefs.current[index]) return;
-                              imageRefs.current[index].click();
-                            }}
+                          <button onClick={() => imageRefs.current[index]?.click()}
                             className="w-full flex flex-col items-center justify-center gap-2 py-6 rounded-xl border border-dashed border-white/[0.10] text-white/25 hover:text-purple-400 hover:border-purple-500/30 hover:bg-purple-500/5 transition-all duration-200">
                             <ImagePlus size={22} />
                             <span className="text-[12px] font-semibold">Click to add image</span>
-                            <span className="text-[11px] text-white/15">JPG, PNG, WEBP — max 10MB</span>
+                            <span className="text-[11px] text-white/15">JPG, PNG, WEBP — max 5MB</span>
                           </button>
                         )}
 
-                        {/* Hidden file input per question */}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                           ref={el => imageRefs.current[index] = el}
-                          onChange={e => handleImagePick(index, e.target.files[0])}
-                        />
+                          onChange={e => handleImagePick(index, e.target.files[0])} />
                       </div>
 
                       {/* Options */}
@@ -407,8 +380,7 @@ export default function CreateQuiz() {
                               <div key={i}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200
                                   ${isCorrect ? "border-cyan-500/40 bg-cyan-500/[0.08]" : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.10]"}`}>
-                                <button
-                                  onClick={() => handleQuestionChange(index, "correctAnswer", i)}
+                                <button onClick={() => handleQuestionChange(index, "correctAnswer", i)}
                                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
                                     ${isCorrect ? "border-cyan-400 bg-cyan-400" : "border-white/20 hover:border-cyan-400/50"}`}>
                                   {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
@@ -418,8 +390,7 @@ export default function CreateQuiz() {
                                 </span>
                                 <input value={opt} onChange={e => handleOptionChange(index, i, e.target.value)}
                                   placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                                  className={`flex-1 bg-transparent text-[13px] outline-none placeholder:text-white/20
-                                    ${isCorrect ? "text-cyan-300" : "text-white/70"}`} />
+                                  className={`flex-1 bg-transparent text-[13px] outline-none placeholder:text-white/20 ${isCorrect ? "text-cyan-300" : "text-white/70"}`} />
                                 {isCorrect && (
                                   <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20 flex-shrink-0">
                                     Correct
@@ -445,13 +416,11 @@ export default function CreateQuiz() {
             </AnimatePresence>
           </div>
 
-          {/* Add question */}
           <button onClick={addQuestion}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed border-white/[0.10] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 mb-6 text-[13px] font-semibold">
             <PlusCircle size={16} /> Add Question
           </button>
 
-          {/* Submit */}
           <button onClick={handleSubmit} disabled={loading}
             className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-[15px] hover:opacity-90 hover:shadow-xl hover:shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]">
             <Save size={17} />
