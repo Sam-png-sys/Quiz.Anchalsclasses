@@ -173,7 +173,7 @@ def create_quiz(data: QuizCreate, admin=Depends(admin_only)):
 def add_question(data: dict, admin=Depends(admin_only)):
     data["quizId"] = ObjectId(data["quizId"])
 
-    # ✅ Normalize field names so quiz_service.get_quiz_questions() can read them.
+    # Normalize field names so quiz_service.get_quiz_questions() can read them.
     # Frontend sends: question, options, correct_answer  (already normalized)
     # Old data in DB may have: questionText, correctAnswer — both handled by quiz_service.
     data["question"]       = data.get("question") or data.get("questionText", "")

@@ -52,7 +52,7 @@ export default function CreateQuiz() {
   const handleQuizChange = (field, value) =>
     setQuiz(prev => ({ ...prev, [field]: value }));
 
-  // ✅ Use functional updater everywhere to avoid stale state
+  //  Use functional updater everywhere to avoid stale state
   const updateQuestion = (index, patch) =>
     setQuestions(prev => {
       const next = [...prev];
@@ -109,7 +109,7 @@ export default function CreateQuiz() {
         method:  "POST",
         headers: { Authorization: `Bearer ${token}` },
         body:    formData,
-        // ✅ Do NOT set Content-Type — browser sets it with boundary for multipart
+        //  Do NOT set Content-Type — browser sets it with boundary for multipart
       });
 
       const text = await res.text(); // read as text first for better error logging
@@ -118,7 +118,7 @@ export default function CreateQuiz() {
       if (!res.ok) throw new Error(`Upload failed: ${res.status} ${text}`);
 
       const data = JSON.parse(text);
-      // ✅ functional updater — no stale closure
+      //  functional updater — no stale closure
       updateQuestion(index, { imageUrl: data.url, uploading: false });
 
     } catch (err) {
@@ -176,7 +176,7 @@ export default function CreateQuiz() {
             quizId,
             question:       q.questionText,
             options:        q.options,
-            correct_answer: q.options[q.correctAnswer], // ✅ text not index
+            correct_answer: q.options[q.correctAnswer], //  text not index
             explanation:    q.explanation,
             imageUrl:       q.imageUrl || null,
           }),
