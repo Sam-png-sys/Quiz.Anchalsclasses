@@ -8,6 +8,7 @@ from app.routes.quiz_routes import router as quiz_router
 from app.routes.attempt_routes import router as attempt_router
 from app.routes.admin_routes import router as admin_router
 from app.routes.admin_routes import router as admin_profile_router 
+from app.routes.ai_routes import router as ai_router
 
 load_dotenv()
 
@@ -39,6 +40,7 @@ app.include_router(quiz_router)
 app.include_router(attempt_router)
 app.include_router(admin_router)
 app.include_router(admin_profile_router)  # ✅ new
+app.include_router(ai_router)
 
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.get("/")

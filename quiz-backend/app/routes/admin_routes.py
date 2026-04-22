@@ -51,6 +51,58 @@ def get_user_from_token(admin: dict):
     return user
 
 
+def serialize_value(value):
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [serialize_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: serialize_value(item) for key, item in value.items()}
+    return value
+
+
+def build_student_record(student):
+    student_id = str(student["_id"])
+    submitted_attempts = list(attempt_collection.find({
+        "userId": student_id,
+        "submittedAt": {"$ne": None}
+    }))
+
+    scored_attempts = []
+    for attempt in submitted_attempts:
+        total_questions = len(attempt.get("questions", []))
+        score = attempt.get("score", 0)
+        percent = round((score / total_questions) * 100) if total_questions else 0
+        scored_attempts.append({
+            "_id": attempt.get("_id"),
+            "quizId": attempt.get("quizId"),
+            "score": score,
+            "totalQuestions": total_questions,
+            "percentage": percent,
+            "submittedAt": attempt.get("submittedAt"),
+        })
+
+    avg_score = (
+        round(sum(a["percentage"] for a in scored_attempts) / len(scored_attempts))
+        if scored_attempts else 0
+    )
+
+    record = {k: v for k, v in student.items() if k != "password"}
+    record["_id"] = student_id
+    record["isActive"] = student.get("isActive", True)
+    record["avgScore"] = avg_score
+    record["totalAttempts"] = len(scored_attempts)
+    record["attempts"] = scored_attempts
+    return serialize_value(record)
+
+
+def get_student_records():
+    students = list(users_collection.find({"role": "student"}))
+    return [build_student_record(student) for student in students]
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PROFILE
 # ══════════════════════════════════════════════════════════════════════════════
@@ -285,10 +337,22 @@ def update_quiz(quiz_id: str, data: dict, admin=Depends(admin_only)):
 
 @router.get("/students")
 def get_students(admin=Depends(admin_only)):
-    students = list(users_collection.find({"role": "student"}, {"password": 0}))
-    for s in students:
-        s["_id"] = str(s["_id"])
-    return students
+    return get_student_records()
+
+
+@router.get("/students/export")
+def export_students(admin=Depends(admin_only)):
+    students = get_student_records()
+    return {
+        "exportedAt": datetime.utcnow().isoformat(),
+        "summary": {
+            "totalStudents": len(students),
+            "activeStudents": len([s for s in students if s.get("isActive", True)]),
+            "inactiveStudents": len([s for s in students if not s.get("isActive", True)]),
+            "totalAttempts": sum(s.get("totalAttempts", 0) for s in students),
+        },
+        "students": students
+    }
 
 
 @router.get("/analytics/{quiz_id}")

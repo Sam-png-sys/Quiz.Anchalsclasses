@@ -12,3 +12,4 @@ certifi==2024.2.2
 cloudinary==1.40.0
 python-multipart==0.0.9
 standard-imghdr
+openai>=2.0.0

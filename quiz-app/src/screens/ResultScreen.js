@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,19 @@ import {
   Animated,
   StatusBar,
   ScrollView,
-  Dimensions,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-
-const { width } = Dimensions.get("window");
+import API from "../api/client";
 
 // ─── Review card per question ─────────────────────────────────────────────────
-const ReviewCard = ({ question, userAnswer, index, delay }) => {
+const ReviewCard = ({ question, userAnswer, index, delay, quizId }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
+  const [teacherQuestion, setTeacherQuestion] = useState("");
+  const [teacherAnswer, setTeacherAnswer] = useState(question.explanation || "");
+  const [teacherLoading, setTeacherLoading] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -29,6 +32,28 @@ const ReviewCard = ({ question, userAnswer, index, delay }) => {
   const correctAnswer = question.correct_answer;
   const isCorrect = userAnswer === correctAnswer;
   const skipped = userAnswer === null || userAnswer === undefined;
+
+  const askTeacher = async (message) => {
+    try {
+      setTeacherLoading(true);
+      const res = await API.post("/ai/teacher/explain", {
+        quizId,
+        questionId: question._id || question.id,
+        message,
+      });
+      setTeacherAnswer(res.data.answer);
+    } catch (_err) {
+      setTeacherAnswer("I could not reach the AI teacher right now. Please try again.");
+    } finally {
+      setTeacherLoading(false);
+    }
+  };
+
+  const handleAsk = () => {
+    const message = teacherQuestion.trim() ||
+      `Explain why "${correctAnswer}" is the correct answer for this question.`;
+    askTeacher(message);
+  };
 
   return (
     <Animated.View style={[styles.reviewCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -65,6 +90,43 @@ const ReviewCard = ({ question, userAnswer, index, delay }) => {
         <View style={styles.reviewAnswerRow}>
           <Text style={styles.reviewAnswerLabel}>Correct: </Text>
           <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
+        </View>
+
+        <View style={styles.teacherBox}>
+          <View style={styles.teacherTop}>
+            <Text style={styles.teacherTitle}>AI Teacher</Text>
+            <TouchableOpacity
+              style={styles.teacherExplainBtn}
+              onPress={() => askTeacher(`Explain this answer for me like a teacher: ${question.question}`)}
+              disabled={teacherLoading}
+            >
+              <Text style={styles.teacherExplainTxt}>Explain</Text>
+            </TouchableOpacity>
+          </View>
+
+          {!!teacherAnswer && <Text style={styles.teacherAnswer}>{teacherAnswer}</Text>}
+
+          <View style={styles.teacherInputRow}>
+            <TextInput
+              value={teacherQuestion}
+              onChangeText={setTeacherQuestion}
+              placeholder="Ask about this topic..."
+              placeholderTextColor="#4b5563"
+              style={styles.teacherInput}
+              multiline
+            />
+            <TouchableOpacity
+              style={styles.teacherAskBtn}
+              onPress={handleAsk}
+              disabled={teacherLoading}
+            >
+              {teacherLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.teacherAskTxt}>Ask</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Animated.View>
@@ -230,6 +292,7 @@ const ResultScreen = ({ route, navigation }) => {
               userAnswer={answers[i]}
               index={i}
               delay={i * 60}
+              quizId={quizId}
             />
           ))}
         </Animated.View>
@@ -319,4 +382,48 @@ const styles = StyleSheet.create({
   reviewAnswerLabel: { color: "#6b7280", fontSize: 12, fontWeight: "600" },
   reviewAnswerCorrect: { color: "#6ee7b7", fontSize: 12, fontWeight: "700", flex: 1 },
   reviewAnswerWrong: { color: "#fca5a5", fontSize: 12, fontWeight: "700", flex: 1 },
+  teacherBox: {
+    marginTop: 14,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "rgba(8,145,178,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.18)",
+  },
+  teacherTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  teacherTitle: { color: "#67e8f9", fontSize: 12, fontWeight: "800" },
+  teacherExplainBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(8,145,178,0.22)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.25)",
+  },
+  teacherExplainTxt: { color: "#a5f3fc", fontSize: 11, fontWeight: "700" },
+  teacherAnswer: { color: "#d1d5db", fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  teacherInputRow: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
+  teacherInput: {
+    flex: 1,
+    minHeight: 38,
+    maxHeight: 86,
+    color: "#fff",
+    fontSize: 12,
+    lineHeight: 17,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  teacherAskBtn: {
+    width: 48,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0891b2",
+  },
+  teacherAskTxt: { color: "#fff", fontSize: 12, fontWeight: "800" },
 });

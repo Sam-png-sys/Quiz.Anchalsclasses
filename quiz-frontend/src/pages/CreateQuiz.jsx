@@ -4,7 +4,7 @@ import {
   PlusCircle, Trash2, ChevronDown, ChevronUp,
   CheckCircle2, BookOpen, Clock, AlignLeft,
   Lightbulb, Save, ArrowLeft, GraduationCap, BarChart2,
-  ImagePlus, X,
+  ImagePlus, X, FileText, Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
@@ -46,6 +46,9 @@ export default function CreateQuiz() {
   });
   const [questions, setQuestions] = useState([newQuestion()]);
   const [loading, setLoading]     = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPdf, setAiPdf] = useState(null);
+  const [aiQuestionCount, setAiQuestionCount] = useState(10);
   const [collapsed, setCollapsed] = useState({});
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -130,6 +133,46 @@ export default function CreateQuiz() {
 
   const removeImage = (index) =>
     updateQuestion(index, { imageUrl: null, imagePreview: null });
+
+  const handleAIGenerateQuiz = async () => {
+    if (!aiPdf) { alert("Please select a PDF first"); return; }
+    if (!quiz.title.trim()) { alert("Quiz title is required"); return; }
+    if (!quiz.course.trim()) { alert("Course name is required"); return; }
+    if (!quiz.difficulty) { alert("Please select a difficulty level"); return; }
+    if (!quiz.duration) { alert("Duration is required"); return; }
+
+    try {
+      setAiLoading(true);
+      const formData = new FormData();
+      formData.append("file", aiPdf);
+      formData.append("title", quiz.title);
+      formData.append("description", quiz.description);
+      formData.append("course", quiz.course);
+      formData.append("difficulty", quiz.difficulty);
+      formData.append("duration", Number(quiz.duration));
+      formData.append("questionCount", Number(aiQuestionCount));
+
+      const res = await fetch(`${API_BASE}/ai/admin/generate-quiz`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "AI quiz generation failed");
+
+      alert(`AI created quiz with ${data.totalQuestions} questions`);
+      setAiPdf(null);
+      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "" });
+      setQuestions([newQuestion()]);
+      navigate("/quizzes");
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
@@ -266,6 +309,56 @@ export default function CreateQuiz() {
                     })}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AI PDF Generator */}
+          <div className="bg-[#0c0c18] border border-cyan-500/15 rounded-2xl p-6 mb-5">
+            <div className="flex items-center gap-2 mb-5">
+              <Sparkles size={15} className="text-cyan-400" />
+              <h2 className="text-[14px] font-bold text-white">AI Quiz Generator</h2>
+            </div>
+
+            <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
+              <div>
+                <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">
+                  PDF Context
+                </label>
+                <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-dashed border-white/[0.10] cursor-pointer hover:border-cyan-500/35 hover:bg-cyan-500/[0.03] transition-all">
+                  <FileText size={18} className="text-cyan-400" />
+                  <span className="text-[13px] text-white/60 truncate">
+                    {aiPdf ? aiPdf.name : "Choose PDF to generate quiz"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={e => setAiPdf(e.target.files?.[0] || null)}
+                  />
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <Field icon={<CheckCircle2 size={14} className="text-cyan-400/60" />} label="Questions">
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={aiQuestionCount}
+                    onChange={e => setAiQuestionCount(e.target.value)}
+                    className="w-20 bg-transparent text-[14px] text-white outline-none"
+                  />
+                </Field>
+
+                <button
+                  onClick={handleAIGenerateQuiz}
+                  disabled={aiLoading}
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-cyan-500 text-white text-[13px] font-bold hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <Sparkles size={15} />
+                  {aiLoading ? "Generating..." : "Generate"}
+                </button>
               </div>
             </div>
           </div>

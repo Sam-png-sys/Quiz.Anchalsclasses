@@ -36,6 +36,7 @@ export default function Students() {
   const [filterTag, setFilterTag] = useState("All");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, avgScore: 0 });
 
   useEffect(() => { fetchStudents(); }, []);
@@ -83,6 +84,30 @@ export default function Students() {
       });
       setStudents(prev => prev.map(s => (s._id || s.id) === id ? { ...s, isActive: !current } : s));
     } catch { alert("Failed to update access"); }
+  };
+
+  const exportStudents = async () => {
+    try {
+      setExporting(true);
+      const data = await apiRequest("/admin/students/export");
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `students-export-${date}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export students");
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Filter + sort
@@ -133,8 +158,12 @@ export default function Students() {
             </div>
           </div>
 
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white/60 hover:text-white text-sm font-semibold transition-all">
-            <Download size={15} /> Export
+          <button
+            onClick={exportStudents}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white/60 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-all"
+          >
+            <Download size={15} /> {exporting ? "Exporting..." : "Export"}
           </button>
 
         </div>
