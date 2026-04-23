@@ -8,8 +8,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://192.168.1.8:8000";
+import { API_BASE } from "../utils/config";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },

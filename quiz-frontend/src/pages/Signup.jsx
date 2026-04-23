@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { API_BASE } from "../utils/config";
 
 export default function Signup() {
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function Signup() {
     try {
       setLoading(true);
 
-      const res = await fetch("http://127.0.0.1:8000/auth/signup", {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -64,7 +65,7 @@ export default function Signup() {
   try {
     setLoading(true);
 
-    const res = await fetch("http://127.0.0.1:8000/auth/verify-otp", {
+    const res = await fetch(`${API_BASE}/auth/verify-otp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

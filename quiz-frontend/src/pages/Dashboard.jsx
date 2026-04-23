@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
+import { API_BASE } from "../utils/config";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -41,7 +42,7 @@ export default function Dashboard() {
   const userName = user?.name || user?.email?.split("@")[0] || "User";
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/admin/top-students", {
+    fetch(`${API_BASE}/admin/top-students`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(res => res.json())
@@ -54,7 +55,7 @@ export default function Dashboard() {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const res = await fetch("http://127.0.0.1:8000/admin/stats", {
+        const res = await fetch(`${API_BASE}/admin/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

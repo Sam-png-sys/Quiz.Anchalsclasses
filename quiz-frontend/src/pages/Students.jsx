@@ -9,6 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
+import { API_BASE } from "../utils/config";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.04 } } };
@@ -77,7 +78,7 @@ export default function Students() {
 
   const toggleAccess = async (id, current) => {
     try {
-      await fetch(`http://127.0.0.1:8000/admin/students/${id}/access`, {
+      await fetch(`${API_BASE}/admin/students/${id}/access`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isActive: !current }),

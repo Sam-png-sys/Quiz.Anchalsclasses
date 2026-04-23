@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { API_BASE } from "../utils/config";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function Login() {
     try {
       setLoading(true);
 
-      const res = await fetch("http://127.0.0.1:8000/auth/login", {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -56,7 +57,7 @@ export default function Login() {
     try {
       setLoading(true);
 
-      const res = await fetch("http://127.0.0.1:8000/auth/verify-otp", {
+      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

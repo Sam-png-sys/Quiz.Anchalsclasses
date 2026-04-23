@@ -8,9 +8,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
-
-// ✅ Change this to your droplet IP or domain after deployment
-const API_BASE = import.meta.env.VITE_API_URL || "http://192.168.1.8:8000";
+import { API_BASE } from "../utils/config";
 
 function decodeToken(token) {
   try { return JSON.parse(atob(token.split(".")[1])); }

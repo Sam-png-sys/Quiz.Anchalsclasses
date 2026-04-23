@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
 import { ArrowLeft } from "lucide-react";
+import { API_BASE } from "../utils/config";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
@@ -93,7 +94,7 @@ export default function QuizList() {
   const handleToggleStatus = async (quiz) => {
     const id = quiz._id || quiz.id;
     try {
-      await fetch(`http://127.0.0.1:8000/admin/quiz/${id}/toggle`, {
+      await fetch(`${API_BASE}/admin/quiz/${id}/toggle`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });

@@ -8,6 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
+import { API_BASE } from "../utils/config";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.07 } } };
@@ -65,7 +66,7 @@ export default function Courses() {
     if (!form.title.trim()) { alert("Title required"); return; }
     setSaving(true);
     try {
-      const url = editing ? `http://127.0.0.1:8000/admin/course/${editing}` : "http://127.0.0.1:8000/admin/course";
+      const url = editing ? `${API_BASE}/admin/course/${editing}` : `${API_BASE}/admin/course`;
       const method = editing ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
@@ -84,7 +85,7 @@ export default function Courses() {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`http://127.0.0.1:8000/admin/course/${id}`, {
+      await fetch(`${API_BASE}/admin/course/${id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` },
       });
       setCourses(prev => prev.filter(c => (c._id || c.id) !== id));
