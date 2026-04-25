@@ -98,6 +98,7 @@ const HomeScreen = ({ navigation }) => {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
   const headerFade = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(-20)).current;
@@ -111,13 +112,16 @@ const HomeScreen = ({ navigation }) => {
 
   const fetchQuizzes = async () => {
     try {
-      const res = await API.get("/quiz?page=1&limit=10");
+      setError("");
+      const res = await API.get("/quiz/?page=1&limit=10");
       if (Array.isArray(res.data)) setQuizzes(res.data);
       else if (Array.isArray(res.data.quizzes)) setQuizzes(res.data.quizzes);
       else if (Array.isArray(res.data.data)) setQuizzes(res.data.data);
       else setQuizzes([]);
-    } catch {
+    } catch (error) {
       setQuizzes([]);
+      const detail = error.response?.data?.detail;
+      setError(detail || "Could not load quizzes.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -200,8 +204,10 @@ const HomeScreen = ({ navigation }) => {
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyIcon}>🎯</Text>
-            <Text style={styles.emptyTitle}>No quizzes yet</Text>
-            <Text style={styles.emptySubtitle}>Check back soon for new challenges</Text>
+            <Text style={styles.emptyTitle}>{error ? "Unable to load quizzes" : "No quizzes yet"}</Text>
+            <Text style={styles.emptySubtitle}>
+              {error || "Check back soon for new challenges"}
+            </Text>
           </View>
         }
         contentContainerStyle={styles.listContent}

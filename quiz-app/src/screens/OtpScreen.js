@@ -85,29 +85,12 @@ const OtpScreen = ({ navigation }) => {
         //console.log("OTP:", finalOtp);
 
         try {
-            const response = await fetch(
-                "http://192.168.1.8:8000/auth/verify-otp",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        email: email.trim(),
-                        otp: finalOtp,
-                    }),
-                }
-            );
+            const response = await API.post("/auth/verify-otp", {
+                email: email.trim(),
+                otp: finalOtp,
+            });
 
-            const data = await response.json();
-
-            //console.log("✅ VERIFY RESPONSE:", data);
-
-            if (!response.ok) {
-                throw new Error(data.detail || "Invalid OTP");
-            }
-
-            const token = data.access_token;
+            const token = response.data.access_token;
 
             await AsyncStorage.setItem("token", token);
             setUserToken(token);
@@ -116,7 +99,7 @@ const OtpScreen = ({ navigation }) => {
 
         } catch (error) {
             console.log("❌ VERIFY ERROR:", error);
-            alert(error.message);
+            alert(error.response?.data?.detail || error.message || "Invalid OTP");
         }
     };
 

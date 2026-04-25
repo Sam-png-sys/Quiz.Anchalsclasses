@@ -174,37 +174,22 @@ const LoginScreen = ({ navigation }) => {
 
     const handleLogin = async () => {
         console.log("🔥 LOGIN CLICKED");
-        console.log("FULL URL:", `http://192.168.1.8:8000/auth/login`);
+        console.log("FULL URL:", `${API.defaults.baseURL}/auth/login`);
 
         try {
-            const response = await fetch(
-                "http://192.168.1.8:8000/auth/login",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        email: email.trim(),
-                        password: password.trim(),
-                    }),
-                }
-            );
+            const response = await API.post("/auth/login", {
+                email: email.trim(),
+                password: password.trim(),
+            });
 
-            const data = await response.json();
-
-            console.log("✅ FETCH RESPONSE:", data);
-
-            if (!response.ok) {
-                throw new Error(data.detail || "Login failed");
-            }
+            console.log("✅ FETCH RESPONSE:", response.data);
 
             setEmail(email.trim());
             navigation.navigate("Otp");
 
         } catch (error) {
             console.log("❌ FETCH ERROR:", error);
-            alert(error.message);
+            alert(error.response?.data?.detail || error.message || "Login failed");
         }
     };
 
@@ -375,9 +360,7 @@ const styles = StyleSheet.create({
     grid: {
         ...StyleSheet.absoluteFillObject,
         opacity: 0.04,
-        backgroundImage:
-            "radial-gradient(circle, #ffffff 1px, transparent 1px)",
-        backgroundSize: "28px 28px",
+        backgroundColor: "rgba(255,255,255,0.02)",
     },
 
     kav: { flex: 1 },

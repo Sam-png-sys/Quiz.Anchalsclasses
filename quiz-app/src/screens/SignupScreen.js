@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
+import { AuthContext } from "../context/AuthContext";
 
 const { height } = Dimensions.get("window");
 
@@ -89,8 +90,10 @@ const StrengthBar = ({ password }) => {
 };
 
 const SignUpScreen = ({ navigation }) => {
+  const { setEmail: setSignupEmail } = useContext(AuthContext);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -120,19 +123,23 @@ const SignUpScreen = ({ navigation }) => {
   const handleSignUp = async () => {
     if (!name.trim()) return Alert.alert("", "Please enter your name");
     if (!email.trim()) return Alert.alert("", "Please enter your email");
+    if (!/^\d{10}$/.test(phone.trim())) return Alert.alert("", "Please enter a valid 10-digit phone number");
     if (password.length < 6) return Alert.alert("", "Password must be at least 6 characters");
     if (password !== confirm) return Alert.alert("", "Passwords do not match");
     if (!agreed) return Alert.alert("", "Please accept the terms to continue");
 
     setLoading(true);
     try {
-      await API.post("/auth/register", {
+      await API.post("/auth/signup", {
         name: name.trim(),
         email: email.trim(),
+        phone: phone.trim(),
         password: password.trim(),
+        role: "student",
       });
-      Alert.alert("Account created!", "Please log in to continue.", [
-        { text: "Go to Login", onPress: () => navigation.replace("Login") },
+      setSignupEmail(email.trim());
+      Alert.alert("OTP sent", "Please verify your email to continue.", [
+        { text: "Verify", onPress: () => navigation.navigate("Otp") },
       ]);
     } catch (error) {
       Alert.alert("Error", error.response?.data?.detail || "Registration failed");
@@ -192,6 +199,12 @@ const SignUpScreen = ({ navigation }) => {
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
+              />
+              <FloatingInput
+                label="Phone number"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="number-pad"
               />
               <View>
                 <FloatingInput

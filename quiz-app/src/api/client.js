@@ -1,9 +1,7 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ⚠️  Run `ipconfig` (Windows) or `ifconfig` (Mac/Linux) and paste your
-//     WiFi IPv4 address below. Must match the machine running uvicorn.
-const BASE_URL = "http://192.168.1.8:8000"; // <-- update this if your IP changed
+const BASE_URL = "https://dranchalclasses.in/api";
 
 const API = axios.create({
   baseURL: BASE_URL,
@@ -31,7 +29,7 @@ API.interceptors.request.use(
 // Log every response/error so you can see exactly what's happening
 API.interceptors.response.use(
   (response) => {
-    console.log("RESPONSE ✅", response.status, response.config.url);
+    console.log("RESPONSE ", response.status, response.config.url);
     return response;
   },
   (error) => {
