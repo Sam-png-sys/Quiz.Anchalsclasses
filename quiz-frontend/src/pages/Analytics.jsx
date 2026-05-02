@@ -3,10 +3,10 @@ import { motion } from "framer-motion";
 import {
   Search, Users, TrendingUp, BarChart3
 } from "lucide-react";
-import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import AdminShell from "../components/AdminShell";
 
 export default function AnalyticsList() {
 
@@ -63,8 +63,7 @@ export default function AnalyticsList() {
 
   return (
 
-    <div className="min-h-screen bg-[#080810] text-white flex flex-col">
-      <Navbar />
+    <AdminShell>
 
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
@@ -144,6 +143,6 @@ export default function AnalyticsList() {
           </div>
         )}
       </main>
-    </div>
+    </AdminShell>
   );
 }

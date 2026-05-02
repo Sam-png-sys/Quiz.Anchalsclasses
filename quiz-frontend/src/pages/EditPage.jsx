@@ -8,8 +8,8 @@ import {
     RotateCcw,
 } from "lucide-react";
 import { apiRequest } from "../utils/api";
-import Navbar from "./Navbar";
 import { Toaster } from "react-hot-toast";
+import AdminShell from "../components/AdminShell";
 
 const fadeUp = {
     hidden: { opacity: 0, y: 12 },
@@ -30,10 +30,10 @@ function newQuestion() {
 // ── Reusable field wrapper ────────────────────────────────────────────────────
 function Field({ icon, label, children }) {
     return (
-        <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 focus-within:bg-cyan-500/[0.03] transition-all duration-200">
+        <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
             <div className="mt-0.5 flex-shrink-0">{icon}</div>
             <div className="flex-1 min-w-0">
-                <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-1">{label}</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest block mb-1" style={{ color: "var(--app-text-subtle)" }}>{label}</label>
                 {children}
             </div>
         </div>
@@ -141,8 +141,7 @@ export default function EditQuiz() {
     // ── Loading skeleton ──
     if (fetching) {
         return (
-            <div className="h-screen flex flex-col bg-[#080810] text-white overflow-hidden">
-                <Navbar />
+            <AdminShell>
                 <div className="flex-1 flex items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center animate-pulse">
@@ -151,17 +150,14 @@ export default function EditQuiz() {
                         <p className="text-[13px] text-white/30 font-medium">Loading quiz…</p>
                     </div>
                 </div>
-            </div>
+            </AdminShell>
         );
     }
 
     if (!quiz) return null;
 
     return (
-        <div className="h-screen flex flex-col bg-[#080810] text-white overflow-hidden">
-            <Navbar />
-
-            <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
+        <AdminShell contentRef={scrollRef}>
                 <div className="max-w-3xl mx-auto w-full px-4 py-8">
 
                     {/* ── Page header ── */}
@@ -183,7 +179,7 @@ export default function EditQuiz() {
                             ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
                             : "text-white/20 bg-white/[0.03] border-white/[0.06]"
                             }`}>
-                            {saved ? "✓ Saved" : "Unsaved"}
+                            {saved ? "Saved" : "Unsaved"}
                         </div>
                     </div>
 
@@ -332,7 +328,7 @@ export default function EditQuiz() {
 
                                             {/* Options */}
                                             <div>
-                                                <label className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-3 block">
+                                                <label className="text-[11px] font-bold uppercase tracking-widest mb-3 block" style={{ color: "var(--app-text-subtle)" }}>
                                                     Options — click radio to mark correct answer
                                                 </label>
                                                 <div className="flex flex-col gap-2">
@@ -341,30 +337,30 @@ export default function EditQuiz() {
                                                         return (
                                                             <div
                                                                 key={i}
-                                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200
-                                  ${isCorrect
-                                                                        ? "border-cyan-500/40 bg-cyan-500/[0.08]"
-                                                                        : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.10]"}`}
+                                                                className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                                                                style={isCorrect
+                                                                    ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" }
+                                                                    : { borderColor: "var(--app-border)", background: "var(--app-input)" }}
                                                             >
                                                                 <button
                                                                     onClick={() => handleQuestionChange(index, "correctAnswer", i)}
-                                                                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                    ${isCorrect ? "border-cyan-400 bg-cyan-400" : "border-white/20 hover:border-cyan-400/50"}`}
+                                                                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                                                                    style={isCorrect ? { borderColor: "var(--accent)", background: "var(--accent)" } : { borderColor: "var(--app-text-ghost)" }}
                                                                 >
                                                                     {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
                                                                 </button>
-                                                                <span className={`text-[12px] font-bold flex-shrink-0 w-5 ${isCorrect ? "text-cyan-400" : "text-white/25"}`}>
+                                                                <span className="text-[12px] font-bold flex-shrink-0 w-5" style={{ color: isCorrect ? "var(--accent)" : "var(--app-text-subtle)" }}>
                                                                     {String.fromCharCode(65 + i)}
                                                                 </span>
                                                                 <input
                                                                     value={opt ?? ""}
                                                                     onChange={e => handleOptionChange(index, i, e.target.value)}
                                                                     placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                                                                    className={`flex-1 bg-transparent text-[13px] outline-none placeholder:text-white/20
-                                    ${isCorrect ? "text-cyan-300" : "text-white/70"}`}
+                                                                    className="flex-1 bg-transparent text-[13px] outline-none"
+                                                                    style={{ color: isCorrect ? "var(--accent-strong)" : "var(--app-text)" }}
                                                                 />
                                                                 {isCorrect && (
-                                                                    <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20 flex-shrink-0">
+                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0" style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}>
                                                                         Correct
                                                                     </span>
                                                                 )}
@@ -413,7 +409,8 @@ export default function EditQuiz() {
                         <button
                             onClick={handleSave}
                             disabled={loading}
-                            className="flex-[2] flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-[15px] hover:opacity-90 hover:shadow-xl hover:shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
+                            className="flex-[2] flex items-center justify-center gap-2.5 py-4 rounded-2xl text-white font-bold text-[15px] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
+                            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 22px 38px var(--accent-glow)" }}
                         >
                             {loading ? (
                                 <>
@@ -431,7 +428,6 @@ export default function EditQuiz() {
 
                     <div className="h-8" />
                 </div>
-            </div>
-        </div>
+        </AdminShell>
     );
 }

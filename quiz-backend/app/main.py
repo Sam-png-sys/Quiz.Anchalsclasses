@@ -39,7 +39,7 @@ app.include_router(auth_router)
 app.include_router(quiz_router)
 app.include_router(attempt_router)
 app.include_router(admin_router)
-app.include_router(admin_profile_router)  # ✅ new
+app.include_router(admin_profile_router)
 app.include_router(ai_router)
 
 # ── Health check ──────────────────────────────────────────────────────────────

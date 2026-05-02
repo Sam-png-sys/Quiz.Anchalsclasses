@@ -28,7 +28,7 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId }) => {
     ]).start();
   }, []);
 
-  // ✅ FIX: field is `correct_answer` (normalized in backend)
+  // field is `correct_answer` (normalized in backend)
   const correctAnswer = question.correct_answer;
   const isCorrect = userAnswer === correctAnswer;
   const skipped = userAnswer === null || userAnswer === undefined;
@@ -73,12 +73,12 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId }) => {
               styles.reviewChipTxt,
               skipped ? styles.chipTxtSkipped : isCorrect ? styles.chipTxtCorrect : styles.chipTxtWrong,
             ]}>
-              {skipped ? "⏱ Skipped" : isCorrect ? "✓ Correct" : "✗ Wrong"}
+              {skipped ? "Skipped" : isCorrect ? "Correct" : "Wrong"}
             </Text>
           </View>
         </View>
 
-        {/* ✅ FIX: field is `question` (normalized in backend) */}
+        {/* field is `question` (normalized in backend) */}
         <Text style={styles.reviewQuestion} numberOfLines={3}>{question.question}</Text>
 
         {!skipped && !isCorrect && (
@@ -137,7 +137,7 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId }) => {
 const ResultScreen = ({ route, navigation }) => {
   const { answers, questions, quizId } = route.params;
 
-  // ✅ FIX: Compare user answer (option text) with correct_answer (option text)
+  // Compare user answer (option text) with correct_answer (option text)
   //    Both are now strings from the options array — apples to apples.
   let score = 0;
   questions.forEach((q, i) => {
@@ -154,12 +154,12 @@ const ResultScreen = ({ route, navigation }) => {
   const wrong = total - score - skipped;
 
   const grade = pct >= 80
-    ? { label: "Excellent!", emoji: "🏆", colors: ["#059669", "#10b981"], textColor: "#6ee7b7" }
+    ? { label: "Excellent!", emoji: "", colors: ["#059669", "#10b981"], textColor: "#6ee7b7" }
     : pct >= 60
       ? { label: "Good Job!", emoji: "⭐", colors: ["#d97706", "#f59e0b"], textColor: "#fcd34d" }
       : pct >= 40
-        ? { label: "Keep Going!", emoji: "💪", colors: ["#7c3aed", "#9333ea"], textColor: "#a78bfa" }
-        : { label: "Try Again!", emoji: "🔄", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
+        ? { label: "Keep Going!", emoji: "", colors: ["#7c3aed", "#9333ea"], textColor: "#a78bfa" }
+        : { label: "Try Again!", emoji: "", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
 
   const headerFade = useRef(new Animated.Value(0)).current;
   const scoreScale = useRef(new Animated.Value(0.6)).current;
@@ -232,12 +232,12 @@ const ResultScreen = ({ route, navigation }) => {
         {/* Stats row */}
         <Animated.View style={[styles.statsRow, { opacity: statsFade, transform: [{ translateY: statsSlide }] }]}>
           <View style={[styles.statCard, styles.statCardCorrect]}>
-            <Text style={styles.statEmoji}>✓</Text>
+            <Text style={styles.statEmoji}>OK</Text>
             <Text style={[styles.statNum, { color: "#6ee7b7" }]}>{score}</Text>
             <Text style={styles.statLbl}>Correct</Text>
           </View>
           <View style={[styles.statCard, styles.statCardWrong]}>
-            <Text style={styles.statEmoji}>✗</Text>
+            <Text style={styles.statEmoji}>No</Text>
             <Text style={[styles.statNum, { color: "#fca5a5" }]}>{wrong}</Text>
             <Text style={styles.statLbl}>Wrong</Text>
           </View>

@@ -71,7 +71,7 @@ const QuizCard = ({ item, index, onPress }) => {
             <View style={styles.metaRow}>
               {item.question_count != null && (
                 <View style={styles.metaPill}>
-                  <Text style={styles.metaText}>📝 {item.question_count} Qs</Text>
+                  <Text style={styles.metaText}>{item.question_count} Qs</Text>
                 </View>
               )}
               {item.duration != null && (
@@ -136,7 +136,7 @@ const HomeScreen = ({ navigation }) => {
     <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
       <View style={styles.headerTop}>
         <View>
-          <Text style={styles.greeting}>Good day 👋</Text>
+          <Text style={styles.greeting}>Good day</Text>
           <Text style={styles.headerTitle}>Your Quizzes</Text>
         </View>
         <TouchableOpacity style={styles.avatarBtn}>
@@ -203,7 +203,7 @@ const HomeScreen = ({ navigation }) => {
         ListHeaderComponent={<ListHeader />}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyIcon}>🎯</Text>
+            <Text style={styles.emptyIcon}>No quizzes</Text>
             <Text style={styles.emptyTitle}>{error ? "Unable to load quizzes" : "No quizzes yet"}</Text>
             <Text style={styles.emptySubtitle}>
               {error || "Check back soon for new challenges"}

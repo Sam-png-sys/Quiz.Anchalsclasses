@@ -18,7 +18,7 @@ export default function Signup() {
     password: "",
   });
 
-  const [signupEmail, setSignupEmail] = useState(""); // 🔥 NEW
+  const [signupEmail, setSignupEmail] = useState("");
 
   const [step, setStep] = useState("form");
   const [otp, setOtp] = useState("");
@@ -47,7 +47,7 @@ export default function Signup() {
         return;
       }
 
-      // 🔥 FIX: LOCK EMAIL
+      // Lock email
       setSignupEmail(form.email.trim());
 
       setStep("otp");
@@ -83,7 +83,7 @@ export default function Signup() {
       return;
     }
 
-    // 🔥 NEW FLOW
+    // New flow
     alert("Signup successful! Please login.");
 
     window.location.href = "/login";

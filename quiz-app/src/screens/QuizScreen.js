@@ -94,7 +94,7 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => 
         </Text>
         {selected && (
           <View style={styles.optCheckWrap}>
-            <Text style={styles.optCheck}>✓</Text>
+            <Text style={styles.optCheck}>OK</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -113,7 +113,7 @@ const QuizScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(30);
 
-  // ✅ FIX 1: answersRef mirrors the answers state so the timer interval
+  // answersRef mirrors the answers state so the timer interval
   //    always reads the latest value (no stale closure).
   const answersRef = useRef({});
 
@@ -126,7 +126,7 @@ const QuizScreen = ({ route, navigation }) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
-  // ✅ Helper: always update both state and ref together
+  // Helper: always update both state and ref together
   const saveAnswers = (newAnswers) => {
     answersRef.current = newAnswers;
     setAnswers(newAnswers);
@@ -180,7 +180,7 @@ const QuizScreen = ({ route, navigation }) => {
         if (t <= 1) {
           clearInterval(timerRef.current);
           setCurrent((c) => {
-            // ✅ FIX 2: Use answersRef.current (not stale `answers`) so
+            // Use answersRef.current (not stale `answers`) so
             //    previously saved answers are NOT lost when timer fires.
             const newAnswers = { ...answersRef.current, [c]: null };
             if (c < questions.length - 1) {
@@ -203,7 +203,7 @@ const QuizScreen = ({ route, navigation }) => {
   // ── Go to next question / submit ──
   const goNext = () => {
     clearInterval(timerRef.current);
-    // ✅ FIX 3: Use answersRef.current here too for consistency
+    // Use answersRef.current here too for consistency
     const newAnswers = { ...answersRef.current, [current]: selected };
     saveAnswers(newAnswers);
 
@@ -221,7 +221,7 @@ const QuizScreen = ({ route, navigation }) => {
   const isLast = current === questions.length - 1;
   const canProceed = selected !== null;
 
-  // ✅ FIX 4: Backend now returns `options` as array — this stays the same
+  // Backend now returns `options` as array — this stays the same
   const options = Array.isArray(q?.options) ? q.options : [];
 
   if (loading || !q) {
@@ -232,7 +232,7 @@ const QuizScreen = ({ route, navigation }) => {
         <View style={styles.loaderOrb}>
           <LinearGradient colors={["#7c3aed", "#4f46e5"]} style={{ flex: 1, borderRadius: 999 }} />
         </View>
-        <Text style={styles.loaderEmoji}>🎯</Text>
+        <Text style={styles.loaderEmoji}>Loading</Text>
         <Text style={styles.loaderTitle}>Loading Quiz</Text>
         <Text style={styles.loaderSub}>Preparing your questions…</Text>
       </View>
@@ -257,7 +257,7 @@ const QuizScreen = ({ route, navigation }) => {
             ])
           }
         >
-          <Text style={styles.exitIcon}>✕</Text>
+          <Text style={styles.exitIcon}>X</Text>
         </TouchableOpacity>
 
         <View style={styles.progressWrap}>
@@ -309,12 +309,12 @@ const QuizScreen = ({ route, navigation }) => {
             </View>
             {selected && (
               <View style={styles.selBadge}>
-                <Text style={styles.selBadgeTxt}>Selected ✓</Text>
+                <Text style={styles.selBadgeTxt}>Selected</Text>
               </View>
             )}
           </View>
           <LinearGradient colors={palette.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.qLine} />
-          {/* ✅ FIX 5: field is now always `question` (normalized in backend) */}
+          {/* Field is now always `question` (normalized in backend) */}
           <Text style={styles.questionTxt}>{q.question}</Text>
         </Animated.View>
 
@@ -348,7 +348,7 @@ const QuizScreen = ({ route, navigation }) => {
               style={styles.nextBtn}
             >
               <Text style={[styles.nextBtnTxt, !canProceed && styles.nextBtnTxtDim]}>
-                {isLast ? "Submit Quiz 🏆" : "Next Question →"}
+                {isLast ? "Submit Quiz" : "Next Question"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

@@ -6,10 +6,10 @@ import {
   ArrowUpDown, TrendingUp, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
 import { ArrowLeft } from "lucide-react";
 import { API_BASE } from "../utils/config";
+import AdminShell from "../components/AdminShell";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
@@ -55,7 +55,7 @@ export default function QuizList() {
 
       const data = await apiRequest("/admin/courses");
 
-      // 🔥 Normalize backend data to match UI
+      // Normalize backend data to match UI
       const formatted = data.map((q) => ({
         ...q,
         id: q._id,
@@ -130,8 +130,7 @@ export default function QuizList() {
   const activeFilters = [filterTag, filterDiff, filterStatus].filter(f => f !== "All").length;
 
   return (
-    <div className="min-h-screen bg-[#080810] text-white flex flex-col">
-      <Navbar />
+    <AdminShell>
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
 
         {/* Header */}
@@ -155,7 +154,8 @@ export default function QuizList() {
 
           <button
             onClick={() => navigate("/create-quiz")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 32px var(--accent-glow)" }}
           >
             <Plus size={16} /> New Quiz
           </button>
@@ -163,7 +163,7 @@ export default function QuizList() {
 
         {error && (
           <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -260,7 +260,7 @@ export default function QuizList() {
           </div>
         ) : processed.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-5xl mb-4">🔍</div>
+            <div className="text-sm font-bold uppercase tracking-widest text-white/30 mb-4">No Results</div>
             <p className="text-white/40 font-semibold">No quizzes found</p>
             <p className="text-white/20 text-sm mt-1">Try adjusting your search or filters</p>
           </div>
@@ -277,7 +277,7 @@ export default function QuizList() {
                   <div className="flex items-start justify-between mb-3">
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0
                       ${quiz.tag === "BDS" ? "bg-blue-500/10" : "bg-purple-500/10"}`}>
-                      {quiz.tag === "BDS" ? "🦷" : "🔬"}
+                      {quiz.tag === "BDS" ? "BDS" : "MDS"}
                     </div>
                     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${quiz.isOpen ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white/[0.04] text-white/25 border-white/[0.06]"}`}>
                       {quiz.isOpen ? "● Open" : "○ Closed"}
@@ -359,7 +359,7 @@ export default function QuizList() {
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
                 className="bg-[#13131f] border border-white/[0.08] rounded-3xl p-7 w-full max-w-sm shadow-2xl">
-                <div className="text-4xl mb-4">🗑️</div>
+                <div className="text-sm font-bold uppercase tracking-widest text-red-400 mb-4">Delete</div>
                 <h3 className="text-lg font-bold text-white mb-2">Delete Quiz?</h3>
                 <p className="text-sm text-white/40 mb-6 leading-relaxed">This will permanently delete the quiz and all its questions. This action cannot be undone.</p>
                 <div className="flex gap-3">
@@ -378,7 +378,7 @@ export default function QuizList() {
         </AnimatePresence>
 
       </main>
-    </div>
+    </AdminShell>
   );
 }
 

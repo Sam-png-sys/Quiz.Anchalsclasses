@@ -176,7 +176,7 @@ const SignUpScreen = ({ navigation }) => {
             {/* Logo */}
             <View style={styles.logoWrap}>
               <LinearGradient colors={["#7c3aed", "#9333ea"]} style={styles.logoGrad}>
-                <Text style={styles.logoMark}>✦</Text>
+                <Text style={styles.logoMark}>A</Text>
               </LinearGradient>
             </View>
 
@@ -236,7 +236,7 @@ const SignUpScreen = ({ navigation }) => {
             {/* Terms */}
             <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(!agreed)}>
               <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
-                {agreed && <Text style={styles.checkmark}>✓</Text>}
+                {agreed && <Text style={styles.checkmark}>Yes</Text>}
               </View>
               <Text style={styles.termsText}>
                 I agree to the{" "}

@@ -12,7 +12,7 @@ export default function ForgotPassword() {
 
   const [loading, setLoading] = useState(false);
 
-  // 🔥 SEND OTP
+  // Send OTP
   const handleSendOtp = async () => {
     try {
       setLoading(true);
@@ -29,7 +29,7 @@ export default function ForgotPassword() {
     }
   };
 
-  // 🔥 RESET PASSWORD
+  // Reset password
   const handleReset = async () => {
     try {
       setLoading(true);
@@ -40,7 +40,7 @@ export default function ForgotPassword() {
         password,
       });
 
-      alert("Password reset successful 🔥");
+      alert("Password reset successful.");
       window.location.href = "/login";
     } catch (err) {
       alert("Invalid OTP or error");
@@ -50,7 +50,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="h-screen w-full flex bg-[#0B0F1A] text-white">
+    <div className="h-screen w-full flex" style={{ background: "var(--app-bg)", color: "var(--app-text)" }}>
 
       {/* LEFT SIDE */}
       <motion.div
@@ -63,7 +63,7 @@ export default function ForgotPassword() {
           <h1 className="text-4xl font-semibold mb-2">
             Forgot Password
           </h1>
-          <p className="text-gray-400 mb-8">
+          <p className="mb-8" style={{ color: "var(--app-text-muted)" }}>
             Reset your password via OTP
           </p>
 
@@ -74,15 +74,15 @@ export default function ForgotPassword() {
                 placeholder="Enter phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full p-3 mb-6 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-cyan-400 outline-none"
+                className="w-full p-3 mb-6 rounded-lg outline-none"
+                style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text)" }}
               />
 
               <button
                 onClick={handleSendOtp}
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-cyan-400 to-blue-500 text-black rounded-lg font-semibold
-                           hover:shadow-[0_0_25px_#00E5FF80] disabled:opacity-50"
+                className="w-full py-3 rounded-lg font-semibold disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", color: "#fff", boxShadow: "0 18px 32px var(--accent-glow)" }}
               >
                 {loading ? "Sending OTP..." : "Send OTP"}
               </button>
@@ -97,8 +97,8 @@ export default function ForgotPassword() {
                 placeholder="Enter OTP"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full p-3 mb-4 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-cyan-400 outline-none text-center tracking-widest"
+                className="w-full p-3 mb-4 rounded-lg outline-none text-center tracking-widest"
+                style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text)" }}
               />
 
               <input
@@ -106,21 +106,22 @@ export default function ForgotPassword() {
                 placeholder="New Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 mb-6 bg-[#111827] border border-gray-700 rounded-lg 
-                           focus:ring-2 focus:ring-cyan-400 outline-none"
+                className="w-full p-3 mb-6 rounded-lg outline-none"
+                style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text)" }}
               />
 
               <button
                 onClick={handleReset}
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-green-400 to-emerald-500 text-black rounded-lg font-semibold
-                           disabled:opacity-50"
+                className="w-full py-3 rounded-lg font-semibold disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", color: "#fff" }}
               >
                 {loading ? "Resetting..." : "Reset Password"}
               </button>
 
               <p
-                className="text-sm text-gray-400 mt-4 text-center cursor-pointer"
+                className="text-sm mt-4 text-center cursor-pointer"
+                style={{ color: "var(--app-text-muted)" }}
                 onClick={() => setStep(1)}
               >
                 ← Go back
@@ -128,9 +129,9 @@ export default function ForgotPassword() {
             </div>
           )}
 
-          <p className="text-gray-400 text-sm mt-6 text-center">
+          <p className="text-sm mt-6 text-center" style={{ color: "var(--app-text-muted)" }}>
             Remember your password?{" "}
-            <Link to="/login" className="text-cyan-400">
+            <Link to="/login" style={{ color: "var(--accent)" }}>
               Login
             </Link>
           </p>
@@ -144,9 +145,9 @@ export default function ForgotPassword() {
         animate={{ opacity: 1, x: 0 }}
         className="w-1/2 flex items-center justify-center relative"
       >
-        <div className="absolute w-[300px] h-[300px] bg-purple-500 blur-[120px] opacity-30 rounded-full"></div>
+        <div className="absolute w-[300px] h-[300px] blur-[120px] opacity-30 rounded-full" style={{ background: "var(--accent)" }}></div>
 
-        <div className="relative w-64 h-64 rounded-full bg-gradient-to-br from-purple-600 to-cyan-400 flex items-center justify-center">
+        <div className="relative w-64 h-64 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--accent-strong), var(--accent))" }}>
           <div className="absolute bottom-0 w-full h-1/2 bg-white/10 backdrop-blur-2xl rounded-b-full"></div>
         </div>
       </motion.div>

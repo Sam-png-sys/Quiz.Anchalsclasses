@@ -7,8 +7,9 @@ import {
   Camera, Trash2, AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
 import { API_BASE } from "../utils/config";
+import { ACCENT_OPTIONS, applyTheme, getStoredAccent, getStoredTheme } from "../utils/theme";
+import AdminShell from "../components/AdminShell";
 
 function decodeToken(token) {
   try { return JSON.parse(atob(token.split(".")[1])); }
@@ -38,9 +39,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
   const [error, setError]   = useState("");
-  const [darkMode, setDarkMode] = useState(
-    document.documentElement.classList.contains("dark")
-  );
+  const [darkMode, setDarkMode] = useState(getStoredTheme() !== "light");
+  const [accent, setAccent] = useState(getStoredAccent());
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [showPass, setShowPass] = useState({ current: false, newp: false, confirm: false });
@@ -67,6 +67,11 @@ export default function Settings() {
   });
 
   const initial = profile.name?.charAt(0)?.toUpperCase() || "A";
+  const panelStyle = {
+    background: "var(--app-surface)",
+    border: "1px solid var(--app-border)",
+    boxShadow: "0 18px 36px var(--app-shadow)",
+  };
 
   const flash = () => {
     setError("");
@@ -168,11 +173,17 @@ export default function Settings() {
   };
 
   // ── Dark mode ─────────────────────────────────────────────────────────────
-  const handleToggleDark = () => {
-    const next = !darkMode;
+  const handleToggleTheme = (nextTheme) => {
+    const next = nextTheme === "dark";
     setDarkMode(next);
-    document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
+    applyTheme(next ? "dark" : "light", accent);
+  };
+
+  const handleAccentChange = (nextAccent) => {
+    setAccent(nextAccent);
+    localStorage.setItem("accent", nextAccent);
+    applyTheme(darkMode ? "dark" : "light", nextAccent);
   };
 
   // ── Delete account ────────────────────────────────────────────────────────
@@ -191,8 +202,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080810] text-white flex flex-col">
-      <Navbar />
+    <AdminShell>
 
       <div className="max-w-5xl mx-auto w-full px-4 py-8">
 
@@ -203,8 +213,8 @@ export default function Settings() {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Settings</h1>
-            <p className="text-sm text-white/35 mt-0.5">Manage your account and preferences</p>
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--app-text)" }}>Settings</h1>
+            <p className="text-sm mt-0.5" style={{ color: "var(--app-text-subtle)" }}>Manage your account and preferences</p>
           </div>
         </div>
 
@@ -212,15 +222,20 @@ export default function Settings() {
 
           {/* Sidebar */}
           <aside className="lg:w-56 flex-shrink-0">
-            <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-2 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+            <div className="rounded-2xl p-2 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible" style={panelStyle}>
               {TABS.map(({ id, label, icon: Icon }) => (
                 <button key={id} onClick={() => setTab(id)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 whitespace-nowrap
                     ${tab === id
                       ? id === "danger"
-                        ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                        : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                      : "text-white/40 hover:text-white hover:bg-white/[0.05]"}`}>
+                        ? "text-red-400 border border-red-500/20"
+                        : "border"
+                      : ""}`}
+                  style={tab === id
+                    ? id === "danger"
+                      ? { background: "rgba(239,68,68,0.10)" }
+                      : { background: "var(--accent-soft)", color: "var(--accent)", borderColor: "var(--accent-border)" }
+                    : { color: "var(--app-text-muted)" }}>
                   <Icon size={15} className="flex-shrink-0" />
                   <span className="text-[13px] font-semibold">{label}</span>
                 </button>
@@ -237,24 +252,25 @@ export default function Settings() {
                 <motion.div key="profile" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
 
                   {/* Avatar */}
-                  <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Profile Photo</SectionTitle>
                     <div className="flex items-center gap-5">
                       <div className="relative flex-shrink-0">
-                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold text-white overflow-hidden shadow-lg shadow-cyan-500/20 select-none">
+                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white overflow-hidden shadow-lg select-none" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 16px 32px var(--accent-glow)" }}>
                           {profile.avatarPreview
                             ? <img src={profile.avatarPreview} alt="avatar" className="w-full h-full object-cover" />
                             : initial}
                         </div>
                         <button onClick={() => fileRef.current?.click()}
-                          className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-xl bg-[#0c0c18] border border-white/[0.1] flex items-center justify-center text-white/50 hover:text-cyan-400 transition-all shadow-lg">
+                          className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-xl flex items-center justify-center transition-all shadow-lg"
+                          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text-muted)" }}>
                           <Camera size={13} />
                         </button>
                         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                       </div>
                       <div>
-                        <p className="text-[15px] font-bold text-white">{profile.name || "Admin"}</p>
-                        <p className="text-[12px] text-white/35 mt-0.5 capitalize">{profile.role}</p>
+                        <p className="text-[15px] font-bold" style={{ color: "var(--app-text)" }}>{profile.name || "Admin"}</p>
+                        <p className="text-[12px] mt-0.5 capitalize" style={{ color: "var(--app-text-subtle)" }}>{profile.role}</p>
                         <div className="flex gap-2 mt-3">
                           <PillBtn color="cyan" onClick={() => fileRef.current?.click()}>Change photo</PillBtn>
                           {profile.avatarPreview && (
@@ -266,7 +282,7 @@ export default function Settings() {
                   </div>
 
                   {/* Personal info */}
-                  <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Personal Information</SectionTitle>
                     <div className="flex flex-col gap-3">
                       <Field icon={<User size={14} className="text-white/30" />} label="Full Name">
@@ -307,7 +323,7 @@ export default function Settings() {
               {/* ──── SECURITY ──── */}
               {tab === "security" && (
                 <motion.div key="security" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
-                  <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Change Password</SectionTitle>
                     <div className="flex flex-col gap-3">
                       {[
@@ -343,7 +359,7 @@ export default function Settings() {
                   </div>
 
                   {/* Sessions */}
-                  <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Active Sessions</SectionTitle>
                     {[
                       { device: "Chrome — Windows", location: "Aurangabad, IN", time: "Now",        current: true },
@@ -371,7 +387,7 @@ export default function Settings() {
               {/* ──── NOTIFICATIONS ──── */}
               {tab === "notifications" && (
                 <motion.div key="notifications" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
-                  <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Notification Preferences</SectionTitle>
                     {[
                       { key: "newStudent",   label: "New student registered",   sub: "Get notified when a new student signs up" },
@@ -386,7 +402,8 @@ export default function Settings() {
                           <p className="text-[11px] text-white/30 mt-0.5">{sub}</p>
                         </div>
                         <button onClick={() => setNotifs(n => ({...n, [key]: !n[key]}))}
-                          className={`ml-6 flex-shrink-0 transition-colors ${notifs[key] ? "text-cyan-400" : "text-white/20"}`}>
+                          className="ml-6 flex-shrink-0 transition-colors"
+                          style={{ color: notifs[key] ? "var(--accent)" : "var(--app-text-ghost)" }}>
                           {notifs[key] ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
                         </button>
                       </div>
@@ -399,7 +416,7 @@ export default function Settings() {
               {/* ──── APPEARANCE ──── */}
               {tab === "appearance" && (
                 <motion.div key="appearance" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
-                  <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Theme</SectionTitle>
                     <div className="grid grid-cols-2 gap-3">
                       {[
@@ -407,16 +424,19 @@ export default function Settings() {
                         { id: "light", label: "Light mode", icon: Sun,  preview: "bg-gray-100",  active: !darkMode },
                       ].map(({ id, label, icon: Icon, preview, active }) => (
                         <button key={id}
-                          onClick={() => { if ((id === "dark" && !darkMode) || (id === "light" && darkMode)) handleToggleDark(); }}
+                          onClick={() => handleToggleTheme(id)}
                           className={`relative p-5 rounded-2xl border transition-all duration-200 text-left
-                            ${active ? "border-cyan-500/40 bg-cyan-500/[0.06]" : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]"}`}>
+                            ${active ? "" : ""}`}
+                          style={active
+                            ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" }
+                            : { borderColor: "var(--app-border)", background: "var(--app-input)" }}>
                           <div className={`w-full h-14 rounded-xl ${preview} mb-3 border border-white/[0.06] flex items-center justify-center`}>
-                            <Icon size={18} className={active ? "text-cyan-400" : "text-white/20"} />
+                            <Icon size={18} style={{ color: active ? "var(--accent)" : "var(--app-text-ghost)" }} />
                           </div>
-                          <p className="text-[13px] font-semibold text-white">{label}</p>
+                          <p className="text-[13px] font-semibold" style={{ color: "var(--app-text)" }}>{label}</p>
                           {active && (
-                            <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-cyan-400 flex items-center justify-center">
-                              <Check size={11} className="text-[#080810]" strokeWidth={3} />
+                            <div className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "var(--accent)" }}>
+                              <Check size={11} className="text-white" strokeWidth={3} />
                             </div>
                           )}
                         </button>
@@ -424,22 +444,23 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Accent Color</SectionTitle>
                     <div className="flex gap-3">
-                      {[
-                        { cls: "bg-cyan-400",   active: true },
-                        { cls: "bg-purple-500" },
-                        { cls: "bg-green-400" },
-                        { cls: "bg-amber-400" },
-                        { cls: "bg-pink-500" },
-                        { cls: "bg-red-400" },
-                      ].map(({ cls, active }, i) => (
-                        <button key={i}
-                          className={`w-8 h-8 rounded-full ${cls} transition-all hover:scale-110 ${active ? "ring-2 ring-offset-2 ring-offset-[#0c0c18] ring-cyan-400" : ""}`} />
+                      {ACCENT_OPTIONS.map((option) => (
+                        <button
+                          key={option.id}
+                          onClick={() => handleAccentChange(option.id)}
+                          className="w-8 h-8 rounded-full transition-all hover:scale-110 border"
+                          style={{
+                            background: option.color,
+                            borderColor: accent === option.id ? "var(--app-text)" : "transparent",
+                            boxShadow: accent === option.id ? "0 0 0 3px var(--accent-soft-strong)" : "none",
+                          }}
+                        />
                       ))}
                     </div>
-                    <p className="text-[11px] text-white/20 mt-3">Color theming coming in next update</p>
+                    <p className="text-[11px] mt-3" style={{ color: "var(--app-text-subtle)" }}>Accent color updates apply instantly across the key admin screens.</p>
                   </div>
                 </motion.div>
               )}
@@ -492,7 +513,8 @@ export default function Settings() {
             onClick={() => { setDeleteModal(false); setDeleteInput(""); }}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               onClick={e => e.stopPropagation()}
-              className="bg-[#13131f] border border-red-500/20 rounded-3xl p-8 w-full max-w-md shadow-2xl">
+              className="border border-red-500/20 rounded-3xl p-8 w-full max-w-md shadow-2xl"
+              style={{ background: "var(--app-surface-alt)" }}>
               <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-5">
                 <Trash2 size={22} className="text-red-400" />
               </div>
@@ -528,26 +550,29 @@ export default function Settings() {
         .field-input {
           width: 100%;
           background: transparent;
-          color: white;
+          color: var(--app-text);
           font-size: 14px;
           outline: none;
         }
-        .field-input::placeholder { color: rgba(255,255,255,0.2); }
+        .field-input::placeholder { color: var(--app-text-ghost); }
       `}</style>
-    </div>
+    </AdminShell>
   );
 }
 
 function SectionTitle({ children }) {
-  return <h2 className="text-[11px] font-bold text-white/35 uppercase tracking-widest mb-5">{children}</h2>;
+  return <h2 className="text-[11px] font-bold uppercase tracking-widest mb-5" style={{ color: "var(--app-text-subtle)" }}>{children}</h2>;
 }
 
 function Field({ icon, label, children }) {
   return (
-    <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 focus-within:bg-cyan-500/[0.03] transition-all duration-200">
+    <div
+      className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200"
+      style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}
+    >
       <div className="mt-0.5 flex-shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
-        <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-1">{label}</label>
+        <label className="text-[10px] font-bold uppercase tracking-widest block mb-1" style={{ color: "var(--app-text-subtle)" }}>{label}</label>
         {children}
       </div>
     </div>
@@ -556,11 +581,11 @@ function Field({ icon, label, children }) {
 
 function PillBtn({ children, color, onClick }) {
   const styles = {
-    cyan: "text-cyan-400 bg-cyan-400/10 border-cyan-400/20 hover:bg-cyan-400/15",
-    red:  "text-red-400  bg-red-400/10  border-red-400/20  hover:bg-red-400/15",
+    cyan: { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" },
+    red:  { color: "#f87171", background: "rgba(248,113,113,0.12)", borderColor: "rgba(248,113,113,0.26)" },
   };
   return (
-    <button onClick={onClick} className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all ${styles[color]}`}>
+    <button onClick={onClick} className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all" style={styles[color]}>
       {children}
     </button>
   );
@@ -569,10 +594,10 @@ function PillBtn({ children, color, onClick }) {
 function SaveBtn({ saving, saved, onClick, label = "Save Changes" }) {
   return (
     <button onClick={onClick} disabled={saving}
-      className={`flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl font-bold text-[14px] transition-all duration-300 disabled:opacity-50
-        ${saved
-          ? "bg-emerald-500/15 border border-emerald-500/25 text-emerald-400"
-          : "bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:opacity-90 hover:shadow-lg hover:shadow-cyan-500/20 active:scale-[0.99]"}`}>
+      className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl font-bold text-[14px] transition-all duration-300 disabled:opacity-50 active:scale-[0.99]"
+      style={saved
+        ? { background: "rgba(16,185,129,0.14)", border: "1px solid rgba(16,185,129,0.24)", color: "#34d399" }
+        : { background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", color: "#fff", boxShadow: "0 18px 32px var(--accent-glow)" }}>
       {saved ? <><Check size={16} /> Saved!</> : saving ? "Saving..." : <><Save size={16} /> {label}</>}
     </button>
   );

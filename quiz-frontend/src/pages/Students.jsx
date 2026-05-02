@@ -7,9 +7,9 @@ import {
   SlidersHorizontal, Download,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
 import { API_BASE } from "../utils/config";
+import AdminShell from "../components/AdminShell";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.04 } } };
@@ -48,7 +48,7 @@ export default function Students() {
 
       const data = await apiRequest("/admin/students");
 
-      // 🔥 Normalize data
+      // Normalize data
       const list = data.map((s) => ({
         ...s,
         isActive: s.isActive ?? true,
@@ -136,8 +136,7 @@ export default function Students() {
   const activeFilters = [filterStatus, filterTag].filter(f => f !== "All").length;
 
   return (
-    <div className="min-h-screen bg-[#080810] text-white flex flex-col">
-      <Navbar />
+    <AdminShell>
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
 
         {/* Header */}
@@ -169,7 +168,7 @@ export default function Students() {
 
         </div>
 
-        {error && <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">⚠️ {error}</div>}
+        {error && <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>}
 
         {/* Quick stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -264,7 +263,7 @@ export default function Students() {
           </div>
         ) : processed.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-5xl mb-4">👥</div>
+            <div className="text-sm font-bold uppercase tracking-widest text-white/30 mb-4">No Students</div>
             <p className="text-white/40 font-semibold">No students found</p>
             <p className="text-white/20 text-sm mt-1">Try adjusting search or filters</p>
           </div>
@@ -322,7 +321,7 @@ export default function Students() {
           </div>
         )}
       </main>
-    </div>
+    </AdminShell>
   );
 }
 

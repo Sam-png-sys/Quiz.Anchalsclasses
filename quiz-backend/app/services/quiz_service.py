@@ -54,7 +54,7 @@ def get_quiz_questions(quiz_id: str):
             "options":       q.get("options", []),
             "correct_answer": q.get("correct_answer") or q.get("correctAnswer", ""),
             "explanation":   q.get("explanation", ""),
-            "imageUrl":      q.get("imageUrl", None),  # ✅ image support
+            "imageUrl":      q.get("imageUrl", None),
         })
 
     return result

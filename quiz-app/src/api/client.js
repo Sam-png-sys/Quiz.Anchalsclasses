@@ -34,7 +34,7 @@ API.interceptors.response.use(
   },
   (error) => {
     console.log(
-      "RESPONSE ❌",
+      "RESPONSE ERROR",
       error.config?.url,
       error.response?.status ?? "NO_RESPONSE",
       error.message

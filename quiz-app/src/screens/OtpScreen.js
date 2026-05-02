@@ -78,9 +78,9 @@ const OtpScreen = ({ navigation }) => {
     };
 
     const handleVerify = async () => {
-        console.log("🔥 VERIFY CLICKED");
+        console.log("VERIFY CLICKED");
 
-        const finalOtp = otp.join(""); // ✅ FIX
+        const finalOtp = otp.join("");
 
         //console.log("OTP:", finalOtp);
 
@@ -98,7 +98,7 @@ const OtpScreen = ({ navigation }) => {
             navigation.replace("Home");
 
         } catch (error) {
-            console.log("❌ VERIFY ERROR:", error);
+            console.log("VERIFY ERROR:", error);
             alert(error.response?.data?.detail || error.message || "Invalid OTP");
         }
     };
@@ -133,7 +133,7 @@ const OtpScreen = ({ navigation }) => {
                 {/* Icon */}
                 <View style={styles.iconWrap}>
                     <LinearGradient colors={["#7c3aed", "#9333ea"]} style={styles.iconGrad}>
-                        <Text style={styles.iconEmoji}>✉️</Text>
+                        <Text style={styles.iconEmoji}>OTP</Text>
                     </LinearGradient>
                 </View>
 

@@ -6,9 +6,9 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
 import { apiRequest } from "../utils/api";
 import { API_BASE } from "../utils/config";
+import AdminShell from "../components/AdminShell";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.07 } } };
@@ -94,8 +94,7 @@ export default function Courses() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080810] text-white flex flex-col">
-      <Navbar />
+    <AdminShell>
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
 
         {/* Header */}
@@ -117,14 +116,15 @@ export default function Courses() {
 
           <button
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 32px var(--accent-glow)" }}
           >
             <Plus size={16} /> Add Course
           </button>
 
         </div>
 
-        {error && <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">⚠️ {error}</div>}
+        {error && <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>}
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -139,11 +139,12 @@ export default function Courses() {
           </div>
         ) : courses.length === 0 ? (
           <div className="text-center py-24">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-4xl mx-auto mb-4">🎓</div>
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-lg font-bold mx-auto mb-4">No Courses</div>
             <p className="text-white/40 font-semibold text-lg">No courses yet</p>
             <p className="text-white/20 text-sm mt-1 mb-6">Create your first course to get started</p>
             <button onClick={openCreate}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold hover:opacity-90 transition-all">
+              className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
               Create Course
             </button>
           </div>
@@ -160,13 +161,13 @@ export default function Courses() {
                   {/* Top gradient */}
                   <div className={`h-24 bg-gradient-to-br ${color.from} ${color.to} opacity-10 relative`}>
                     <div className="absolute inset-0 flex items-center justify-center opacity-30 text-5xl">
-                      {course.tag === "BDS" ? "🦷" : "🔬"}
+                      {course.tag === "BDS" ? "BDS" : "MDS"}
                     </div>
                   </div>
 
                   <div className="p-5 -mt-8 relative">
                     <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${color.from} ${color.to} flex items-center justify-center text-2xl shadow-lg mb-4`}>
-                      {course.tag === "BDS" ? "🦷" : "🔬"}
+                      {course.tag === "BDS" ? "BDS" : "MDS"}
                     </div>
 
                     <div className="flex items-start justify-between mb-2">
@@ -252,7 +253,8 @@ export default function Courses() {
                     Cancel
                   </button>
                   <button onClick={handleSave} disabled={saving}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-all">
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-all"
+                    style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
                     <Save size={14} /> {saving ? "Saving..." : editing ? "Update" : "Create"}
                   </button>
                 </div>
@@ -270,7 +272,7 @@ export default function Courses() {
               <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
                 onClick={e => e.stopPropagation()}
                 className="bg-[#13131f] border border-white/[0.08] rounded-3xl p-7 w-full max-w-sm shadow-2xl">
-                <div className="text-4xl mb-4">🗑️</div>
+                <div className="text-sm font-bold uppercase tracking-widest text-red-400 mb-4">Delete</div>
                 <h3 className="text-lg font-bold text-white mb-2">Delete Course?</h3>
                 <p className="text-sm text-white/40 mb-6">This will permanently remove the course. This cannot be undone.</p>
                 <div className="flex gap-3">
@@ -295,7 +297,7 @@ export default function Courses() {
         .field-input::placeholder { color: rgba(255,255,255,0.2); }
         select.field-input option { background: #13131f; }
       `}</style>
-    </div>
+    </AdminShell>
   );
 }
 

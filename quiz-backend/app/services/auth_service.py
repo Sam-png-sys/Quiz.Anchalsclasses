@@ -31,7 +31,7 @@ def login_user(data):
     }
 
 
-# 🔥 OTP login / signup
+# OTP login / signup
 def create_or_get_user_and_token(phone: str, name: str = None):
     user = users_collection.find_one({"phone": phone})
 

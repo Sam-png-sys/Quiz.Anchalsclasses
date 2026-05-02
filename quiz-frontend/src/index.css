@@ -1,13 +1,150 @@
 @import "tailwindcss";
 
+:root {
+  --app-bg: #080810;
+  --app-surface: #0c0c18;
+  --app-surface-alt: #13131f;
+  --app-input: rgba(255,255,255,0.03);
+  --app-border: rgba(255,255,255,0.06);
+  --app-border-strong: rgba(255,255,255,0.12);
+  --app-text: #ffffff;
+  --app-text-muted: rgba(255,255,255,0.62);
+  --app-text-subtle: rgba(255,255,255,0.35);
+  --app-text-ghost: rgba(255,255,255,0.18);
+  --app-hover: rgba(255,255,255,0.06);
+  --app-overlay: rgba(2,6,23,0.72);
+  --app-shadow: rgba(15,23,42,0.45);
+  --accent: #22d3ee;
+  --accent-strong: #2563eb;
+  --accent-rgb: 34 211 238;
+  --accent-soft: rgba(34 211 238 / 0.12);
+  --accent-soft-strong: rgba(34 211 238 / 0.18);
+  --accent-border: rgba(34 211 238 / 0.28);
+  --accent-glow: rgba(34 211 238 / 0.22);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
-  background-color: #0B0F1A;
+  background-color: var(--app-bg);
+  color: var(--app-text);
   overflow: hidden;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* smooth rendering */
 * {
   transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+[data-theme] input::placeholder,
+[data-theme] textarea::placeholder {
+  color: var(--app-text-ghost) !important;
+}
+
+[data-theme] input,
+[data-theme] textarea,
+[data-theme] select {
+  color: var(--app-text);
+}
+
+[data-theme] [class*="bg-[#080810]"] {
+  background-color: var(--app-bg) !important;
+}
+
+[data-theme] [class*="bg-[#0B0F1A]"] {
+  background-color: var(--app-bg) !important;
+}
+
+[data-theme] [class*="bg-[#0c0c18]"] {
+  background-color: var(--app-surface) !important;
+}
+
+[data-theme] [class*="bg-[#111827]"] {
+  background-color: var(--app-surface) !important;
+}
+
+[data-theme] [class*="bg-[#13131f]"] {
+  background-color: var(--app-surface-alt) !important;
+}
+
+[data-theme] [class*="border-gray-700"] {
+  border-color: var(--app-border) !important;
+}
+
+[data-theme] [class*="text-gray-400"] {
+  color: var(--app-text-muted) !important;
+}
+
+[data-theme] [class*="border-white/"] {
+  border-color: var(--app-border) !important;
+}
+
+[data-theme] [class*="bg-white/"] {
+  background-color: var(--app-input) !important;
+}
+
+[data-theme] [class*="text-white"] {
+  color: var(--app-text) !important;
+}
+
+[data-theme] [class*="text-white/80"] {
+  color: color-mix(in srgb, var(--app-text) 80%, transparent) !important;
+}
+
+[data-theme] [class*="text-white/70"] {
+  color: color-mix(in srgb, var(--app-text) 70%, transparent) !important;
+}
+
+[data-theme] [class*="text-white/60"] {
+  color: var(--app-text-muted) !important;
+}
+
+[data-theme] [class*="text-white/50"] {
+  color: color-mix(in srgb, var(--app-text) 50%, transparent) !important;
+}
+
+[data-theme] [class*="text-white/40"] {
+  color: color-mix(in srgb, var(--app-text) 40%, transparent) !important;
+}
+
+[data-theme] [class*="text-white/35"] {
+  color: var(--app-text-subtle) !important;
+}
+
+[data-theme] [class*="text-white/30"] {
+  color: color-mix(in srgb, var(--app-text) 30%, transparent) !important;
+}
+
+[data-theme] [class*="text-white/25"] {
+  color: color-mix(in srgb, var(--app-text) 25%, transparent) !important;
+}
+
+[data-theme] [class*="text-white/20"] {
+  color: var(--app-text-ghost) !important;
+}
+
+[data-theme] [class*="shadow-black/"] {
+  --tw-shadow-color: var(--app-shadow) !important;
 }

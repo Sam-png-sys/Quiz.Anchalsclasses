@@ -7,8 +7,8 @@ import {
   ImagePlus, X, FileText, Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
 import { API_BASE } from "../utils/config";
+import AdminShell from "../components/AdminShell";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -39,6 +39,11 @@ export default function CreateQuiz() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   const imageRefs = useRef([]);
+  const panelStyle = {
+    background: "var(--app-surface)",
+    border: "1px solid var(--app-border)",
+    boxShadow: "0 18px 36px var(--app-shadow)",
+  };
 
   const [quiz, setQuiz] = useState({
     title: "", description: "", duration: "", course: "", difficulty: "",
@@ -229,7 +234,7 @@ export default function CreateQuiz() {
         }
       }
 
-      alert("Quiz created successfully 🚀");
+      alert("Quiz created successfully.");
       setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "" });
       setQuestions([newQuestion()]);
     } catch (err) {
@@ -243,11 +248,8 @@ export default function CreateQuiz() {
   const selectedDifficulty = DIFFICULTY_LEVELS.find(d => d.value === quiz.difficulty);
 
   return (
-    <div className="h-screen flex flex-col bg-[#080810] text-white overflow-hidden">
-      <Navbar />
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
-        <div className="max-w-3xl mx-auto w-full px-4 py-8">
+    <AdminShell contentRef={scrollRef}>
+        <div className="max-w-5xl mx-auto w-full px-4 py-8">
 
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
@@ -256,16 +258,16 @@ export default function CreateQuiz() {
               <ArrowLeft size={16} />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Create Quiz</h1>
-              <p className="text-sm text-white/35 mt-0.5">Build a new quiz for your students</p>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--app-text)" }}>Create Quiz</h1>
+              <p className="text-sm mt-0.5" style={{ color: "var(--app-text-subtle)" }}>Build a new quiz for your students</p>
             </div>
           </div>
 
           {/* Quiz Details */}
-          <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6 mb-5">
+          <div className="rounded-2xl p-6 mb-5" style={panelStyle}>
             <div className="flex items-center gap-2 mb-5">
-              <BookOpen size={15} className="text-cyan-400" />
-              <h2 className="text-[14px] font-bold text-white">Quiz Details</h2>
+              <BookOpen size={15} style={{ color: "var(--accent)" }} />
+              <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>Quiz Details</h2>
             </div>
             <div className="flex flex-col gap-4">
               <Field icon={<BookOpen size={14} className="text-white/30" />} label="Quiz Title">
@@ -278,7 +280,7 @@ export default function CreateQuiz() {
                   placeholder="Brief description of this quiz..."
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
                   <input value={quiz.course} onChange={e => handleQuizChange("course", e.target.value)}
                     placeholder="e.g. BDS Year 2"
@@ -290,10 +292,10 @@ export default function CreateQuiz() {
                     className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
                 </Field>
               </div>
-              <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] transition-all duration-200">
+              <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
                 <BarChart2 size={14} className={`mt-0.5 flex-shrink-0 ${selectedDifficulty ? selectedDifficulty.color : "text-white/30"}`} />
                 <div className="flex-1 min-w-0">
-                  <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">Difficulty Level</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest block mb-2" style={{ color: "var(--app-text-subtle)" }}>Difficulty Level</label>
                   <div className="flex gap-2">
                     {DIFFICULTY_LEVELS.map(level => {
                       const active = quiz.difficulty === level.value;
@@ -313,10 +315,10 @@ export default function CreateQuiz() {
           </div>
 
           {/* AI PDF Generator */}
-          <div className="bg-[#0c0c18] border border-cyan-500/15 rounded-2xl p-6 mb-5">
+          <div className="rounded-2xl p-6 mb-5" style={{ ...panelStyle, border: "1px solid var(--accent-border)" }}>
             <div className="flex items-center gap-2 mb-5">
-              <Sparkles size={15} className="text-cyan-400" />
-              <h2 className="text-[14px] font-bold text-white">AI Quiz Generator</h2>
+              <Sparkles size={15} style={{ color: "var(--accent)" }} />
+              <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>AI Quiz Generator</h2>
             </div>
 
             <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
@@ -324,9 +326,9 @@ export default function CreateQuiz() {
                 <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">
                   PDF Context
                 </label>
-                <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-dashed border-white/[0.10] cursor-pointer hover:border-cyan-500/35 hover:bg-cyan-500/[0.03] transition-all">
-                  <FileText size={18} className="text-cyan-400" />
-                  <span className="text-[13px] text-white/60 truncate">
+                <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-dashed cursor-pointer transition-all" style={{ background: "var(--app-input)", borderColor: "var(--app-border-strong)" }}>
+                  <FileText size={18} style={{ color: "var(--accent)" }} />
+                  <span className="text-[13px] truncate" style={{ color: "var(--app-text-muted)" }}>
                     {aiPdf ? aiPdf.name : "Choose PDF to generate quiz"}
                   </span>
                   <input
@@ -353,7 +355,8 @@ export default function CreateQuiz() {
                 <button
                   onClick={handleAIGenerateQuiz}
                   disabled={aiLoading}
-                  className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-cyan-500 text-white text-[13px] font-bold hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl text-white text-[13px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 30px var(--accent-glow)" }}
                 >
                   <Sparkles size={15} />
                   {aiLoading ? "Generating..." : "Generate"}
@@ -365,23 +368,23 @@ export default function CreateQuiz() {
           {/* Questions */}
           <div className="flex flex-col gap-4 mb-5">
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={15} className="text-cyan-400" />
-              <h2 className="text-[14px] font-bold text-white">Questions</h2>
-              <span className="text-[11px] font-bold text-white/30 bg-white/[0.05] px-2 py-0.5 rounded-full">{questions.length}</span>
+              <CheckCircle2 size={15} style={{ color: "var(--accent)" }} />
+              <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>Questions</h2>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ color: "var(--app-text-subtle)", background: "var(--app-input)" }}>{questions.length}</span>
             </div>
 
             <AnimatePresence>
               {questions.map((q, index) => (
                 <motion.div key={index} variants={fadeUp} initial="hidden" animate="show" exit="exit"
-                  className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl overflow-hidden">
+                  className="rounded-2xl overflow-hidden" style={panelStyle}>
 
                   {/* Question header */}
                   <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-[12px] font-bold text-cyan-400">
+                      <div className="w-7 h-7 rounded-xl flex items-center justify-center text-[12px] font-bold" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
                         {index + 1}
                       </div>
-                      <span className="text-[13px] font-semibold text-white/60 truncate max-w-[200px]">
+                      <span className="text-[13px] font-semibold truncate max-w-[320px]" style={{ color: "var(--app-text-muted)" }}>
                         {q.questionText || `Question ${index + 1}`}
                       </span>
                       {q.imageUrl && (
@@ -405,14 +408,14 @@ export default function CreateQuiz() {
                   </div>
 
                   {!collapsed[index] && (
-                    <div className="p-5 flex flex-col gap-4">
+                    <div className="p-6 flex flex-col gap-5">
 
                       {/* Question text */}
                       <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Question">
-                        <textarea rows={2} value={q.questionText}
+                        <textarea rows={4} value={q.questionText}
                           onChange={e => handleQuestionChange(index, "questionText", e.target.value)}
                           placeholder="Type your question here..."
-                          className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
+                          className="w-full min-h-[120px] bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-y" />
                       </Field>
 
                       {/* Image upload */}
@@ -448,10 +451,11 @@ export default function CreateQuiz() {
                           </div>
                         ) : (
                           <button onClick={() => imageRefs.current[index]?.click()}
-                            className="w-full flex flex-col items-center justify-center gap-2 py-6 rounded-xl border border-dashed border-white/[0.10] text-white/25 hover:text-purple-400 hover:border-purple-500/30 hover:bg-purple-500/5 transition-all duration-200">
+                            className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200"
+                            style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
                             <ImagePlus size={22} />
                             <span className="text-[12px] font-semibold">Click to add image</span>
-                            <span className="text-[11px] text-white/15">JPG, PNG, WEBP — max 5MB</span>
+                            <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>JPG, PNG, WEBP — max 5MB</span>
                           </button>
                         )}
 
@@ -462,7 +466,7 @@ export default function CreateQuiz() {
 
                       {/* Options */}
                       <div>
-                        <label className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-3 block">
+                        <label className="text-[11px] font-bold uppercase tracking-widest mb-3 block" style={{ color: "var(--app-text-subtle)" }}>
                           Options — click radio to mark correct answer
                         </label>
                         <div className="flex flex-col gap-2">
@@ -470,21 +474,24 @@ export default function CreateQuiz() {
                             const isCorrect = q.correctAnswer === i;
                             return (
                               <div key={i}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200
-                                  ${isCorrect ? "border-cyan-500/40 bg-cyan-500/[0.08]" : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.10]"}`}>
+                                className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                                style={isCorrect
+                                  ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" }
+                                  : { borderColor: "var(--app-border)", background: "var(--app-input)" }}>
                                 <button onClick={() => handleQuestionChange(index, "correctAnswer", i)}
-                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                    ${isCorrect ? "border-cyan-400 bg-cyan-400" : "border-white/20 hover:border-cyan-400/50"}`}>
+                                  className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                                  style={isCorrect ? { borderColor: "var(--accent)", background: "var(--accent)" } : { borderColor: "var(--app-text-ghost)" }}>
                                   {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
                                 </button>
-                                <span className={`text-[12px] font-bold flex-shrink-0 w-5 ${isCorrect ? "text-cyan-400" : "text-white/25"}`}>
+                                <span className="text-[12px] font-bold flex-shrink-0 w-5" style={{ color: isCorrect ? "var(--accent)" : "var(--app-text-subtle)" }}>
                                   {String.fromCharCode(65 + i)}
                                 </span>
                                 <input value={opt} onChange={e => handleOptionChange(index, i, e.target.value)}
                                   placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                                  className={`flex-1 bg-transparent text-[13px] outline-none placeholder:text-white/20 ${isCorrect ? "text-cyan-300" : "text-white/70"}`} />
+                                  className="flex-1 bg-transparent text-[13px] outline-none"
+                                  style={{ color: isCorrect ? "var(--accent-strong)" : "var(--app-text)" }} />
                                 {isCorrect && (
-                                  <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20 flex-shrink-0">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0" style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}>
                                     Correct
                                   </span>
                                 )}
@@ -509,12 +516,14 @@ export default function CreateQuiz() {
           </div>
 
           <button onClick={addQuestion}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed border-white/[0.10] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 mb-6 text-[13px] font-semibold">
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed transition-all duration-200 mb-6 text-[13px] font-semibold"
+            style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
             <PlusCircle size={16} /> Add Question
           </button>
 
           <button onClick={handleSubmit} disabled={loading}
-            className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-[15px] hover:opacity-90 hover:shadow-xl hover:shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]">
+            className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-white font-bold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 22px 38px var(--accent-glow)" }}>
             <Save size={17} />
             {loading ? "Creating Quiz..." : `Create Quiz · ${questions.length} Question${questions.length !== 1 ? "s" : ""}`}
           </button>
@@ -527,12 +536,14 @@ export default function CreateQuiz() {
 
 function Field({ icon, label, children }) {
   return (
-    <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 focus-within:bg-cyan-500/[0.03] transition-all duration-200">
+    <div
+      className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200"
+      style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}
+    >
       <div className="mt-0.5 flex-shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
-        <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-1">{label}</label>
+        <label className="text-[10px] font-bold uppercase tracking-widest block mb-1" style={{ color: "var(--app-text-subtle)" }}>{label}</label>
         {children}
-      </div>
-    </div>
+    </AdminShell>
   );
 }

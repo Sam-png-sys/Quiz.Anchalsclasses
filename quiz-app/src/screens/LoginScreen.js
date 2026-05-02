@@ -173,7 +173,7 @@ const LoginScreen = ({ navigation }) => {
     };
 
     const handleLogin = async () => {
-        console.log("🔥 LOGIN CLICKED");
+        console.log("LOGIN CLICKED");
         console.log("FULL URL:", `${API.defaults.baseURL}/auth/login`);
 
         try {
@@ -182,13 +182,13 @@ const LoginScreen = ({ navigation }) => {
                 password: password.trim(),
             });
 
-            console.log("✅ FETCH RESPONSE:", response.data);
+            console.log("FETCH RESPONSE:", response.data);
 
             setEmail(email.trim());
             navigation.navigate("Otp");
 
         } catch (error) {
-            console.log("❌ FETCH ERROR:", error);
+            console.log("FETCH ERROR:", error);
             alert(error.response?.data?.detail || error.message || "Login failed");
         }
     };
@@ -243,7 +243,7 @@ const LoginScreen = ({ navigation }) => {
                             colors={["#7c3aed", "#9333ea"]}
                             style={styles.logoGrad}
                         >
-                            <Text style={styles.logoMark}>✦</Text>
+                            <Text style={styles.logoMark}>A</Text>
                         </LinearGradient>
                     </View>
 

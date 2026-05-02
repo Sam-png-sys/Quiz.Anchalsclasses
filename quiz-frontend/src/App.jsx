@@ -1,8 +1,7 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import {Toaster} from "react-hot-toast";
 
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import CreateQuiz from "./pages/CreateQuiz";
 import QuizList from "./pages/QuizList";
@@ -21,14 +20,15 @@ export default function App() {
       <Routes>
 
         {/* AUTH */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup" element={<Navigate to="/login" replace />} />
 
         {/* ADMIN */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/create-quiz" element={<CreateQuiz />} />
         {/* DEFAULT */}
-        <Route path="*" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
         <Route path="/quizzes"  element={<QuizList />} />
         <Route path="/courses"  element={<Courses />} />
         <Route path="/students" element={<Students />} />
