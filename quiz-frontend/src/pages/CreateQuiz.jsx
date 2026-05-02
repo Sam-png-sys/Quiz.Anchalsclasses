@@ -59,7 +59,6 @@ export default function CreateQuiz() {
   const handleQuizChange = (field, value) =>
     setQuiz(prev => ({ ...prev, [field]: value }));
 
-  //  Use functional updater everywhere to avoid stale state
   const updateQuestion = (index, patch) =>
     setQuestions(prev => {
       const next = [...prev];
@@ -98,34 +97,26 @@ export default function CreateQuiz() {
   const handleImagePick = async (index, file) => {
     if (!file) return;
 
-    // 1. Show local preview immediately
     const reader = new FileReader();
     reader.onload = (e) => {
       updateQuestion(index, { imagePreview: e.target.result, uploading: true });
     };
     reader.readAsDataURL(file);
 
-    // 2. Upload to backend → Cloudinary
     try {
       const formData = new FormData();
       formData.append("file", file);
-
-      console.log("Uploading to:", `${API_BASE}/admin/upload-question-image`);
 
       const res = await fetch(`${API_BASE}/admin/upload-question-image`, {
         method:  "POST",
         headers: { Authorization: `Bearer ${token}` },
         body:    formData,
-        //  Do NOT set Content-Type — browser sets it with boundary for multipart
       });
 
-      const text = await res.text(); // read as text first for better error logging
-      console.log("Upload response:", res.status, text);
-
+      const text = await res.text();
       if (!res.ok) throw new Error(`Upload failed: ${res.status} ${text}`);
 
       const data = JSON.parse(text);
-      //  functional updater — no stale closure
       updateQuestion(index, { imageUrl: data.url, uploading: false });
 
     } catch (err) {
@@ -138,6 +129,7 @@ export default function CreateQuiz() {
   const removeImage = (index) =>
     updateQuestion(index, { imageUrl: null, imagePreview: null });
 
+  // ── AI Generate ───────────────────────────────────────────────────────────
   const handleAIGenerateQuiz = async () => {
     if (!aiPdf) { alert("Please select a PDF first"); return; }
     if (!quiz.title.trim()) { alert("Quiz title is required"); return; }
@@ -223,7 +215,7 @@ export default function CreateQuiz() {
             quizId,
             question:       q.questionText,
             options:        q.options,
-            correct_answer: q.options[q.correctAnswer], //  text not index
+            correct_answer: q.options[q.correctAnswer],
             explanation:    q.explanation,
             imageUrl:       q.imageUrl || null,
           }),
@@ -249,288 +241,287 @@ export default function CreateQuiz() {
 
   return (
     <AdminShell contentRef={scrollRef}>
-        <div className="max-w-5xl mx-auto w-full px-4 py-8">
+      <div className="max-w-5xl mx-auto w-full px-4 py-8">
 
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <button onClick={() => navigate("/dashboard")}
-              className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
-              <ArrowLeft size={16} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--app-text)" }}>Create Quiz</h1>
-              <p className="text-sm mt-0.5" style={{ color: "var(--app-text-subtle)" }}>Build a new quiz for your students</p>
-            </div>
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => navigate("/dashboard")}
+            className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all">
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--app-text)" }}>Create Quiz</h1>
+            <p className="text-sm mt-0.5" style={{ color: "var(--app-text-subtle)" }}>Build a new quiz for your students</p>
           </div>
+        </div>
 
-          {/* Quiz Details */}
-          <div className="rounded-2xl p-6 mb-5" style={panelStyle}>
-            <div className="flex items-center gap-2 mb-5">
-              <BookOpen size={15} style={{ color: "var(--accent)" }} />
-              <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>Quiz Details</h2>
-            </div>
-            <div className="flex flex-col gap-4">
-              <Field icon={<BookOpen size={14} className="text-white/30" />} label="Quiz Title">
-                <input value={quiz.title} onChange={e => handleQuizChange("title", e.target.value)}
-                  placeholder="e.g. Oral Anatomy — Chapter 1"
+        {/* Quiz Details */}
+        <div className="rounded-2xl p-6 mb-5" style={panelStyle}>
+          <div className="flex items-center gap-2 mb-5">
+            <BookOpen size={15} style={{ color: "var(--accent)" }} />
+            <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>Quiz Details</h2>
+          </div>
+          <div className="flex flex-col gap-4">
+            <Field icon={<BookOpen size={14} className="text-white/30" />} label="Quiz Title">
+              <input value={quiz.title} onChange={e => handleQuizChange("title", e.target.value)}
+                placeholder="e.g. Oral Anatomy — Chapter 1"
+                className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
+            </Field>
+            <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Description">
+              <textarea rows={2} value={quiz.description} onChange={e => handleQuizChange("description", e.target.value)}
+                placeholder="Brief description of this quiz..."
+                className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
+            </Field>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
+                <input value={quiz.course} onChange={e => handleQuizChange("course", e.target.value)}
+                  placeholder="e.g. BDS Year 2"
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
               </Field>
-              <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Description">
-                <textarea rows={2} value={quiz.description} onChange={e => handleQuizChange("description", e.target.value)}
-                  placeholder="Brief description of this quiz..."
-                  className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
+              <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
+                <input type="number" min={1} value={quiz.duration} onChange={e => handleQuizChange("duration", e.target.value)}
+                  placeholder="e.g. 30"
+                  className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
               </Field>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
-                  <input value={quiz.course} onChange={e => handleQuizChange("course", e.target.value)}
-                    placeholder="e.g. BDS Year 2"
-                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
-                </Field>
-                <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
-                  <input type="number" min={1} value={quiz.duration} onChange={e => handleQuizChange("duration", e.target.value)}
-                    placeholder="e.g. 30"
-                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
-                </Field>
-              </div>
-              <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
-                <BarChart2 size={14} className={`mt-0.5 flex-shrink-0 ${selectedDifficulty ? selectedDifficulty.color : "text-white/30"}`} />
-                <div className="flex-1 min-w-0">
-                  <label className="text-[10px] font-bold uppercase tracking-widest block mb-2" style={{ color: "var(--app-text-subtle)" }}>Difficulty Level</label>
-                  <div className="flex gap-2">
-                    {DIFFICULTY_LEVELS.map(level => {
-                      const active = quiz.difficulty === level.value;
-                      return (
-                        <button key={level.value} type="button" onClick={() => handleQuizChange("difficulty", level.value)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] font-bold transition-all duration-200
-                            ${active ? `${level.badge} border-current` : "text-white/25 border-white/[0.07] hover:text-white/50 hover:border-white/20"}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${active ? level.dot : "bg-white/20"}`} />
-                          {level.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+              <BarChart2 size={14} className={`mt-0.5 flex-shrink-0 ${selectedDifficulty ? selectedDifficulty.color : "text-white/30"}`} />
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-bold uppercase tracking-widest block mb-2" style={{ color: "var(--app-text-subtle)" }}>Difficulty Level</label>
+                <div className="flex gap-2">
+                  {DIFFICULTY_LEVELS.map(level => {
+                    const active = quiz.difficulty === level.value;
+                    return (
+                      <button key={level.value} type="button" onClick={() => handleQuizChange("difficulty", level.value)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] font-bold transition-all duration-200
+                          ${active ? `${level.badge} border-current` : "text-white/25 border-white/[0.07] hover:text-white/50 hover:border-white/20"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${active ? level.dot : "bg-white/20"}`} />
+                        {level.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* AI PDF Generator */}
-          <div className="rounded-2xl p-6 mb-5" style={{ ...panelStyle, border: "1px solid var(--accent-border)" }}>
-            <div className="flex items-center gap-2 mb-5">
-              <Sparkles size={15} style={{ color: "var(--accent)" }} />
-              <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>AI Quiz Generator</h2>
-            </div>
-
-            <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
-              <div>
-                <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">
-                  PDF Context
-                </label>
-                <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-dashed cursor-pointer transition-all" style={{ background: "var(--app-input)", borderColor: "var(--app-border-strong)" }}>
-                  <FileText size={18} style={{ color: "var(--accent)" }} />
-                  <span className="text-[13px] truncate" style={{ color: "var(--app-text-muted)" }}>
-                    {aiPdf ? aiPdf.name : "Choose PDF to generate quiz"}
-                  </span>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={e => setAiPdf(e.target.files?.[0] || null)}
-                  />
-                </label>
-              </div>
-
-              <div className="flex gap-3">
-                <Field icon={<CheckCircle2 size={14} className="text-cyan-400/60" />} label="Questions">
-                  <input
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={aiQuestionCount}
-                    onChange={e => setAiQuestionCount(e.target.value)}
-                    className="w-20 bg-transparent text-[14px] text-white outline-none"
-                  />
-                </Field>
-
-                <button
-                  onClick={handleAIGenerateQuiz}
-                  disabled={aiLoading}
-                  className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl text-white text-[13px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 30px var(--accent-glow)" }}
-                >
-                  <Sparkles size={15} />
-                  {aiLoading ? "Generating..." : "Generate"}
-                </button>
-              </div>
-            </div>
+        {/* AI PDF Generator */}
+        <div className="rounded-2xl p-6 mb-5" style={{ ...panelStyle, border: "1px solid var(--accent-border)" }}>
+          <div className="flex items-center gap-2 mb-5">
+            <Sparkles size={15} style={{ color: "var(--accent)" }} />
+            <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>AI Quiz Generator</h2>
           </div>
 
-          {/* Questions */}
-          <div className="flex flex-col gap-4 mb-5">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={15} style={{ color: "var(--accent)" }} />
-              <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>Questions</h2>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ color: "var(--app-text-subtle)", background: "var(--app-input)" }}>{questions.length}</span>
+          <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+              <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">
+                PDF Context
+              </label>
+              <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-dashed cursor-pointer transition-all" style={{ background: "var(--app-input)", borderColor: "var(--app-border-strong)" }}>
+                <FileText size={18} style={{ color: "var(--accent)" }} />
+                <span className="text-[13px] truncate" style={{ color: "var(--app-text-muted)" }}>
+                  {aiPdf ? aiPdf.name : "Choose PDF to generate quiz"}
+                </span>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={e => setAiPdf(e.target.files?.[0] || null)}
+                />
+              </label>
             </div>
 
-            <AnimatePresence>
-              {questions.map((q, index) => (
-                <motion.div key={index} variants={fadeUp} initial="hidden" animate="show" exit="exit"
-                  className="rounded-2xl overflow-hidden" style={panelStyle}>
+            <div className="flex gap-3">
+              <Field icon={<CheckCircle2 size={14} className="text-cyan-400/60" />} label="Questions">
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={aiQuestionCount}
+                  onChange={e => setAiQuestionCount(e.target.value)}
+                  className="w-20 bg-transparent text-[14px] text-white outline-none"
+                />
+              </Field>
 
-                  {/* Question header */}
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
-                    <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-xl flex items-center justify-center text-[12px] font-bold" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
-                        {index + 1}
-                      </div>
-                      <span className="text-[13px] font-semibold truncate max-w-[320px]" style={{ color: "var(--app-text-muted)" }}>
-                        {q.questionText || `Question ${index + 1}`}
-                      </span>
-                      {q.imageUrl && (
-                        <span className="text-[10px] font-bold text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <ImagePlus size={9} /> Image
-                        </span>
-                      )}
+              <button
+                onClick={handleAIGenerateQuiz}
+                disabled={aiLoading}
+                className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl text-white text-[13px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 30px var(--accent-glow)" }}
+              >
+                <Sparkles size={15} />
+                {aiLoading ? "Generating..." : "Generate"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Questions */}
+        <div className="flex flex-col gap-4 mb-5">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={15} style={{ color: "var(--accent)" }} />
+            <h2 className="text-[14px] font-bold" style={{ color: "var(--app-text)" }}>Questions</h2>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ color: "var(--app-text-subtle)", background: "var(--app-input)" }}>{questions.length}</span>
+          </div>
+
+          <AnimatePresence>
+            {questions.map((q, index) => (
+              <motion.div key={index} variants={fadeUp} initial="hidden" animate="show" exit="exit"
+                className="rounded-2xl overflow-hidden" style={panelStyle}>
+
+                {/* Question header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-xl flex items-center justify-center text-[12px] font-bold" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
+                      {index + 1}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => toggleCollapse(index)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.06] transition-all">
-                        {collapsed[index] ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                    <span className="text-[13px] font-semibold truncate max-w-[320px]" style={{ color: "var(--app-text-muted)" }}>
+                      {q.questionText || `Question ${index + 1}`}
+                    </span>
+                    {q.imageUrl && (
+                      <span className="text-[10px] font-bold text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <ImagePlus size={9} /> Image
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => toggleCollapse(index)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.06] transition-all">
+                      {collapsed[index] ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                    </button>
+                    {questions.length > 1 && (
+                      <button onClick={() => removeQuestion(index)}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                        <Trash2 size={14} />
                       </button>
-                      {questions.length > 1 && (
-                        <button onClick={() => removeQuestion(index)}
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                          <Trash2 size={14} />
+                    )}
+                  </div>
+                </div>
+
+                {!collapsed[index] && (
+                  <div className="p-6 flex flex-col gap-5">
+
+                    {/* Question text */}
+                    <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Question">
+                      <textarea rows={4} value={q.questionText}
+                        onChange={e => handleQuestionChange(index, "questionText", e.target.value)}
+                        placeholder="Type your question here..."
+                        className="w-full min-h-[120px] bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-y" />
+                    </Field>
+
+                    {/* Image upload */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
+                        Question Image <span className="text-white/15 normal-case font-normal">(optional)</span>
+                      </label>
+
+                      {q.imagePreview ? (
+                        <div className="relative rounded-xl overflow-hidden border border-white/[0.08] group">
+                          <img src={q.imagePreview} alt="question"
+                            className="w-full max-h-52 object-contain bg-white/[0.02]" />
+
+                          {q.uploading && (
+                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                              <div className="w-6 h-6 border-2 border-white/20 border-t-cyan-400 rounded-full animate-spin" />
+                              <span className="text-[11px] text-white/60">Uploading...</span>
+                            </div>
+                          )}
+
+                          {q.imageUrl && !q.uploading && (
+                            <div className="absolute top-2 left-2 flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/25 px-2 py-1 rounded-lg">
+                              <CheckCircle2 size={10} /> Uploaded
+                            </div>
+                          )}
+
+                          {!q.uploading && (
+                            <button onClick={() => removeImage(index)}
+                              className="absolute top-2 right-2 w-7 h-7 rounded-xl bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/40 transition-all opacity-0 group-hover:opacity-100">
+                              <X size={13} />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button onClick={() => imageRefs.current[index]?.click()}
+                          className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200"
+                          style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
+                          <ImagePlus size={22} />
+                          <span className="text-[12px] font-semibold">Click to add image</span>
+                          <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>JPG, PNG, WEBP — max 5MB</span>
                         </button>
                       )}
+
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                        ref={el => imageRefs.current[index] = el}
+                        onChange={e => handleImagePick(index, e.target.files[0])} />
                     </div>
-                  </div>
 
-                  {!collapsed[index] && (
-                    <div className="p-6 flex flex-col gap-5">
-
-                      {/* Question text */}
-                      <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Question">
-                        <textarea rows={4} value={q.questionText}
-                          onChange={e => handleQuestionChange(index, "questionText", e.target.value)}
-                          placeholder="Type your question here..."
-                          className="w-full min-h-[120px] bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-y" />
-                      </Field>
-
-                      {/* Image upload */}
+                    {/* Options */}
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-widest mb-3 block" style={{ color: "var(--app-text-subtle)" }}>
+                        Options — click radio to mark correct answer
+                      </label>
                       <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
-                          Question Image <span className="text-white/15 normal-case font-normal">(optional)</span>
-                        </label>
-
-                        {q.imagePreview ? (
-                          <div className="relative rounded-xl overflow-hidden border border-white/[0.08] group">
-                            <img src={q.imagePreview} alt="question"
-                              className="w-full max-h-52 object-contain bg-white/[0.02]" />
-
-                            {q.uploading && (
-                              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
-                                <div className="w-6 h-6 border-2 border-white/20 border-t-cyan-400 rounded-full animate-spin" />
-                                <span className="text-[11px] text-white/60">Uploading...</span>
-                              </div>
-                            )}
-
-                            {q.imageUrl && !q.uploading && (
-                              <div className="absolute top-2 left-2 flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/25 px-2 py-1 rounded-lg">
-                                <CheckCircle2 size={10} /> Uploaded
-                              </div>
-                            )}
-
-                            {!q.uploading && (
-                              <button onClick={() => removeImage(index)}
-                                className="absolute top-2 right-2 w-7 h-7 rounded-xl bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/40 transition-all opacity-0 group-hover:opacity-100">
-                                <X size={13} />
+                        {q.options.map((opt, i) => {
+                          const isCorrect = q.correctAnswer === i;
+                          return (
+                            <div key={i}
+                              className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                              style={isCorrect
+                                ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" }
+                                : { borderColor: "var(--app-border)", background: "var(--app-input)" }}>
+                              <button onClick={() => handleQuestionChange(index, "correctAnswer", i)}
+                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                                style={isCorrect ? { borderColor: "var(--accent)", background: "var(--accent)" } : { borderColor: "var(--app-text-ghost)" }}>
+                                {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
                               </button>
-                            )}
-                          </div>
-                        ) : (
-                          <button onClick={() => imageRefs.current[index]?.click()}
-                            className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200"
-                            style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
-                            <ImagePlus size={22} />
-                            <span className="text-[12px] font-semibold">Click to add image</span>
-                            <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>JPG, PNG, WEBP — max 5MB</span>
-                          </button>
-                        )}
-
-                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                          ref={el => imageRefs.current[index] = el}
-                          onChange={e => handleImagePick(index, e.target.files[0])} />
-                      </div>
-
-                      {/* Options */}
-                      <div>
-                        <label className="text-[11px] font-bold uppercase tracking-widest mb-3 block" style={{ color: "var(--app-text-subtle)" }}>
-                          Options — click radio to mark correct answer
-                        </label>
-                        <div className="flex flex-col gap-2">
-                          {q.options.map((opt, i) => {
-                            const isCorrect = q.correctAnswer === i;
-                            return (
-                              <div key={i}
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
-                                style={isCorrect
-                                  ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" }
-                                  : { borderColor: "var(--app-border)", background: "var(--app-input)" }}>
-                                <button onClick={() => handleQuestionChange(index, "correctAnswer", i)}
-                                  className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-                                  style={isCorrect ? { borderColor: "var(--accent)", background: "var(--accent)" } : { borderColor: "var(--app-text-ghost)" }}>
-                                  {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
-                                </button>
-                                <span className="text-[12px] font-bold flex-shrink-0 w-5" style={{ color: isCorrect ? "var(--accent)" : "var(--app-text-subtle)" }}>
-                                  {String.fromCharCode(65 + i)}
+                              <span className="text-[12px] font-bold flex-shrink-0 w-5" style={{ color: isCorrect ? "var(--accent)" : "var(--app-text-subtle)" }}>
+                                {String.fromCharCode(65 + i)}
+                              </span>
+                              <input value={opt} onChange={e => handleOptionChange(index, i, e.target.value)}
+                                placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                                className="flex-1 bg-transparent text-[13px] outline-none"
+                                style={{ color: isCorrect ? "var(--accent-strong)" : "var(--app-text)" }} />
+                              {isCorrect && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0" style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}>
+                                  Correct
                                 </span>
-                                <input value={opt} onChange={e => handleOptionChange(index, i, e.target.value)}
-                                  placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                                  className="flex-1 bg-transparent text-[13px] outline-none"
-                                  style={{ color: isCorrect ? "var(--accent-strong)" : "var(--app-text)" }} />
-                                {isCorrect && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0" style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}>
-                                    Correct
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-
-                      {/* Explanation */}
-                      <Field icon={<Lightbulb size={14} className="text-amber-400/60" />} label="Explanation (optional)">
-                        <textarea rows={2} value={q.explanation}
-                          onChange={e => handleQuestionChange(index, "explanation", e.target.value)}
-                          placeholder="Explain why the correct answer is right..."
-                          className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
-                      </Field>
                     </div>
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
 
-          <button onClick={addQuestion}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed transition-all duration-200 mb-6 text-[13px] font-semibold"
-            style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
-            <PlusCircle size={16} /> Add Question
-          </button>
-
-          <button onClick={handleSubmit} disabled={loading}
-            className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-white font-bold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
-            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 22px 38px var(--accent-glow)" }}>
-            <Save size={17} />
-            {loading ? "Creating Quiz..." : `Create Quiz · ${questions.length} Question${questions.length !== 1 ? "s" : ""}`}
-          </button>
-
+                    {/* Explanation */}
+                    <Field icon={<Lightbulb size={14} className="text-amber-400/60" />} label="Explanation (optional)">
+                      <textarea rows={2} value={q.explanation}
+                        onChange={e => handleQuestionChange(index, "explanation", e.target.value)}
+                        placeholder="Explain why the correct answer is right..."
+                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
+                    </Field>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
+
+        <button onClick={addQuestion}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed transition-all duration-200 mb-6 text-[13px] font-semibold"
+          style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
+          <PlusCircle size={16} /> Add Question
+        </button>
+
+        <button onClick={handleSubmit} disabled={loading}
+          className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-white font-bold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
+          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 22px 38px var(--accent-glow)" }}>
+          <Save size={17} />
+          {loading ? "Creating Quiz..." : `Create Quiz · ${questions.length} Question${questions.length !== 1 ? "s" : ""}`}
+        </button>
+
       </div>
-    </div>
+    </AdminShell>
   );
 }
 
@@ -544,6 +535,7 @@ function Field({ icon, label, children }) {
       <div className="flex-1 min-w-0">
         <label className="text-[10px] font-bold uppercase tracking-widest block mb-1" style={{ color: "var(--app-text-subtle)" }}>{label}</label>
         {children}
-    </AdminShell>
+      </div>
+    </div>
   );
 }
