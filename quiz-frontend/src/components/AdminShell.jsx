@@ -35,12 +35,41 @@ export default function AdminShell({ children, contentRef = null }) {
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--app-bg)", color: "var(--app-text)" }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: "var(--app-bg)", color: "var(--app-text)" }}>
       <Navbar />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="md:hidden px-3 py-3 border-b" style={{ borderColor: "var(--app-border)", background: "var(--app-surface)" }}>
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {NAV_ITEMS.map(({ icon: Icon, label, path }) => {
+            const active = isActivePath(location.pathname, path);
+            return (
+              <button
+                key={label}
+                onClick={() => navigate(path)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold whitespace-nowrap transition-all flex-shrink-0"
+                style={active
+                  ? {
+                      background: "var(--accent-soft)",
+                      color: "var(--accent)",
+                      border: "1px solid var(--accent-border)",
+                    }
+                  : {
+                      background: "var(--app-input)",
+                      color: "var(--app-text-muted)",
+                      border: "1px solid var(--app-border)",
+                    }}
+              >
+                <Icon size={15} className="flex-shrink-0" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <aside
-          className="flex flex-col h-[calc(100vh-64px)] sticky top-16 flex-shrink-0 transition-all duration-300"
+          className="hidden md:flex md:flex-col md:h-[calc(100vh-64px)] md:sticky md:top-16 flex-shrink-0 transition-all duration-300"
           style={{
             width: sidebarOpen ? 220 : 68,
             background: "var(--app-surface)",
@@ -102,7 +131,11 @@ export default function AdminShell({ children, contentRef = null }) {
           )}
         </aside>
 
-        <div ref={contentRef} className="flex-1 overflow-y-auto">{children}</div>
+        <div ref={contentRef} className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden">
+          <div className="min-h-full">
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );
