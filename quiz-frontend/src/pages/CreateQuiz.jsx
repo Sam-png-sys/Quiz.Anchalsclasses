@@ -518,7 +518,11 @@ export default function CreateQuiz() {
                       </label>
 
                       {q.imagePreview ? (
-                        <div className="relative rounded-xl overflow-hidden border border-white/[0.08] group" onPaste={(e) => handleImagePaste(index, e)}>
+                        <div
+                          className="relative rounded-xl overflow-hidden border border-white/[0.08] group"
+                          onPaste={(e) => handleImagePaste(index, e)}
+                          tabIndex={0}
+                        >
                           <img src={q.imagePreview} alt="question"
                             className="w-full max-h-52 object-contain bg-white/[0.02]" />
 
@@ -543,14 +547,24 @@ export default function CreateQuiz() {
                           )}
                         </div>
                       ) : (
-                        <button onClick={() => imageRefs.current[index]?.click()}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => imageRefs.current[index]?.click()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              imageRefs.current[index]?.click();
+                            }
+                          }}
                           onPaste={(e) => handleImagePaste(index, e)}
-                          className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200"
+                          className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2"
                           style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
                           <ImagePlus size={22} />
                           <span className="text-[12px] font-semibold">Click or paste image</span>
                           <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>JPG, PNG, WEBP — max 5MB</span>
-                        </button>
+                          <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>Click this box, then press Ctrl+V to paste</span>
+                        </div>
                       )}
 
                       <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"

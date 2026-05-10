@@ -110,16 +110,21 @@ def verify(data: VerifyOTP):
 # =========================
 @router.post("/forgot-password")
 def forgot_password(data: dict):
-    email = data.get("email")
+    identifier = (data.get("email") or data.get("identifier") or data.get("username") or "").strip()
+    if not identifier:
+        raise HTTPException(status_code=400, detail="Email is required")
 
-    user = users_collection.find_one({"email": email})
+    user = users_collection.find_one({"email": identifier})
+    if not user:
+        user = users_collection.find_one({"name": identifier})
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    email = user.get("email")
     generate_otp(email)
 
-    return {"message": "OTP sent"}
+    return {"message": "OTP sent", "email": email}
 
 
 # =========================

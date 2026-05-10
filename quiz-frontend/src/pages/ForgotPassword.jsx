@@ -3,10 +3,13 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../utils/api";
 
+const MotionDiv = motion.div;
+
 export default function ForgotPassword() {
   const [step, setStep] = useState(1);
 
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
+  const [resolvedEmail, setResolvedEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
 
@@ -18,12 +21,13 @@ export default function ForgotPassword() {
       setLoading(true);
 
       await apiRequest("/auth/forgot-password", "POST", {
-        phone,
+        identifier,
       });
 
+      setResolvedEmail(identifier.trim());
       setStep(2);
     } catch (err) {
-      alert("Failed to send OTP");
+      alert(err?.response?.data?.detail || "Failed to send OTP");
     } finally {
       setLoading(false);
     }
@@ -35,14 +39,14 @@ export default function ForgotPassword() {
       setLoading(true);
 
       await apiRequest("/auth/reset-password", "POST", {
-        phone,
+        email: resolvedEmail || identifier.trim(),
         otp,
         password,
       });
 
       alert("Password reset successful.");
       window.location.href = "/login";
-    } catch (err) {
+    } catch {
       alert("Invalid OTP or error");
     } finally {
       setLoading(false);
@@ -53,7 +57,7 @@ export default function ForgotPassword() {
     <div className="h-screen w-full flex" style={{ background: "var(--app-bg)", color: "var(--app-text)" }}>
 
       {/* LEFT SIDE */}
-      <motion.div
+      <MotionDiv
         initial={{ opacity: 0, x: -60 }}
         animate={{ opacity: 1, x: 0 }}
         className="w-1/2 flex items-center justify-center"
@@ -72,8 +76,8 @@ export default function ForgotPassword() {
             <>
               <input
                 placeholder="Enter Email ID or Username"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full p-3 mb-6 rounded-lg outline-none"
                 style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text)" }}
               />
@@ -137,10 +141,10 @@ export default function ForgotPassword() {
           </p>
 
         </div>
-      </motion.div>
+      </MotionDiv>
 
       {/* RIGHT SIDE (SAME AS LOGIN) */}
-      <motion.div
+      <MotionDiv
         initial={{ opacity: 0, x: 60 }}
         animate={{ opacity: 1, x: 0 }}
         className="w-1/2 flex items-center justify-center relative"
@@ -150,8 +154,7 @@ export default function ForgotPassword() {
         <div className="relative w-64 h-64 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--accent-strong), var(--accent))" }}>
           <div className="absolute bottom-0 w-full h-1/2 bg-white/10 backdrop-blur-2xl rounded-b-full"></div>
         </div>
-      </motion.div>
-
+      </MotionDiv>
     </div>
   );
 }
