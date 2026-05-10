@@ -71,7 +71,7 @@ export default function ForgotPassword() {
           {step === 1 && (
             <>
               <input
-                placeholder="Enter phone number"
+                placeholder="Enter Email ID or Username"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full p-3 mb-6 rounded-lg outline-none"

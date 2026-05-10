@@ -22,6 +22,8 @@ const DIFFICULTY_LEVELS = [
   { value: "hard",   label: "Hard",   color: "text-rose-400",    dot: "bg-rose-400",    badge: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
 ];
 
+const MotionDiv = motion.div;
+
 function newQuestion() {
   return {
     questionText: "",
@@ -46,7 +48,13 @@ export default function CreateQuiz() {
   };
 
   const [quiz, setQuiz] = useState({
-    title: "", description: "", duration: "", course: "", difficulty: "",
+    title: "",
+    description: "",
+    duration: "",
+    course: "",
+    difficulty: "",
+    studyMaterialUrl: "",
+    studyMaterialName: "",
   });
   const [questions, setQuestions] = useState([newQuestion()]);
   const [loading, setLoading]     = useState(false);
@@ -54,6 +62,7 @@ export default function CreateQuiz() {
   const [aiPdf, setAiPdf] = useState(null);
   const [aiQuestionCount, setAiQuestionCount] = useState(10);
   const [collapsed, setCollapsed] = useState({});
+  const [studyMaterialUploading, setStudyMaterialUploading] = useState(false);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const handleQuizChange = (field, value) =>
@@ -94,7 +103,7 @@ export default function CreateQuiz() {
     setCollapsed(prev => ({ ...prev, [index]: !prev[index] }));
 
   // ── Image upload ──────────────────────────────────────────────────────────
-  const handleImagePick = async (index, file) => {
+  const uploadQuestionImage = async (index, file) => {
     if (!file) return;
 
     const reader = new FileReader();
@@ -123,6 +132,54 @@ export default function CreateQuiz() {
       console.error("Image upload error:", err.message);
       alert(`Image upload failed: ${err.message}`);
       updateQuestion(index, { imageUrl: null, imagePreview: null, uploading: false });
+    }
+  };
+
+  const handleImagePick = async (index, file) => {
+    await uploadQuestionImage(index, file);
+  };
+
+  const handleImagePaste = async (index, event) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    const imageItem = Array.from(items).find((item) => item.type?.startsWith("image/"));
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    event.preventDefault();
+    await uploadQuestionImage(index, file);
+  };
+
+  const handleStudyMaterialPick = async (file) => {
+    if (!file) return;
+
+    try {
+      setStudyMaterialUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${API_BASE}/admin/upload-study-material`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Study material upload failed");
+
+      setQuiz((prev) => ({
+        ...prev,
+        studyMaterialUrl: data.url,
+        studyMaterialName: data.name,
+      }));
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Study material upload failed");
+    } finally {
+      setStudyMaterialUploading(false);
     }
   };
 
@@ -159,7 +216,7 @@ export default function CreateQuiz() {
 
       alert(`AI created quiz with ${data.totalQuestions} questions`);
       setAiPdf(null);
-      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "" });
+      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "", studyMaterialUrl: "", studyMaterialName: "" });
       setQuestions([newQuestion()]);
       navigate("/quizzes");
     } catch (err) {
@@ -175,6 +232,7 @@ export default function CreateQuiz() {
     if (!quiz.title.trim() || !quiz.duration) { alert("Title and duration are required"); return false; }
     if (!quiz.course.trim())  { alert("Course name is required"); return false; }
     if (!quiz.difficulty)     { alert("Please select a difficulty level"); return false; }
+    if (studyMaterialUploading) { alert("Please wait for the study material upload to finish"); return false; }
     for (let q of questions) {
       if (!q.questionText.trim())            { alert("All questions need text"); return false; }
       if (q.options.some(o => !o.trim()))    { alert("Fill all options"); return false; }
@@ -199,6 +257,8 @@ export default function CreateQuiz() {
           totalQuestions: questions.length,
           course:         quiz.course,
           difficulty:     quiz.difficulty,
+          studyMaterialUrl: quiz.studyMaterialUrl || null,
+          studyMaterialName: quiz.studyMaterialName || null,
         }),
       });
 
@@ -227,7 +287,7 @@ export default function CreateQuiz() {
       }
 
       alert("Quiz created successfully.");
-      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "" });
+      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "", studyMaterialUrl: "", studyMaterialName: "" });
       setQuestions([newQuestion()]);
     } catch (err) {
       console.error(err);
@@ -284,6 +344,47 @@ export default function CreateQuiz() {
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
               </Field>
             </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest block" style={{ color: "var(--app-text-subtle)" }}>
+                Study Material (PDF)
+              </label>
+              <label
+                className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-dashed cursor-pointer transition-all"
+                style={{ background: "var(--app-input)", borderColor: "var(--app-border-strong)" }}
+              >
+                <FileText size={18} style={{ color: "var(--accent)" }} />
+                <span className="text-[13px] truncate flex-1" style={{ color: "var(--app-text-muted)" }}>
+                  {studyMaterialUploading
+                    ? "Uploading PDF..."
+                    : quiz.studyMaterialName || "Upload study material PDF"}
+                </span>
+                {quiz.studyMaterialUrl && !studyMaterialUploading && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setQuiz((prev) => ({ ...prev, studyMaterialUrl: "", studyMaterialName: "" }));
+                    }}
+                    className="text-[11px] font-semibold px-2 py-1 rounded-lg border"
+                    style={{ color: "var(--app-text-subtle)", borderColor: "var(--app-border)" }}
+                  >
+                    Remove
+                  </button>
+                )}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => handleStudyMaterialPick(e.target.files?.[0] || null)}
+                />
+              </label>
+              <p className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>
+                Students can use this PDF as supporting study material.
+              </p>
+            </div>
+
             <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
               <BarChart2 size={14} className={`mt-0.5 flex-shrink-0 ${selectedDifficulty ? selectedDifficulty.color : "text-white/30"}`} />
               <div className="flex-1 min-w-0">
@@ -367,7 +468,7 @@ export default function CreateQuiz() {
 
           <AnimatePresence>
             {questions.map((q, index) => (
-              <motion.div key={index} variants={fadeUp} initial="hidden" animate="show" exit="exit"
+              <MotionDiv key={index} variants={fadeUp} initial="hidden" animate="show" exit="exit"
                 className="rounded-2xl overflow-hidden" style={panelStyle}>
 
                 {/* Question header */}
@@ -417,7 +518,7 @@ export default function CreateQuiz() {
                       </label>
 
                       {q.imagePreview ? (
-                        <div className="relative rounded-xl overflow-hidden border border-white/[0.08] group">
+                        <div className="relative rounded-xl overflow-hidden border border-white/[0.08] group" onPaste={(e) => handleImagePaste(index, e)}>
                           <img src={q.imagePreview} alt="question"
                             className="w-full max-h-52 object-contain bg-white/[0.02]" />
 
@@ -443,10 +544,11 @@ export default function CreateQuiz() {
                         </div>
                       ) : (
                         <button onClick={() => imageRefs.current[index]?.click()}
+                          onPaste={(e) => handleImagePaste(index, e)}
                           className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200"
                           style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
                           <ImagePlus size={22} />
-                          <span className="text-[12px] font-semibold">Click to add image</span>
+                          <span className="text-[12px] font-semibold">Click or paste image</span>
                           <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>JPG, PNG, WEBP — max 5MB</span>
                         </button>
                       )}
@@ -502,7 +604,7 @@ export default function CreateQuiz() {
                     </Field>
                   </div>
                 )}
-              </motion.div>
+              </MotionDiv>
             ))}
           </AnimatePresence>
         </div>

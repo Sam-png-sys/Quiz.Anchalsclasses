@@ -32,6 +32,7 @@ cloudinary.config(
 # ── Image validation ──────────────────────────────────────────────────────────
 MAX_FILE_SIZE  = 5 * 1024 * 1024   # 5 MB
 ALLOWED_TYPES  = ["jpeg", "png", "jpg", "webp"]
+MAX_PDF_SIZE   = 10 * 1024 * 1024  # 10 MB
 
 def validate_image(contents):
     if len(contents) > MAX_FILE_SIZE:
@@ -39,6 +40,13 @@ def validate_image(contents):
     file_type = imghdr.what(None, contents)
     if file_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid image type: {file_type}")
+
+
+def validate_pdf(file: UploadFile, contents: bytes):
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    if len(contents) > MAX_PDF_SIZE:
+        raise HTTPException(status_code=400, detail="PDF too large (max 10MB)")
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 def get_user_from_token(admin: dict):
@@ -181,6 +189,29 @@ async def upload_question_image(file: UploadFile = File(...), admin=Depends(admi
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/upload-study-material")
+async def upload_study_material(file: UploadFile = File(...), admin=Depends(admin_only)):
+    try:
+        contents = await file.read()
+        validate_pdf(file, contents)
+        result = cloudinary.uploader.upload(
+            contents,
+            folder="quiz_app/study_materials",
+            resource_type="raw",
+            public_id=os.path.splitext(file.filename or "study-material")[0],
+            overwrite=True,
+        )
+        return {
+            "url": result["secure_url"],
+            "name": file.filename or "study-material.pdf",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("STUDY MATERIAL UPLOAD ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PASSWORD
 # ══════════════════════════════════════════════════════════════════════════════
@@ -307,7 +338,9 @@ def update_quiz(quiz_id: str, data: dict, admin=Depends(admin_only)):
             "description": data.get("description"),
             "duration":    data.get("duration"),
             "difficulty":  data.get("difficulty", "medium"),
-            "course":      data.get("course", "")
+            "course":      data.get("course", ""),
+            "studyMaterialUrl": data.get("studyMaterialUrl"),
+            "studyMaterialName": data.get("studyMaterialName"),
         }}
     )
 

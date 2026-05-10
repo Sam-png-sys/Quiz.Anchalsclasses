@@ -16,81 +16,83 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
 import { AuthContext } from "../context/AuthContext";
+import { useAppSettings } from "../context/AppSettingsContext";
 
-const { height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
-const FloatingInput = ({ label, value, onChangeText, secureTextEntry, keyboardType, autoCapitalize }) => {
+// ── Pill Input ────────────────────────────────────────────────────────────────
+const PillInput = ({
+  placeholder,
+  value,
+  onChangeText,
+  secureTextEntry: secureProp,
+  keyboardType,
+  autoCapitalize = "none",
+  themeColors,
+  accentColor,
+}) => {
   const [focused, setFocused] = useState(false);
-  const labelAnim = useRef(new Animated.Value(value ? 1 : 0)).current;
-  const borderAnim = useRef(new Animated.Value(0)).current;
+  const [showText, setShowText] = useState(false);
+  const isPassword = !!secureProp;
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(labelAnim, { toValue: focused || value ? 1 : 0, duration: 200, useNativeDriver: false }).start();
-    Animated.timing(borderAnim, { toValue: focused ? 1 : 0, duration: 200, useNativeDriver: false }).start();
-  }, [focused, value]);
+    Animated.timing(anim, { toValue: focused ? 1 : 0, duration: 200, useNativeDriver: false }).start();
+  }, [focused]);
 
-  const labelTop = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [16, -10] });
-  const labelSize = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 11] });
-  const labelColor = labelAnim.interpolate({ inputRange: [0, 1], outputRange: ["#6b7280", "#c4b5fd"] });
-  const borderColor = borderAnim.interpolate({ inputRange: [0, 1], outputRange: ["rgba(255,255,255,0.08)", "rgba(196,181,253,0.5)"] });
+  const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: [themeColors.border, accentColor] });
+  const bg = anim.interpolate({ inputRange: [0, 1], outputRange: [themeColors.surface, accentColor + "12"] });
 
   return (
-    <Animated.View style={[styles.floatBox, { borderColor }]}>
-      <Animated.Text style={[styles.floatLabel, { top: labelTop, fontSize: labelSize, color: labelColor }]}>
-        {label}
-      </Animated.Text>
+    <Animated.View style={[styles.pill, { borderColor, backgroundColor: bg }]}>
       <TextInput
-        style={styles.floatInput}
+        style={[styles.pillInput, { color: themeColors.text }]}
         value={value}
         onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
+        placeholder={placeholder}
+        placeholderTextColor={themeColors.textGhost}
+        secureTextEntry={isPassword && !showText}
         keyboardType={keyboardType || "default"}
-        autoCapitalize={autoCapitalize || "none"}
+        autoCapitalize={autoCapitalize}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        selectionColor="#c4b5fd"
-        placeholderTextColor="transparent"
+        selectionColor={accentColor}
       />
+      {isPassword && (
+        <TouchableOpacity onPress={() => setShowText(s => !s)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={[styles.showBtn, { color: themeColors.textSubtle }]}>{showText ? "Hide" : "Show"}</Text>
+        </TouchableOpacity>
+      )}
     </Animated.View>
   );
 };
 
+// ── Strength Bar ──────────────────────────────────────────────────────────────
 const StrengthBar = ({ password }) => {
-  const getStrength = () => {
-    let s = 0;
-    if (password.length >= 8) s++;
-    if (/[A-Z]/.test(password)) s++;
-    if (/[0-9]/.test(password)) s++;
-    if (/[^A-Za-z0-9]/.test(password)) s++;
-    return s;
-  };
-
-  const strength = getStrength();
-  const labels = ["", "Weak", "Fair", "Good", "Strong"];
-  const colors = ["", "#ef4444", "#f97316", "#eab308", "#22c55e"];
-
   if (!password) return null;
-
+  let s = 0;
+  if (password.length >= 8) s++;
+  if (/[A-Z]/.test(password)) s++;
+  if (/[0-9]/.test(password)) s++;
+  if (/[^A-Za-z0-9]/.test(password)) s++;
+  const colors = ["", "#ef4444", "#f97316", "#eab308", "#22c55e"];
+  const labels = ["", "Weak", "Fair", "Good", "Strong"];
   return (
-    <View style={styles.strengthWrap}>
+    <View style={styles.strengthRow}>
       <View style={styles.strengthBars}>
-        {[1, 2, 3, 4].map((i) => (
-          <View
-            key={i}
-            style={[
-              styles.strengthSegment,
-              { backgroundColor: i <= strength ? colors[strength] : "rgba(255,255,255,0.08)" },
-            ]}
-          />
+        {[1, 2, 3, 4].map(i => (
+          <View key={i} style={[styles.strengthSeg, { backgroundColor: i <= s ? colors[s] : "rgba(255,255,255,0.08)" }]} />
         ))}
       </View>
-      <Text style={[styles.strengthLabel, { color: colors[strength] }]}>{labels[strength]}</Text>
+      <Text style={[styles.strengthLabel, { color: colors[s] }]}>{labels[s]}</Text>
     </View>
   );
 };
 
+// ── SignUpScreen ──────────────────────────────────────────────────────────────
 const SignUpScreen = ({ navigation }) => {
   const { setEmail: setSignupEmail } = useContext(AuthContext);
+  const { accentOption, themeColors, settings } = useAppSettings();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -100,25 +102,15 @@ const SignUpScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(40)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
-  const orbFloat = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const btnScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 900, delay: 150, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 10, delay: 150, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 650, delay: 80, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 56, friction: 12, delay: 80, useNativeDriver: true }),
     ]).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(orbFloat, { toValue: 1, duration: 3500, useNativeDriver: true }),
-        Animated.timing(orbFloat, { toValue: 0, duration: 3500, useNativeDriver: true }),
-      ])
-    ).start();
   }, []);
-
-  const orbY = orbFloat.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
 
   const handleSignUp = async () => {
     if (!name.trim()) return Alert.alert("", "Please enter your name");
@@ -148,26 +140,19 @@ const SignUpScreen = ({ navigation }) => {
     }
   };
 
-  return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient colors={["#0a0a12", "#0f0a1e", "#0a0a12"]} style={StyleSheet.absoluteFill} />
+  const passwordsMatch = confirm.length > 0 && password === confirm;
 
-      {/* Orbs */}
-      <Animated.View style={[styles.orb1, { transform: [{ translateY: orbY }] }]}>
-        <LinearGradient colors={["#7c3aed", "#4f46e5"]} style={{ flex: 1, borderRadius: 999 }} />
-      </Animated.View>
-      <View style={styles.orb2}>
-        <LinearGradient colors={["#db2777", "#9333ea"]} style={{ flex: 1, borderRadius: 999 }} />
-      </View>
+  return (
+    <View style={[styles.root, { backgroundColor: themeColors.background }]}>
+      <StatusBar barStyle={settings.theme === "light" ? "dark-content" : "light-content"} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: themeColors.background }]} />
+      <View style={[styles.glowA, { backgroundColor: accentOption.colors[0], opacity: settings.theme === "light" ? 0.08 : 0.12 }]} />
+      <View style={[styles.glowB, { backgroundColor: accentOption.colors[1], opacity: settings.theme === "light" ? 0.08 : 0.14 }]} />
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View style={[styles.inner, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+
             {/* Back */}
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
               <Text style={styles.backText}>← Back</Text>
@@ -175,111 +160,115 @@ const SignUpScreen = ({ navigation }) => {
 
             {/* Logo */}
             <View style={styles.logoWrap}>
-              <LinearGradient colors={["#7c3aed", "#9333ea"]} style={styles.logoGrad}>
-                <Text style={styles.logoMark}>A</Text>
+              <LinearGradient colors={["#e5354a", "#b91c2e"]} style={styles.logoGrad}>
+                <Text style={styles.logoText}>A</Text>
               </LinearGradient>
             </View>
 
-            <Text style={styles.eyebrow}>GET STARTED</Text>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join thousands of learners today</Text>
-
-            <View style={styles.divider} />
+            <Text style={[styles.title, { color: themeColors.text }]}>Sign Up</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSubtle }]}>Create your account to get started</Text>
 
             {/* Form */}
             <View style={styles.form}>
-              <FloatingInput
-                label="Full name"
+              <PillInput
+                placeholder="Full name"
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
+                themeColors={themeColors}
+                accentColor={accentOption.colors[0]}
               />
-              <FloatingInput
-                label="Email address"
+              <PillInput
+                placeholder="Email address"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
+                themeColors={themeColors}
+                accentColor={accentOption.colors[0]}
               />
-              <FloatingInput
-                label="Phone number"
+              <PillInput
+                placeholder="Phone number"
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="number-pad"
+                themeColors={themeColors}
+                accentColor={accentOption.colors[0]}
               />
-              <View>
-                <FloatingInput
-                  label="Password"
+              <View style={{ width: "100%", gap: 8 }}>
+                <PillInput
+                  placeholder="Password"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
+                  themeColors={themeColors}
+                  accentColor={accentOption.colors[0]}
                 />
                 <StrengthBar password={password} />
               </View>
-              <FloatingInput
-                label="Confirm password"
-                value={confirm}
-                onChangeText={setConfirm}
-                secureTextEntry
-              />
+              <View style={{ width: "100%", gap: 6 }}>
+                <PillInput
+                  placeholder="Confirm password"
+                  value={confirm}
+                  onChangeText={setConfirm}
+                  secureTextEntry
+                  themeColors={themeColors}
+                  accentColor={accentOption.colors[0]}
+                />
+                {/* Match indicator */}
+                {confirm.length > 0 && (
+                  <View style={styles.matchRow}>
+                    <View style={[styles.matchDot, { backgroundColor: passwordsMatch ? "#22c55e" : "#ef4444" }]} />
+                    <Text style={[styles.matchText, { color: passwordsMatch ? "#22c55e" : "#ef4444" }]}>
+                      {passwordsMatch ? "Passwords match" : "Passwords don't match"}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
 
-            {/* Confirm match indicator */}
-            {confirm.length > 0 && (
-              <View style={styles.matchRow}>
-                <View style={[styles.matchDot, { backgroundColor: password === confirm ? "#22c55e" : "#ef4444" }]} />
-                <Text style={[styles.matchText, { color: password === confirm ? "#22c55e" : "#ef4444" }]}>
-                  {password === confirm ? "Passwords match" : "Passwords don't match"}
-                </Text>
-              </View>
-            )}
-
             {/* Terms */}
-            <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(!agreed)}>
-              <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
-                {agreed && <Text style={styles.checkmark}>Yes</Text>}
+            <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(a => !a)} activeOpacity={0.8}>
+              <View style={[styles.checkbox, agreed && styles.checkboxOn]}>
+                {agreed && <Text style={styles.tick}>✓</Text>}
               </View>
               <Text style={styles.termsText}>
                 I agree to the{" "}
-                <Text style={styles.termsLink}>Terms of Service</Text>
+                <Text style={[styles.termsLink, { color: accentOption.colors[0] }]}>Terms of Service</Text>
                 {" "}and{" "}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
+                <Text style={[styles.termsLink, { color: accentOption.colors[0] }]}>Privacy Policy</Text>
               </Text>
             </TouchableOpacity>
 
             {/* Button */}
-            <Animated.View style={{ transform: [{ scale: buttonScale }], marginTop: 24 }}>
+            <Animated.View style={[styles.btnWrap, { transform: [{ scale: btnScale }] }]}>
               <TouchableOpacity
                 activeOpacity={1}
-                onPressIn={() => Animated.spring(buttonScale, { toValue: 0.96, useNativeDriver: true }).start()}
-                onPressOut={() => Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start()}
+                onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
+                onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
                 onPress={handleSignUp}
-                style={styles.buttonWrap}
+                style={styles.btnOuter}
               >
-                <LinearGradient
-                  colors={["#7c3aed", "#9333ea", "#a855f7"]}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={styles.button}
-                >
-                  <Text style={styles.buttonText}>{loading ? "Creating account…" : "Create Account"}</Text>
-                  {!loading && <Text style={styles.buttonArrow}>→</Text>}
+                <LinearGradient colors={accentOption.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.btn}>
+                  <Text style={styles.btnText}>{loading ? "Creating account…" : "Create Account"}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
 
-            {/* OR */}
+            {/* OR divider */}
             <View style={styles.orRow}>
               <View style={styles.orLine} />
-              <Text style={styles.orText}>OR</Text>
+              <Text style={styles.orLabel}>OR</Text>
               <View style={styles.orLine} />
             </View>
 
-            {/* Login redirect */}
-            <TouchableOpacity style={styles.loginBtn} onPress={() => navigation.navigate("Login")}>
-              <Text style={styles.loginText}>
-                Already have an account?{" "}
-                <Text style={styles.loginLink}>Sign in</Text>
-              </Text>
-            </TouchableOpacity>
+            {/* Login */}
+            <View style={styles.footer}>
+              <Text style={[styles.footerText, { color: themeColors.textSubtle }]}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+                <Text style={[styles.footerLink, { color: accentOption.colors[0] }]}>Sign in</Text>
+              </TouchableOpacity>
+            </View>
+
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -290,80 +279,61 @@ const SignUpScreen = ({ navigation }) => {
 export default SignUpScreen;
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0a0a12" },
-  orb1: {
-    position: "absolute", width: 280, height: 280,
-    top: -70, left: -70, borderRadius: 999, opacity: 0.28,
-  },
-  orb2: {
-    position: "absolute", width: 200, height: 200,
-    bottom: 100, right: -50, borderRadius: 999, opacity: 0.2,
-  },
-  scroll: { flexGrow: 1 },
-  inner: { flex: 1, paddingHorizontal: 28, paddingTop: 64, paddingBottom: 50 },
+  root: { flex: 1, backgroundColor: "#12112b" },
+  glowA: { position: "absolute", top: -90, left: width / 2 - 110, width: 220, height: 220, borderRadius: 110, backgroundColor: "#e5354a", opacity: 0.07 },
+  glowB: { position: "absolute", bottom: -70, right: width / 2 - 90, width: 180, height: 180, borderRadius: 90, backgroundColor: "#3b2fc9", opacity: 0.08 },
 
-  backBtn: { marginBottom: 28 },
-  backText: { color: "#6b7280", fontSize: 14, fontWeight: "600" },
+  scroll: { flexGrow: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 26, paddingVertical: 60 },
+  card: { width: "100%", maxWidth: 400, alignItems: "center" },
+
+  backBtn: { alignSelf: "flex-start", marginBottom: 28 },
+  backText: { color: "rgba(255,255,255,0.38)", fontSize: 14, fontWeight: "600" },
 
   logoWrap: { marginBottom: 24 },
-  logoGrad: {
-    width: 52, height: 52, borderRadius: 16,
-    alignItems: "center", justifyContent: "center",
-    shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5, shadowRadius: 20, elevation: 10,
-  },
-  logoMark: { color: "#fff", fontSize: 22 },
+  logoGrad: { width: 58, height: 58, borderRadius: 18, alignItems: "center", justifyContent: "center", shadowColor: "#e5354a", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 10 },
+  logoText: { color: "#fff", fontSize: 25, fontWeight: "800" },
 
-  eyebrow: { color: "#7c3aed", fontSize: 11, fontWeight: "700", letterSpacing: 3, marginBottom: 6 },
-  title: { color: "#fff", fontSize: 34, fontWeight: "800", letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { color: "#6b7280", fontSize: 14, fontWeight: "400" },
+  title: { color: "#fff", fontSize: 32, fontWeight: "800", letterSpacing: -0.5, marginBottom: 8, textAlign: "center" },
+  subtitle: { color: "rgba(255,255,255,0.33)", fontSize: 14, textAlign: "center", marginBottom: 36 },
 
-  divider: { height: 1, backgroundColor: "rgba(255,255,255,0.06)", marginVertical: 28 },
+  form: { width: "100%", gap: 14, marginBottom: 20 },
 
-  form: { gap: 18 },
-  floatBox: {
-    borderWidth: 1.5, borderRadius: 14,
-    paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12,
-    backgroundColor: "rgba(255,255,255,0.04)", position: "relative",
-  },
-  floatLabel: { position: "absolute", left: 16, fontWeight: "500" },
-  floatInput: { color: "#fff", fontSize: 15, fontWeight: "500", paddingTop: 4 },
+  pill: { width: "100%", flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 100, paddingHorizontal: 22, paddingVertical: Platform.OS === "ios" ? 15 : 13 },
+  pillInput: { flex: 1, color: "#fff", fontSize: 15, fontWeight: "500", paddingVertical: 0 },
+  showBtn: { color: "rgba(255,255,255,0.38)", fontSize: 13, fontWeight: "600", paddingLeft: 8 },
 
-  strengthWrap: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, paddingHorizontal: 2 },
-  strengthBars: { flexDirection: "row", gap: 4, flex: 1 },
-  strengthSegment: { flex: 1, height: 3, borderRadius: 2 },
-  strengthLabel: { fontSize: 11, fontWeight: "700", width: 44, textAlign: "right" },
+  // Strength bar
+  strengthRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4 },
+  strengthBars: { flex: 1, flexDirection: "row", gap: 4 },
+  strengthSeg: { flex: 1, height: 3, borderRadius: 2 },
+  strengthLabel: { fontSize: 11, fontWeight: "700", width: 42, textAlign: "right" },
 
-  matchRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
+  // Match
+  matchRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 4 },
   matchDot: { width: 6, height: 6, borderRadius: 3 },
   matchText: { fontSize: 12, fontWeight: "600" },
 
-  termsRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginTop: 20 },
-  checkbox: {
-    width: 20, height: 20, borderRadius: 6,
-    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.2)",
-    alignItems: "center", justifyContent: "center",
-    marginTop: 1,
-  },
-  checkboxChecked: { backgroundColor: "#7c3aed", borderColor: "#7c3aed" },
-  checkmark: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  termsText: { flex: 1, color: "#6b7280", fontSize: 13, lineHeight: 20 },
-  termsLink: { color: "#a78bfa", fontWeight: "600" },
+  // Terms
+  termsRow: { width: "100%", flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 24 },
+  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center", marginTop: 1, flexShrink: 0 },
+  checkboxOn: { backgroundColor: "#e5354a", borderColor: "#e5354a" },
+  tick: { color: "#fff", fontSize: 11, fontWeight: "800" },
+  termsText: { flex: 1, color: "rgba(255,255,255,0.38)", fontSize: 13, lineHeight: 20 },
+  termsLink: { color: "#e5354a", fontWeight: "600" },
 
-  buttonWrap: {
-    borderRadius: 16, overflow: "hidden",
-    shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5, shadowRadius: 20, elevation: 12,
-  },
-  button: { paddingVertical: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 0.3 },
-  buttonArrow: { color: "#e9d5ff", fontSize: 18, fontWeight: "700" },
+  // Button
+  btnWrap: { width: "100%", marginBottom: 30 },
+  btnOuter: { width: "100%", borderRadius: 100, overflow: "hidden", shadowColor: "#e5354a", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.36, shadowRadius: 18, elevation: 10 },
+  btn: { paddingVertical: 17, alignItems: "center" },
+  btnText: { color: "#fff", fontSize: 17, fontWeight: "800", letterSpacing: 0.2 },
 
-  orRow: { flexDirection: "row", alignItems: "center", marginTop: 28, marginBottom: 20, gap: 12 },
-  orLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.07)" },
-  orText: { color: "#4b5563", fontSize: 11, fontWeight: "700", letterSpacing: 2 },
+  // OR
+  orRow: { width: "100%", flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 22 },
+  orLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.08)" },
+  orLabel: { color: "rgba(255,255,255,0.22)", fontSize: 11, fontWeight: "700", letterSpacing: 2 },
 
-  loginBtn: { alignItems: "center" },
-  loginText: { color: "#6b7280", fontSize: 14 },
-  loginLink: { color: "#a78bfa", fontWeight: "700" },
+  // Footer
+  footer: { flexDirection: "row", alignItems: "center" },
+  footerText: { color: "rgba(255,255,255,0.36)", fontSize: 14 },
+  footerLink: { color: "#e5354a", fontSize: 14, fontWeight: "700" },
 });

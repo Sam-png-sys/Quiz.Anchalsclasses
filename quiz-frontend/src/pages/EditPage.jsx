@@ -5,11 +5,12 @@ import {
     ArrowLeft, BookOpen, AlignLeft, Clock, Save,
     CheckCircle2, ChevronDown, ChevronUp, Trash2,
     Lightbulb, GraduationCap, BarChart2, PlusCircle,
-    RotateCcw,
+    RotateCcw, FileText,
 } from "lucide-react";
 import { apiRequest } from "../utils/api";
-import { Toaster } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import AdminShell from "../components/AdminShell";
+import { API_BASE } from "../utils/config";
 
 const fadeUp = {
     hidden: { opacity: 0, y: 12 },
@@ -22,6 +23,8 @@ const DIFFICULTY_LEVELS = [
     { value: "medium", label: "Medium", color: "text-amber-400", dot: "bg-amber-400", badge: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
     { value: "hard", label: "Hard", color: "text-rose-400", dot: "bg-rose-400", badge: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
 ];
+
+const MotionDiv = motion.div;
 
 function newQuestion() {
     return { questionText: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" };
@@ -45,12 +48,14 @@ export default function EditQuiz() {
     const { id } = useParams();
     const navigate = useNavigate();
     const scrollRef = useRef(null);
+    const token = localStorage.getItem("token");
 
     const [quiz, setQuiz] = useState(null);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [collapsed, setCollapsed] = useState({});
     const [saved, setSaved] = useState(false);
+    const [studyMaterialUploading, setStudyMaterialUploading] = useState(false);
 
     // ── Fetch ──
     useEffect(() => {
@@ -86,6 +91,36 @@ export default function EditQuiz() {
         setQuiz({ ...quiz, questions: updated });
     };
 
+    const handleStudyMaterialPick = async (file) => {
+        if (!file) return;
+
+        try {
+            setStudyMaterialUploading(true);
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch(`${API_BASE}/admin/upload-study-material`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Study material upload failed");
+
+            setQuiz((prev) => ({
+                ...prev,
+                studyMaterialUrl: data.url,
+                studyMaterialName: data.name,
+            }));
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || "Study material upload failed");
+        } finally {
+            setStudyMaterialUploading(false);
+        }
+    };
+
     const addQuestion = () => {
         setQuiz({ ...quiz, questions: [...quiz.questions, newQuestion()] });
         setTimeout(() => {
@@ -110,6 +145,10 @@ export default function EditQuiz() {
 
         try {
             setLoading(true);
+            if (studyMaterialUploading) {
+                toast.error("Please wait for the study material upload to finish");
+                return;
+            }
 
             //  FIX PAYLOAD
             const payload = {
@@ -234,6 +273,46 @@ export default function EditQuiz() {
                                 </Field>
                             </div>
 
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest block" style={{ color: "var(--app-text-subtle)" }}>
+                                    Study Material (PDF)
+                                </label>
+                                <label
+                                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-dashed cursor-pointer transition-all"
+                                    style={{ background: "var(--app-input)", borderColor: "var(--app-border-strong)" }}
+                                >
+                                    <FileText size={18} style={{ color: "var(--accent)" }} />
+                                    <span className="text-[13px] truncate flex-1" style={{ color: "var(--app-text-muted)" }}>
+                                        {studyMaterialUploading
+                                            ? "Uploading PDF..."
+                                            : quiz.studyMaterialName || "Upload study material PDF"}
+                                    </span>
+                                    {quiz.studyMaterialUrl && !studyMaterialUploading && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setQuiz((prev) => ({ ...prev, studyMaterialUrl: "", studyMaterialName: "" }));
+                                            }}
+                                            className="text-[11px] font-semibold px-2 py-1 rounded-lg border"
+                                            style={{ color: "var(--app-text-subtle)", borderColor: "var(--app-border)" }}
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="application/pdf"
+                                        className="hidden"
+                                        onChange={(e) => handleStudyMaterialPick(e.target.files?.[0] || null)}
+                                    />
+                                </label>
+                                <p className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>
+                                    Replace or remove the reference PDF attached to this quiz.
+                                </p>
+                            </div>
+
                             {/* Difficulty selector */}
                             <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 transition-all duration-200">
                                 <div className="mt-0.5 flex-shrink-0">
@@ -280,7 +359,7 @@ export default function EditQuiz() {
 
                         <AnimatePresence>
                             {quiz.questions?.map((q, index) => (
-                                <motion.div
+                                <MotionDiv
                                     key={q._id ?? q.id ?? index}
                                     variants={fadeUp} initial="hidden" animate="show" exit="exit"
                                     className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl overflow-hidden"
@@ -382,7 +461,7 @@ export default function EditQuiz() {
                                             </Field>
                                         </div>
                                     )}
-                                </motion.div>
+                                </MotionDiv>
                             ))}
                         </AnimatePresence>
                     </div>

@@ -12,21 +12,14 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
+import { useAppSettings } from "../context/AppSettingsContext";
 
 const { width } = Dimensions.get("window");
-
-const PALETTES = [
-  { accent: ["#7c3aed", "#9333ea"], light: "#a78bfa", glow: "#7c3aed" },
-  { accent: ["#0891b2", "#0e7490"], light: "#67e8f9", glow: "#0891b2" },
-  { accent: ["#db2777", "#9d174d"], light: "#f9a8d4", glow: "#db2777" },
-  { accent: ["#d97706", "#b45309"], light: "#fcd34d", glow: "#d97706" },
-  { accent: ["#059669", "#047857"], light: "#6ee7b7", glow: "#059669" },
-];
 
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
 
 // ─── Timer Ring ───────────────────────────────────────────────────────────────
-const TimerRing = ({ timeLeft, totalTime }) => {
+const TimerRing = ({ timeLeft, themeColors, accentColor }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const isUrgent = timeLeft <= 10;
 
@@ -44,22 +37,22 @@ const TimerRing = ({ timeLeft, totalTime }) => {
     }
   }, [isUrgent]);
 
-  const color = timeLeft > 20 ? "#a78bfa" : timeLeft > 10 ? "#fcd34d" : "#f87171";
+  const color = timeLeft > 20 ? accentColor : timeLeft > 10 ? "#f59e0b" : "#ef4444";
 
   return (
     <Animated.View style={[styles.timerWrap, { transform: [{ scale: pulseAnim }] }]}>
-      <View style={styles.timerRingBg} />
+      <View style={[styles.timerRingBg, { borderColor: themeColors.border }]} />
       <View style={[styles.timerRingFill, { borderColor: color }]} />
       <View style={styles.timerInner}>
         <Text style={[styles.timerNum, { color }]}>{timeLeft}</Text>
-        <Text style={styles.timerSec}>sec</Text>
+        <Text style={[styles.timerSec, { color: themeColors.textGhost }]}>sec</Text>
       </View>
     </Animated.View>
   );
 };
 
 // ─── Option Button ────────────────────────────────────────────────────────────
-const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => {
+const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex, palette, themeColors }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -84,16 +77,28 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => 
           ]).start();
           onPress();
         }}
-        style={[styles.optBtn, selected ? styles.optSelected : styles.optDefault]}
+        style={[
+          styles.optBtn,
+          selected
+            ? { backgroundColor: palette.glow + "18", borderColor: palette.light }
+            : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+        ]}
       >
-        <View style={[styles.optLabelBubble, selected ? styles.optLabelSel : styles.optLabelDef]}>
+        <View
+          style={[
+            styles.optLabelBubble,
+            selected
+              ? { backgroundColor: palette.glow + "88" }
+              : { backgroundColor: themeColors.surfaceStrong },
+          ]}
+        >
           <Text style={styles.optLabelTxt}>{label}</Text>
         </View>
-        <Text style={[styles.optText, selected && styles.optTextSel]} numberOfLines={3}>
+        <Text style={[styles.optText, { color: selected ? themeColors.text : themeColors.textMuted }]} numberOfLines={3}>
           {text}
         </Text>
         {selected && (
-          <View style={styles.optCheckWrap}>
+          <View style={[styles.optCheckWrap, { backgroundColor: palette.glow + "66" }]}>
             <Text style={styles.optCheck}>OK</Text>
           </View>
         )}
@@ -105,6 +110,7 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex }) => 
 // ─── Main QuizScreen ──────────────────────────────────────────────────────────
 const QuizScreen = ({ route, navigation }) => {
   const { quizId } = route.params;
+  const { accentOption, themeColors, settings } = useAppSettings();
 
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
@@ -215,7 +221,11 @@ const QuizScreen = ({ route, navigation }) => {
     }
   };
 
-  const palette = PALETTES[current % PALETTES.length];
+  const palette = {
+    accent: accentOption.colors,
+    light: accentOption.colors[0],
+    glow: accentOption.colors[0],
+  };
   const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
   const q = questions[current];
   const isLast = current === questions.length - 1;
@@ -226,23 +236,22 @@ const QuizScreen = ({ route, navigation }) => {
 
   if (loading || !q) {
     return (
-      <View style={styles.loaderWrap}>
-        <StatusBar barStyle="light-content" />
-        <LinearGradient colors={["#0a0a12", "#0f0a1e"]} style={StyleSheet.absoluteFill} />
+      <View style={[styles.loaderWrap, { backgroundColor: themeColors.background }]}>
+        <StatusBar barStyle={settings.theme === "light" ? "dark-content" : "light-content"} />
+        <LinearGradient colors={[themeColors.background, themeColors.backgroundAlt]} style={StyleSheet.absoluteFill} />
         <View style={styles.loaderOrb}>
-          <LinearGradient colors={["#7c3aed", "#4f46e5"]} style={{ flex: 1, borderRadius: 999 }} />
+          <LinearGradient colors={accentOption.colors} style={{ flex: 1, borderRadius: 999 }} />
         </View>
-        <Text style={styles.loaderEmoji}>Loading</Text>
-        <Text style={styles.loaderTitle}>Loading Quiz</Text>
-        <Text style={styles.loaderSub}>Preparing your questions…</Text>
+        <Text style={[styles.loaderTitle, { color: themeColors.text }]}>Loading Quiz</Text>
+        <Text style={[styles.loaderSub, { color: themeColors.textSubtle }]}>Preparing your questions…</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient colors={["#0a0a12", "#0f0a1e", "#0a0a12"]} style={StyleSheet.absoluteFill} />
+    <View style={[styles.root, { backgroundColor: themeColors.background }]}>
+      <StatusBar barStyle={settings.theme === "light" ? "dark-content" : "light-content"} />
+      <LinearGradient colors={[themeColors.background, themeColors.backgroundAlt, themeColors.background]} style={StyleSheet.absoluteFill} />
       <View style={[styles.glowOrb, { backgroundColor: palette.glow }]} pointerEvents="none" />
       <View style={[styles.glowOrb2, { backgroundColor: palette.glow }]} pointerEvents="none" />
 
@@ -281,14 +290,14 @@ const QuizScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        <TimerRing timeLeft={timeLeft} totalTime={TIMER_DURATION} />
+        <TimerRing timeLeft={timeLeft} themeColors={themeColors} accentColor={accentOption.colors[0]} />
       </Animated.View>
 
       {/* Score pill */}
       <Animated.View style={[styles.scorePill, { opacity: headerFade }]}>
         <LinearGradient colors={palette.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.scorePillGrad}>
           <Text style={styles.scorePillTxt}>
-            ⭐ {Object.values(answers).filter(Boolean).length} answered
+            {Object.values(answers).filter(Boolean).length} answered
           </Text>
         </LinearGradient>
       </Animated.View>
@@ -301,21 +310,29 @@ const QuizScreen = ({ route, navigation }) => {
       >
         {/* Question card */}
         <Animated.View
-          style={[styles.questionCard, { opacity: cardFade, transform: [{ translateX: cardSlide }] }]}
+          style={[
+            styles.questionCard,
+            {
+              opacity: cardFade,
+              transform: [{ translateX: cardSlide }],
+              backgroundColor: themeColors.surface,
+              borderColor: themeColors.border,
+            },
+          ]}
         >
           <View style={styles.qTopRow}>
             <View style={[styles.qBadge, { backgroundColor: palette.glow + "22" }]}>
               <Text style={[styles.qBadgeTxt, { color: palette.light }]}>Question {current + 1}</Text>
             </View>
             {selected && (
-              <View style={styles.selBadge}>
+              <View style={[styles.selBadge, { backgroundColor: palette.glow + "18", borderColor: palette.light + "55" }]}>
                 <Text style={styles.selBadgeTxt}>Selected</Text>
               </View>
             )}
           </View>
           <LinearGradient colors={palette.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.qLine} />
           {/* Field is now always `question` (normalized in backend) */}
-          <Text style={styles.questionTxt}>{q.question}</Text>
+          <Text style={[styles.questionTxt, { color: themeColors.text }]}>{q.question}</Text>
         </Animated.View>
 
         {/* Options */}
@@ -328,6 +345,8 @@ const QuizScreen = ({ route, navigation }) => {
               selected={selected === opt}
               delay={i * 65}
               questionIndex={current}
+              palette={palette}
+              themeColors={themeColors}
               onPress={() => setSelected(opt)}
             />
           ))}
@@ -343,18 +362,18 @@ const QuizScreen = ({ route, navigation }) => {
             style={styles.nextBtnWrap}
           >
             <LinearGradient
-              colors={canProceed ? palette.accent : ["#1a1a28", "#1a1a28"]}
+              colors={canProceed ? palette.accent : [themeColors.surfaceStrong, themeColors.surfaceStrong]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.nextBtn}
             >
-              <Text style={[styles.nextBtnTxt, !canProceed && styles.nextBtnTxtDim]}>
+              <Text style={[styles.nextBtnTxt, !canProceed && { color: themeColors.textGhost }]}>
                 {isLast ? "Submit Quiz" : "Next Question"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
 
-        {!canProceed && <Text style={styles.hintTxt}>Pick an option to continue</Text>}
+        {!canProceed && <Text style={[styles.hintTxt, { color: themeColors.textGhost }]}>Pick an option to continue</Text>}
 
         {/* Dot trail */}
         <View style={styles.dotRow}>
@@ -365,7 +384,7 @@ const QuizScreen = ({ route, navigation }) => {
                 styles.dot,
                 i < current && answers[i] != null && styles.dotAnswered,
                 i < current && answers[i] == null && styles.dotSkipped,
-                i === current && styles.dotActive,
+                i === current && [styles.dotActive, { backgroundColor: accentOption.colors[0] }],
               ]}
             />
           ))}
