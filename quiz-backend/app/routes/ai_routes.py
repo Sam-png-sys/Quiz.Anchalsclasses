@@ -13,6 +13,17 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 MAX_PDF_SIZE = 50 * 1024 * 1024
 
 
+def validate_pdf_upload(file: UploadFile, pdf_bytes: bytes):
+    filename = (file.filename or "").lower()
+    is_pdf_type = file.content_type in {"application/pdf", "application/octet-stream"}
+    if not is_pdf_type or not filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Please upload a PDF file")
+    if not pdf_bytes.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid PDF")
+    if len(pdf_bytes) > MAX_PDF_SIZE:
+        raise HTTPException(status_code=400, detail="PDF must be 50MB or smaller")
+
+
 @router.post("/admin/generate-quiz")
 async def generate_quiz(
     file: UploadFile = File(...),
@@ -22,14 +33,17 @@ async def generate_quiz(
     difficulty: str = Form("medium"),
     duration: int = Form(30),
     questionCount: int = Form(10),
+    studyMaterialUrl: str = Form(""),
+    studyMaterialName: str = Form(""),
     admin=Depends(admin_only),
 ):
-    if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="Please upload a PDF file")
+    if questionCount < 1 or questionCount > 30:
+        raise HTTPException(status_code=400, detail="Question count must be between 1 and 30")
+    if duration < 1:
+        raise HTTPException(status_code=400, detail="Duration must be at least 1 minute")
 
     pdf_bytes = await file.read()
-    if len(pdf_bytes) > MAX_PDF_SIZE:
-        raise HTTPException(status_code=400, detail="PDF must be 50MB or smaller")
+    validate_pdf_upload(file, pdf_bytes)
 
     quiz_data = generate_quiz_from_pdf(
         pdf_bytes,
@@ -50,11 +64,14 @@ async def generate_quiz(
         "duration": quiz_data["duration"],
         "course": quiz_data["course"],
         "difficulty": quiz_data["difficulty"],
+        "studyMaterialName": studyMaterialName or file.filename or "AI source PDF",
+        "studyMaterialUrl": studyMaterialUrl or None,
         "totalQuestions": len(quiz_data["questions"]),
         "isOpen": True,
         "attempts": 0,
         "createdAt": datetime.utcnow(),
-        "createdBy": "ai",
+        "createdBy": admin.get("user_id") or "ai",
+        "source": "ai_pdf",
     }
     quiz_result = quiz_collection.insert_one(quiz_doc)
     quiz_id = quiz_result.inserted_id

@@ -23,6 +23,16 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const MotionDiv = motion.div;
+const emptyQuiz = () => ({
+  title: "",
+  description: "",
+  duration: "",
+  course: "",
+  difficulty: "",
+  studyMaterialUrl: "",
+  studyMaterialName: "",
+});
+const MAX_AI_PDF_SIZE = 50 * 1024 * 1024;
 
 function newQuestion() {
   return {
@@ -47,15 +57,7 @@ export default function CreateQuiz() {
     boxShadow: "0 18px 36px var(--app-shadow)",
   };
 
-  const [quiz, setQuiz] = useState({
-    title: "",
-    description: "",
-    duration: "",
-    course: "",
-    difficulty: "",
-    studyMaterialUrl: "",
-    studyMaterialName: "",
-  });
+  const [quiz, setQuiz] = useState(emptyQuiz());
   const [questions, setQuestions] = useState([newQuestion()]);
   const [loading, setLoading]     = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -183,6 +185,22 @@ export default function CreateQuiz() {
     }
   };
 
+  const handleAIPdfPick = (file) => {
+    if (!file) {
+      setAiPdf(null);
+      return;
+    }
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      alert("Please choose a PDF file");
+      return;
+    }
+    if (file.size > MAX_AI_PDF_SIZE) {
+      alert("PDF must be 50MB or smaller");
+      return;
+    }
+    setAiPdf(file);
+  };
+
   const removeImage = (index) =>
     updateQuestion(index, { imageUrl: null, imagePreview: null });
 
@@ -204,6 +222,8 @@ export default function CreateQuiz() {
       formData.append("difficulty", quiz.difficulty);
       formData.append("duration", Number(quiz.duration));
       formData.append("questionCount", Number(aiQuestionCount));
+      formData.append("studyMaterialUrl", quiz.studyMaterialUrl || "");
+      formData.append("studyMaterialName", quiz.studyMaterialName || aiPdf.name);
 
       const res = await fetch(`${API_BASE}/ai/admin/generate-quiz`, {
         method: "POST",
@@ -216,7 +236,7 @@ export default function CreateQuiz() {
 
       alert(`AI created quiz with ${data.totalQuestions} questions`);
       setAiPdf(null);
-      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "", studyMaterialUrl: "", studyMaterialName: "" });
+      setQuiz(emptyQuiz());
       setQuestions([newQuestion()]);
       navigate("/quizzes");
     } catch (err) {
@@ -287,7 +307,7 @@ export default function CreateQuiz() {
       }
 
       alert("Quiz created successfully.");
-      setQuiz({ title: "", description: "", duration: "", course: "", difficulty: "", studyMaterialUrl: "", studyMaterialName: "" });
+      setQuiz(emptyQuiz());
       setQuestions([newQuestion()]);
     } catch (err) {
       console.error(err);
@@ -428,7 +448,7 @@ export default function CreateQuiz() {
                   type="file"
                   accept="application/pdf"
                   className="hidden"
-                  onChange={e => setAiPdf(e.target.files?.[0] || null)}
+                  onChange={e => handleAIPdfPick(e.target.files?.[0] || null)}
                 />
               </label>
             </div>

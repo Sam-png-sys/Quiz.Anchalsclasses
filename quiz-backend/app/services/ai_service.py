@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 
-AI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
+AI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
 
 def get_openai_client():
@@ -31,6 +31,8 @@ def get_response_text(response):
 
 def parse_json_response(response):
     text = get_response_text(response)
+    if not text:
+        raise HTTPException(status_code=502, detail="AI returned an empty response")
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -45,8 +47,9 @@ def generate_quiz_from_pdf(pdf_bytes, filename, quiz_meta):
     client = get_openai_client()
     file_data = base64.b64encode(pdf_bytes).decode("utf-8")
 
-    question_count = int(quiz_meta.get("questionCount", 10))
+    question_count = max(1, min(int(quiz_meta.get("questionCount", 10)), 30))
     difficulty = quiz_meta.get("difficulty") or "medium"
+    duration = max(1, int(quiz_meta.get("duration") or 30))
 
     prompt = f"""
 Create a student quiz only from the attached PDF.
@@ -57,6 +60,7 @@ Quiz settings:
 - course/topic: {quiz_meta.get("course") or ""}
 - difficulty: {difficulty}
 - number of questions: {question_count}
+- duration in minutes: {duration}
 
 Rules:
 - Use only facts supported by the PDF.
@@ -93,12 +97,13 @@ JSON shape:
                     {
                         "type": "input_file",
                         "filename": filename,
-                        "file_data": f"data:application/pdf;base64,{file_data}",
+                        "file_data": file_data,
                     },
                     {"type": "input_text", "text": prompt},
                 ],
             }
         ],
+        text={"format": {"type": "json_object"}},
     )
 
     data = parse_json_response(response)
@@ -129,7 +134,7 @@ JSON shape:
         "description": data.get("description") or quiz_meta.get("description") or "",
         "course": data.get("course") or quiz_meta.get("course") or "",
         "difficulty": data.get("difficulty") or difficulty,
-        "duration": int(data.get("duration") or quiz_meta.get("duration") or 30),
+        "duration": int(data.get("duration") or duration),
         "questions": clean_questions,
     }
 
