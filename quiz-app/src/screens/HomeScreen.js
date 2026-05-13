@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useContext } from "react";
+import React, { useEffect, useMemo, useState, useRef, useContext } from "react";
 import {
   View,
   Text,
@@ -163,6 +163,7 @@ const HomeScreen = ({ navigation }) => {
 
   const headerFade = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(-20)).current;
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -221,24 +222,34 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const normalizedSearch = searchText.trim().toLowerCase();
-  const filteredQuizzes = quizzes.filter((quiz) => {
-    const matchesFilter =
-      filter === "all"
-      || (filter === "completed" && quiz.completed)
-      || (filter === "available" && !quiz.completed);
+  const filteredQuizzes = useMemo(() => {
+    const searchTerms = normalizedSearch.split(/\s+/).filter(Boolean);
 
-    if (!matchesFilter) return false;
-    if (!normalizedSearch) return true;
+    return quizzes.filter((quiz) => {
+      const matchesFilter =
+        filter === "all"
+        || (filter === "completed" && quiz.completed)
+        || (filter === "available" && !quiz.completed);
 
-    return [
-      quiz.title,
-      quiz.description,
-      quiz.difficulty,
-      quiz.course,
-    ].some((value) => String(value || "").toLowerCase().includes(normalizedSearch));
-  });
+      if (!matchesFilter) return false;
+      if (!searchTerms.length) return true;
 
-  const ListHeader = () => (
+      const searchableText = [
+        quiz.title,
+        quiz.description,
+        quiz.difficulty,
+        quiz.course,
+        quiz.question_count != null ? `${quiz.question_count} questions` : "",
+        quiz.duration != null ? `${quiz.duration} minutes` : "",
+        quiz.id,
+        quiz._id,
+      ].map((value) => String(value || "").toLowerCase()).join(" ");
+
+      return searchTerms.every((term) => searchableText.includes(term));
+    });
+  }, [filter, normalizedSearch, quizzes]);
+
+  const listHeader = (
     <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
       <View style={styles.headerTop}>
         <View>
@@ -277,18 +288,29 @@ const HomeScreen = ({ navigation }) => {
         </View>
       </View>
 
-      <View style={[styles.searchBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={() => searchInputRef.current?.focus()}
+        style={[styles.searchBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+      >
         <Text style={[styles.searchIcon, { color: themeColors.textGhost }]}>Search</Text>
         <TextInput
+          ref={searchInputRef}
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search quizzes"
           placeholderTextColor={themeColors.textGhost}
           style={[styles.searchInput, { color: themeColors.text }]}
           autoCorrect={false}
+          autoCapitalize="none"
           clearButtonMode="while-editing"
         />
-      </View>
+        {!!searchText && (
+          <TouchableOpacity onPress={() => setSearchText("")} style={styles.clearSearchBtn}>
+            <Text style={[styles.clearSearchText, { color: themeColors.textSubtle }]}>Clear</Text>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
 
       <View style={styles.filterRow}>
         {[
@@ -317,7 +339,7 @@ const HomeScreen = ({ navigation }) => {
       </View>
 
       <Text style={[styles.sectionLabel, { color: themeColors.textGhost }]}>
-        {filter === "completed" ? "COMPLETED QUIZZES" : filter === "available" ? "NEW QUIZZES" : "ALL QUIZZES"}
+        {filter === "completed" ? "COMPLETED QUIZZES" : filter === "available" ? "NEW QUIZZES" : "ALL QUIZZES"} ({filteredQuizzes.length})
       </Text>
     </Animated.View>
   );
@@ -356,17 +378,21 @@ const HomeScreen = ({ navigation }) => {
             onPress={() => navigation.navigate("Quiz", { quizId: item._id?.toString() || item.id })}
           />
         )}
-        ListHeaderComponent={<ListHeader />}
+        ListHeaderComponent={listHeader}
+        extraData={{ searchText, filter, attemptSummary }}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={[styles.emptyEyebrow, { color: accentOption.colors[0] }]}>Quiz Feed</Text>
-            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>{error ? "Unable to load quizzes" : "No quizzes yet"}</Text>
+            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>
+              {error ? "Unable to load quizzes" : quizzes.length ? "No matching quizzes" : "No quizzes yet"}
+            </Text>
             <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>
               {error || (quizzes.length ? "Try a different search or filter" : "Check back soon for new challenges")}
             </Text>
           </View>
         }
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accentOption.colors[0]} />
@@ -429,6 +455,8 @@ const styles = StyleSheet.create({
   },
   searchIcon: { fontSize: 11, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
   searchInput: { flex: 1, fontSize: 15, fontWeight: "600", paddingVertical: 10 },
+  clearSearchBtn: { paddingHorizontal: 8, paddingVertical: 6 },
+  clearSearchText: { fontSize: 12, fontWeight: "800" },
   filterRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
   filterChip: {
     borderWidth: 1,
