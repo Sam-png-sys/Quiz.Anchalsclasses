@@ -10,9 +10,33 @@ import {
   TextInput,
   ActivityIndicator,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
+
+const LOCAL_COMPLETIONS_KEY = "local_completed_quizzes";
+
+const saveLocalCompletion = async (quizId, score, total) => {
+  if (!quizId || !total) return;
+
+  try {
+    const raw = await AsyncStorage.getItem(LOCAL_COMPLETIONS_KEY);
+    const completions = raw ? JSON.parse(raw) : {};
+    const previous = completions[quizId] || {};
+    const percent = Math.round((score / total) * 100);
+
+    completions[quizId] = {
+      completedAt: new Date().toISOString(),
+      attempts: (previous.attempts || 0) + 1,
+      bestScore: typeof previous.bestScore === "number" ? Math.max(previous.bestScore, percent) : percent,
+    };
+
+    await AsyncStorage.setItem(LOCAL_COMPLETIONS_KEY, JSON.stringify(completions));
+  } catch (error) {
+    console.log("Local completion save failed:", error?.message || error);
+  }
+};
 
 const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, accentOption }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -168,6 +192,7 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
 const ResultScreen = ({ route, navigation }) => {
   const { answers, questions, quizId } = route.params;
   const { accentOption, themeColors, settings } = useAppSettings();
+  const completionSaved = useRef(false);
 
   let score = 0;
   questions.forEach((q, i) => {
@@ -214,6 +239,19 @@ const ResultScreen = ({ route, navigation }) => {
   }, [barWidth, headerFade, pct, scoreOpacity, scoreScale, statsFade, statsSlide]);
 
   const animatedBarWidth = barWidth.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
+
+  useEffect(() => {
+    if (!quizId || completionSaved.current) return;
+    completionSaved.current = true;
+
+    API.post(`/attempt/complete/${quizId}`, { answers })
+      .catch((error) => {
+        console.log("Completion save failed:", error.response?.data?.detail || error.message);
+      })
+      .finally(() => {
+        saveLocalCompletion(quizId, score, total);
+      });
+  }, [answers, quizId, score, total]);
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.background }]}>

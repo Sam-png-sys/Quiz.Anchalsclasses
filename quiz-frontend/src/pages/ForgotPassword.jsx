@@ -114,7 +114,7 @@ export default function ForgotPassword() {
                 style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text)" }}
               />
 
-              <button
+              <button 
                 onClick={handleReset}
                 disabled={loading}
                 className="w-full py-3 rounded-lg font-semibold disabled:opacity-50"

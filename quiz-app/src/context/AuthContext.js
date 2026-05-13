@@ -6,6 +6,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [userToken, setUserToken] = useState(null);
   const [email, setEmail] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const loadAuthState = async () => {
@@ -16,6 +17,8 @@ export const AuthProvider = ({ children }) => {
         if (storedToken) setUserToken(storedToken);
       } catch (error) {
         console.log("AUTH STATE LOAD ERROR", error?.message || error);
+      } finally {
+        setAuthLoading(false);
       }
     };
 
@@ -28,6 +31,19 @@ export const AuthProvider = ({ children }) => {
     });
   }, [email]);
 
+  const signIn = async (token, nextEmail = email) => {
+    await AsyncStorage.setItem("token", token);
+    if (nextEmail) await AsyncStorage.setItem("email", nextEmail);
+    setUserToken(token);
+    if (nextEmail) setEmail(nextEmail);
+  };
+
+  const signOut = async () => {
+    await AsyncStorage.multiRemove(["token", "email"]);
+    setUserToken(null);
+    setEmail("");
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -35,6 +51,9 @@ export const AuthProvider = ({ children }) => {
         setUserToken,
         email,
         setEmail,
+        authLoading,
+        signIn,
+        signOut,
       }}
     >
       {children}

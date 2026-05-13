@@ -9,7 +9,9 @@ import {
   Animated,
   StatusBar,
   RefreshControl,
+  TextInput,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
 import { AuthContext } from "../context/AuthContext";
@@ -23,6 +25,50 @@ const QUIZ_PALETTES = [
   ["#059669", "#047857"],
   ["#4f46e5", "#3730a3"],
 ];
+
+const LOCAL_COMPLETIONS_KEY = "local_completed_quizzes";
+
+const getLocalAttemptSummary = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(LOCAL_COMPLETIONS_KEY);
+    const completions = raw ? JSON.parse(raw) : {};
+    const items = Object.values(completions);
+    const bestScore = items.reduce((best, item) => {
+      if (typeof item.bestScore !== "number") return best;
+      return best == null ? item.bestScore : Math.max(best, item.bestScore);
+    }, null);
+
+    return {
+      completedCount: Object.keys(completions).length,
+      completedQuizIds: Object.keys(completions),
+      totalAttempts: items.reduce((total, item) => total + (item.attempts || 1), 0),
+      bestScore,
+    };
+  } catch (error) {
+    console.log("Local attempt summary unavailable:", error?.message || error);
+    return {
+      completedCount: 0,
+      completedQuizIds: [],
+      totalAttempts: 0,
+      bestScore: null,
+    };
+  }
+};
+
+const mergeAttemptSummaries = (serverSummary, localSummary) => {
+  const completedIds = new Set([
+    ...(serverSummary.completedQuizIds || []),
+    ...(localSummary.completedQuizIds || []),
+  ]);
+  const bestScores = [serverSummary.bestScore, localSummary.bestScore].filter((score) => typeof score === "number");
+
+  return {
+    completedCount: completedIds.size,
+    completedQuizIds: Array.from(completedIds),
+    totalAttempts: (serverSummary.totalAttempts || 0) + (localSummary.totalAttempts || 0),
+    bestScore: bestScores.length ? Math.max(...bestScores) : null,
+  };
+};
 
 const QuizCard = ({ item, index, onPress, themeColors }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -56,8 +102,15 @@ const QuizCard = ({ item, index, onPress, themeColors }) => {
         <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cardAccent} />
 
         <View style={styles.cardInner}>
-          <View style={[styles.badge, { backgroundColor: colors[0] + "22" }]}>
-            <Text style={[styles.badgeText, { color: colors[0] }]}>#{String(index + 1).padStart(2, "0")}</Text>
+          <View style={styles.cardTopRow}>
+            <View style={[styles.badge, { backgroundColor: colors[0] + "22" }]}>
+              <Text style={[styles.badgeText, { color: colors[0] }]}>#{String(index + 1).padStart(2, "0")}</Text>
+            </View>
+            {item.completed && (
+              <View style={[styles.completedBadge, { backgroundColor: "#05966922", borderColor: "#05966944" }]}>
+                <Text style={styles.completedBadgeText}>Completed</Text>
+              </View>
+            )}
           </View>
 
           <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={2}>
@@ -83,7 +136,7 @@ const QuizCard = ({ item, index, onPress, themeColors }) => {
 
             <View style={styles.startBtn}>
               <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.startGrad}>
-                <Text style={styles.startText}>Start</Text>
+                <Text style={styles.startText}>{item.completed ? "Retry" : "Start"}</Text>
               </LinearGradient>
             </View>
           </View>
@@ -97,6 +150,13 @@ const HomeScreen = ({ navigation }) => {
   const { email } = useContext(AuthContext);
   const { accentOption, themeColors, settings } = useAppSettings();
   const [quizzes, setQuizzes] = useState([]);
+  const [attemptSummary, setAttemptSummary] = useState({
+    completedCount: 0,
+    completedQuizIds: [],
+    bestScore: null,
+  });
+  const [searchText, setSearchText] = useState("");
+  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -114,11 +174,33 @@ const HomeScreen = ({ navigation }) => {
   const fetchQuizzes = async () => {
     try {
       setError("");
-      const res = await API.get("/quiz/?page=1&limit=10");
-      if (Array.isArray(res.data)) setQuizzes(res.data);
-      else if (Array.isArray(res.data.quizzes)) setQuizzes(res.data.quizzes);
-      else if (Array.isArray(res.data.data)) setQuizzes(res.data.data);
-      else setQuizzes([]);
+      const quizRes = await API.get("/quiz/?page=1&limit=50");
+      let serverSummary = {};
+      try {
+        const summaryRes = await API.get("/attempt/summary");
+        serverSummary = summaryRes.data || {};
+      } catch (summaryError) {
+        console.log("Attempt summary unavailable:", summaryError.response?.status || summaryError.message);
+      }
+      const localSummary = await getLocalAttemptSummary();
+      const summary = mergeAttemptSummaries(serverSummary, localSummary);
+      const quizData = Array.isArray(quizRes.data)
+        ? quizRes.data
+        : Array.isArray(quizRes.data.quizzes)
+          ? quizRes.data.quizzes
+          : Array.isArray(quizRes.data.data)
+            ? quizRes.data.data
+            : [];
+      const completedIds = new Set(summary.completedQuizIds || []);
+      setAttemptSummary({
+        completedCount: summary.completedCount || 0,
+        completedQuizIds: summary.completedQuizIds || [],
+        bestScore: summary.bestScore ?? null,
+      });
+      setQuizzes(quizData.map((quiz) => ({
+        ...quiz,
+        completed: completedIds.has(quiz._id?.toString() || quiz.id?.toString()),
+      })));
     } catch (fetchError) {
       setQuizzes([]);
       const detail = fetchError.response?.data?.detail;
@@ -137,6 +219,24 @@ const HomeScreen = ({ navigation }) => {
     setRefreshing(true);
     fetchQuizzes();
   };
+
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const filteredQuizzes = quizzes.filter((quiz) => {
+    const matchesFilter =
+      filter === "all"
+      || (filter === "completed" && quiz.completed)
+      || (filter === "available" && !quiz.completed);
+
+    if (!matchesFilter) return false;
+    if (!normalizedSearch) return true;
+
+    return [
+      quiz.title,
+      quiz.description,
+      quiz.difficulty,
+      quiz.course,
+    ].some((value) => String(value || "").toLowerCase().includes(normalizedSearch));
+  });
 
   const ListHeader = () => (
     <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
@@ -166,16 +266,59 @@ const HomeScreen = ({ navigation }) => {
             },
           ]}
         >
-          <Text style={[styles.statNumber, { color: themeColors.text }]}>0</Text>
+          <Text style={[styles.statNumber, { color: themeColors.text }]}>{attemptSummary.completedCount}</Text>
           <Text style={[styles.statLabel, { color: themeColors.textSubtle }]}>Completed</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-          <Text style={[styles.statNumber, { color: themeColors.text }]}>—</Text>
+          <Text style={[styles.statNumber, { color: themeColors.text }]}>
+            {attemptSummary.bestScore == null ? "—" : `${attemptSummary.bestScore}%`}
+          </Text>
           <Text style={[styles.statLabel, { color: themeColors.textSubtle }]}>Best Score</Text>
         </View>
       </View>
 
-      <Text style={[styles.sectionLabel, { color: themeColors.textGhost }]}>ALL QUIZZES</Text>
+      <View style={[styles.searchBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+        <Text style={[styles.searchIcon, { color: themeColors.textGhost }]}>Search</Text>
+        <TextInput
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search quizzes"
+          placeholderTextColor={themeColors.textGhost}
+          style={[styles.searchInput, { color: themeColors.text }]}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+      </View>
+
+      <View style={styles.filterRow}>
+        {[
+          { key: "all", label: "All" },
+          { key: "available", label: "New" },
+          { key: "completed", label: "Completed" },
+        ].map((item) => {
+          const active = filter === item.key;
+          return (
+            <TouchableOpacity
+              key={item.key}
+              style={[
+                styles.filterChip,
+                active
+                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+              ]}
+              onPress={() => setFilter(item.key)}
+            >
+              <Text style={[styles.filterChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.sectionLabel, { color: themeColors.textGhost }]}>
+        {filter === "completed" ? "COMPLETED QUIZZES" : filter === "available" ? "NEW QUIZZES" : "ALL QUIZZES"}
+      </Text>
     </Animated.View>
   );
 
@@ -203,7 +346,7 @@ const HomeScreen = ({ navigation }) => {
       </View>
 
       <FlatList
-        data={quizzes}
+        data={filteredQuizzes}
         keyExtractor={(item, i) => item._id?.toString() || item.id || i.toString()}
         renderItem={({ item, index }) => (
           <QuizCard
@@ -219,7 +362,7 @@ const HomeScreen = ({ navigation }) => {
             <Text style={[styles.emptyEyebrow, { color: accentOption.colors[0] }]}>Quiz Feed</Text>
             <Text style={[styles.emptyTitle, { color: themeColors.text }]}>{error ? "Unable to load quizzes" : "No quizzes yet"}</Text>
             <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>
-              {error || "Check back soon for new challenges"}
+              {error || (quizzes.length ? "Try a different search or filter" : "Check back soon for new challenges")}
             </Text>
           </View>
         }
@@ -274,6 +417,26 @@ const styles = StyleSheet.create({
   },
   statNumber: { fontSize: 22, fontWeight: "800", marginBottom: 2 },
   statLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5 },
+  searchBox: {
+    minHeight: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  searchIcon: { fontSize: 11, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: "600", paddingVertical: 10 },
+  filterRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
+  filterChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+  },
+  filterChipText: { fontSize: 12, fontWeight: "800" },
   sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 2.5, marginBottom: 14 },
   card: {
     borderRadius: 20,
@@ -283,14 +446,21 @@ const styles = StyleSheet.create({
   },
   cardAccent: { height: 3, width: "100%" },
   cardInner: { padding: 18 },
+  cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 },
   badge: {
     alignSelf: "flex-start",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    marginBottom: 12,
   },
   badgeText: { fontSize: 11, fontWeight: "700", letterSpacing: 1 },
+  completedBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  completedBadgeText: { color: "#6ee7b7", fontSize: 11, fontWeight: "700" },
   cardTitle: { fontSize: 17, fontWeight: "700", marginBottom: 6, letterSpacing: -0.2 },
   cardDesc: { fontSize: 13, lineHeight: 20, marginBottom: 16 },
   cardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 
@@ -19,7 +18,7 @@ const { width } = Dimensions.get("window");
 const OTP_LENGTH = 6;
 
 const OtpScreen = ({ navigation }) => {
-  const { email, setUserToken } = useContext(AuthContext);
+  const { email, signIn } = useContext(AuthContext);
   const { accentOption, themeColors, settings } = useAppSettings();
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
@@ -72,9 +71,7 @@ const OtpScreen = ({ navigation }) => {
         otp: finalOtp,
       });
       const token = response.data.access_token;
-      await AsyncStorage.setItem("token", token);
-      setUserToken(token);
-      navigation.replace("Home");
+      await signIn(token, email.trim());
     } catch (error) {
       alert(error.response?.data?.detail || error.message || "Invalid OTP");
     } finally {

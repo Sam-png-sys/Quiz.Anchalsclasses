@@ -9,7 +9,6 @@ import {
   Switch,
   Alert,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { AuthContext } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
@@ -43,7 +42,7 @@ function SettingRow({ label, subtitle, themeColors, right }) {
 }
 
 export default function SettingsScreen({ navigation }) {
-  const { email, setEmail, setUserToken } = useContext(AuthContext);
+  const { email, signOut } = useContext(AuthContext);
   const { settings, themeColors, accentOption, setTheme, setAccent, setNotification } = useAppSettings();
 
   const profile = useMemo(() => {
@@ -65,13 +64,7 @@ export default function SettingsScreen({ navigation }) {
         text: "Sign out",
         style: "destructive",
         onPress: async () => {
-          await AsyncStorage.removeItem("token");
-          setUserToken(null);
-          setEmail("");
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          });
+          await signOut();
         },
       },
     ]);
