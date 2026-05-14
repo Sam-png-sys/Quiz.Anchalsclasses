@@ -1,15 +1,16 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Mail, Phone, Lock, Shield, Bell, Palette,
   Eye, EyeOff, Check, X, ToggleLeft, ToggleRight,
   Save, ArrowLeft, Key, Globe, Moon, Sun,
-  Camera, Trash2, AlertTriangle,
+  Trash2, AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../utils/config";
 import { ACCENT_OPTIONS, applyTheme, getStoredAccent, getStoredTheme } from "../utils/theme";
 import AdminShell from "../components/AdminShell";
+const MotionDiv = motion.div;
 
 function decodeToken(token) {
   try { return JSON.parse(atob(token.split(".")[1])); }
@@ -33,7 +34,6 @@ export default function Settings() {
   const navigate = useNavigate();
   const token    = localStorage.getItem("token");
   const decoded  = decodeToken(token);
-  const fileRef  = useRef(null);
 
   const [tab, setTab]       = useState("profile");
   const [saving, setSaving] = useState(false);
@@ -47,13 +47,11 @@ export default function Settings() {
   const [passError, setPassError] = useState("");
 
   const [profile, setProfile] = useState({
-    name:          decoded?.name     || decoded?.username || "",
-    email:         decoded?.email    || "",
-    phone:         decoded?.phone    || "",
-    bio:           decoded?.bio      || "",
-    role:          decoded?.role     || "admin",
-    avatarPreview: null,
-    avatarFile:    null,
+    name:  decoded?.name     || decoded?.username || "",
+    email: decoded?.email    || "",
+    phone: decoded?.phone    || "",
+    bio:   decoded?.bio      || "",
+    role:  decoded?.role     || "admin",
   });
 
   const [passwords, setPasswords] = useState({ current: "", newp: "", confirm: "" });
@@ -66,7 +64,6 @@ export default function Settings() {
     emailDigest:  false,
   });
 
-  const initial = profile.name?.charAt(0)?.toUpperCase() || "A";
   const panelStyle = {
     background: "var(--app-surface)",
     border: "1px solid var(--app-border)",
@@ -79,36 +76,11 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setProfile(p => ({ ...p, avatarFile: file, avatarPreview: reader.result }));
-    reader.readAsDataURL(file);
-  };
-
   // ── Save profile ──────────────────────────────────────────────────────────
   const handleSaveProfile = async () => {
     setError("");
     setSaving(true);
     try {
-      let avatarUrl = null;
-
-      // Upload avatar to Cloudinary first if a new file was picked
-      if (profile.avatarFile) {
-        const formData = new FormData();
-        formData.append("file", profile.avatarFile);
-        const upRes = await fetch(`${API_BASE}/admin/upload-avatar`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        if (!upRes.ok) throw new Error("Avatar upload failed");
-        const upData = await upRes.json();
-        avatarUrl = upData.url;
-      }
-
-      // Save profile fields
       const res = await fetch(`${API_BASE}/admin/profile`, {
         method: "PUT",
         headers: {
@@ -120,7 +92,6 @@ export default function Settings() {
           email:  profile.email,
           phone:  profile.phone,
           bio:    profile.bio,
-          ...(avatarUrl && { avatarUrl }),
         }),
       });
 
@@ -223,7 +194,9 @@ export default function Settings() {
           {/* Sidebar */}
           <aside className="lg:w-56 flex-shrink-0">
             <div className="rounded-2xl p-2 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible" style={panelStyle}>
-              {TABS.map(({ id, label, icon: Icon }) => (
+              {TABS.map(({ id, label, icon }) => {
+                const TabIcon = icon;
+                return (
                 <button key={id} onClick={() => setTab(id)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 whitespace-nowrap
                     ${tab === id
@@ -236,10 +209,11 @@ export default function Settings() {
                       ? { background: "rgba(239,68,68,0.10)" }
                       : { background: "var(--accent-soft)", color: "var(--accent)", borderColor: "var(--accent-border)" }
                     : { color: "var(--app-text-muted)" }}>
-                  <Icon size={15} className="flex-shrink-0" />
+                  <TabIcon size={15} className="flex-shrink-0" />
                   <span className="text-[13px] font-semibold">{label}</span>
                 </button>
-              ))}
+              );
+              })}
             </div>
           </aside>
 
@@ -249,37 +223,7 @@ export default function Settings() {
 
               {/* ──── PROFILE ──── */}
               {tab === "profile" && (
-                <motion.div key="profile" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
-
-                  {/* Avatar */}
-                  <div className="rounded-2xl p-6" style={panelStyle}>
-                    <SectionTitle>Profile Photo</SectionTitle>
-                    <div className="flex items-center gap-5">
-                      <div className="relative flex-shrink-0">
-                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white overflow-hidden shadow-lg select-none" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 16px 32px var(--accent-glow)" }}>
-                          {profile.avatarPreview
-                            ? <img src={profile.avatarPreview} alt="avatar" className="w-full h-full object-cover" />
-                            : initial}
-                        </div>
-                        <button onClick={() => fileRef.current?.click()}
-                          className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-xl flex items-center justify-center transition-all shadow-lg"
-                          style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)", color: "var(--app-text-muted)" }}>
-                          <Camera size={13} />
-                        </button>
-                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                      </div>
-                      <div>
-                        <p className="text-[15px] font-bold" style={{ color: "var(--app-text)" }}>{profile.name || "Admin"}</p>
-                        <p className="text-[12px] mt-0.5 capitalize" style={{ color: "var(--app-text-subtle)" }}>{profile.role}</p>
-                        <div className="flex gap-2 mt-3">
-                          <PillBtn color="cyan" onClick={() => fileRef.current?.click()}>Change photo</PillBtn>
-                          {profile.avatarPreview && (
-                            <PillBtn color="red" onClick={() => setProfile(p => ({ ...p, avatarFile: null, avatarPreview: null }))}>Remove</PillBtn>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <MotionDiv key="profile" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
 
                   {/* Personal info */}
                   <div className="rounded-2xl p-6" style={panelStyle}>
@@ -317,12 +261,12 @@ export default function Settings() {
                   )}
 
                   <SaveBtn saving={saving} saved={saved} onClick={handleSaveProfile} />
-                </motion.div>
+                </MotionDiv>
               )}
 
               {/* ──── SECURITY ──── */}
               {tab === "security" && (
-                <motion.div key="security" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
+                <MotionDiv key="security" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
                   <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Change Password</SectionTitle>
                     <div className="flex flex-col gap-3">
@@ -381,12 +325,12 @@ export default function Settings() {
                   </div>
 
                   <SaveBtn saving={saving} saved={saved} onClick={handleChangePassword} label="Update Password" />
-                </motion.div>
+                </MotionDiv>
               )}
 
               {/* ──── NOTIFICATIONS ──── */}
               {tab === "notifications" && (
-                <motion.div key="notifications" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
+                <MotionDiv key="notifications" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
                   <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Notification Preferences</SectionTitle>
                     {[
@@ -410,19 +354,21 @@ export default function Settings() {
                     ))}
                   </div>
                   <SaveBtn saving={saving} saved={saved} onClick={() => flash()} label="Save Preferences" />
-                </motion.div>
+                </MotionDiv>
               )}
 
               {/* ──── APPEARANCE ──── */}
               {tab === "appearance" && (
-                <motion.div key="appearance" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
+                <MotionDiv key="appearance" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
                   <div className="rounded-2xl p-6" style={panelStyle}>
                     <SectionTitle>Theme</SectionTitle>
                     <div className="grid grid-cols-2 gap-3">
                       {[
                         { id: "dark",  label: "Dark mode",  icon: Moon, preview: "bg-[#080810]", active: darkMode },
                         { id: "light", label: "Light mode", icon: Sun,  preview: "bg-gray-100",  active: !darkMode },
-                      ].map(({ id, label, icon: Icon, preview, active }) => (
+                      ].map(({ id, label, icon, preview, active }) => {
+                        const ThemeIcon = icon;
+                        return (
                         <button key={id}
                           onClick={() => handleToggleTheme(id)}
                           className={`relative p-5 rounded-2xl border transition-all duration-200 text-left
@@ -431,7 +377,7 @@ export default function Settings() {
                             ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" }
                             : { borderColor: "var(--app-border)", background: "var(--app-input)" }}>
                           <div className={`w-full h-14 rounded-xl ${preview} mb-3 border border-white/[0.06] flex items-center justify-center`}>
-                            <Icon size={18} style={{ color: active ? "var(--accent)" : "var(--app-text-ghost)" }} />
+                            <ThemeIcon size={18} style={{ color: active ? "var(--accent)" : "var(--app-text-ghost)" }} />
                           </div>
                           <p className="text-[13px] font-semibold" style={{ color: "var(--app-text)" }}>{label}</p>
                           {active && (
@@ -440,7 +386,8 @@ export default function Settings() {
                             </div>
                           )}
                         </button>
-                      ))}
+                      );
+                      })}
                     </div>
                   </div>
 
@@ -462,12 +409,12 @@ export default function Settings() {
                     </div>
                     <p className="text-[11px] mt-3" style={{ color: "var(--app-text-subtle)" }}>Accent color updates apply instantly across the key admin screens.</p>
                   </div>
-                </motion.div>
+                </MotionDiv>
               )}
 
               {/* ──── DANGER ZONE ──── */}
               {tab === "danger" && (
-                <motion.div key="danger" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
+                <MotionDiv key="danger" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
                   <div className="bg-[#0c0c18] border border-red-500/20 rounded-2xl p-6">
                     <div className="flex items-center gap-2 mb-5">
                       <AlertTriangle size={15} className="text-red-400" />
@@ -497,7 +444,7 @@ export default function Settings() {
                       );
                     })}
                   </div>
-                </motion.div>
+                </MotionDiv>
               )}
 
             </AnimatePresence>
@@ -508,10 +455,10 @@ export default function Settings() {
       {/* Delete modal */}
       <AnimatePresence>
         {deleteModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 px-4"
             onClick={() => { setDeleteModal(false); setDeleteInput(""); }}>
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+            <MotionDiv initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               onClick={e => e.stopPropagation()}
               className="border border-red-500/20 rounded-3xl p-8 w-full max-w-md shadow-2xl"
               style={{ background: "var(--app-surface-alt)" }}>
@@ -541,8 +488,8 @@ export default function Settings() {
                   Delete Forever
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
@@ -576,18 +523,6 @@ function Field({ icon, label, children }) {
         {children}
       </div>
     </div>
-  );
-}
-
-function PillBtn({ children, color, onClick }) {
-  const styles = {
-    cyan: { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" },
-    red:  { color: "#f87171", background: "rgba(248,113,113,0.12)", borderColor: "rgba(248,113,113,0.26)" },
-  };
-  return (
-    <button onClick={onClick} className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all" style={styles[color]}>
-      {children}
-    </button>
   );
 }
 

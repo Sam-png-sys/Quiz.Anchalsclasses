@@ -5,7 +5,7 @@ import {
   ChevronDown, Plus, Trash2, Edit2, Eye, X,
   ArrowUpDown, TrendingUp, CheckCircle2, XCircle,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../utils/api";
 import { ArrowLeft } from "lucide-react";
 import { API_BASE } from "../utils/config";
@@ -13,6 +13,7 @@ import AdminShell from "../components/AdminShell";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.06 } } };
+const MotionDiv = motion.div;
 
 const SORT_OPTIONS = [
   { label: "Newest First", value: "newest" },
@@ -31,6 +32,7 @@ const DIFF_COLORS = {
 
 export default function QuizList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const token = localStorage.getItem("token");
 
   const [quizzes, setQuizzes] = useState([]);
@@ -48,6 +50,13 @@ export default function QuizList() {
   useEffect(() => {
     fetchQuizzes();
   }, []);
+
+  useEffect(() => {
+    const courseFilter = searchParams.get("course");
+    if (courseFilter) {
+      setSearch(courseFilter);
+    }
+  }, [searchParams]);
 
   const fetchQuizzes = async () => {
     try {
@@ -79,7 +88,7 @@ export default function QuizList() {
 
   const handleDelete = async (id) => {
     try {
-      await apiRequest(`/admin/course/${id}`, "DELETE");
+      await apiRequest(`/admin/quiz/${id}`, "DELETE");
 
       setQuizzes(prev => prev.filter(q => (q._id || q.id) !== id));
 
@@ -225,7 +234,7 @@ export default function QuizList() {
         {/* Filter panel */}
         <AnimatePresence>
           {filtersOpen && (
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden mb-5"
             >
@@ -240,7 +249,7 @@ export default function QuizList() {
                   </button>
                 )}
               </div>
-            </motion.div>
+            </MotionDiv>
           )}
         </AnimatePresence>
 
@@ -265,12 +274,12 @@ export default function QuizList() {
             <p className="text-white/20 text-sm mt-1">Try adjusting your search or filters</p>
           </div>
         ) : (
-          <motion.div variants={stagger} initial="hidden" animate="show"
+          <MotionDiv variants={stagger} initial="hidden" animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {processed.map((quiz) => {
               const id = quiz._id || quiz.id;
               return (
-                <motion.div key={id} variants={fadeUp}
+                <MotionDiv key={id} variants={fadeUp}
                   className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/30 transition-all duration-300 group flex flex-col">
 
                   {/* Top row */}
@@ -344,19 +353,19 @@ export default function QuizList() {
                       <Trash2 size={14} />
                     </button>
                   </div>
-                </motion.div>
+                </MotionDiv>
               );
             })}
-          </motion.div>
+          </MotionDiv>
         )}
 
         {/* Delete confirm modal */}
         <AnimatePresence>
           {deleteId && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4"
               onClick={() => setDeleteId(null)}>
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              <MotionDiv initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
                 className="bg-[#13131f] border border-white/[0.08] rounded-3xl p-7 w-full max-w-sm shadow-2xl">
                 <div className="text-sm font-bold uppercase tracking-widest text-red-400 mb-4">Delete</div>
@@ -372,8 +381,8 @@ export default function QuizList() {
                     Delete
                   </button>
                 </div>
-              </motion.div>
-            </motion.div>
+              </MotionDiv>
+            </MotionDiv>
           )}
         </AnimatePresence>
 

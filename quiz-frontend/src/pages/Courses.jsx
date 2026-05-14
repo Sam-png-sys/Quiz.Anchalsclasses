@@ -12,6 +12,7 @@ import AdminShell from "../components/AdminShell";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.07 } } };
+const MotionDiv = motion.div;
 
 const COURSE_COLORS = [
   { from: "from-cyan-500", to: "to-blue-600", bg: "bg-cyan-500/10", border: "border-cyan-500/20", text: "text-cyan-400" },
@@ -41,7 +42,7 @@ export default function Courses() {
     try {
       setLoading(true);
 
-      const data = await apiRequest("/admin/courses");
+      const data = await apiRequest("/admin/course-catalog");
 
       const list = data.map((c) => ({
         ...c,
@@ -149,13 +150,13 @@ export default function Courses() {
             </button>
           </div>
         ) : (
-          <motion.div variants={stagger} initial="hidden" animate="show"
+          <MotionDiv variants={stagger} initial="hidden" animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {courses.map((course, idx) => {
               const id = course._id || course.id;
               const color = COURSE_COLORS[idx % COURSE_COLORS.length];
               return (
-                <motion.div key={id} variants={fadeUp}
+                <MotionDiv key={id} variants={fadeUp}
                   className="bg-[#0c0c18] border border-white/[0.06] rounded-3xl overflow-hidden hover:border-white/[0.12] hover:shadow-xl hover:shadow-black/40 transition-all duration-300 group">
 
                   {/* Top gradient */}
@@ -186,7 +187,7 @@ export default function Courses() {
                     </div>
 
                     <div className="flex gap-2">
-                      <button onClick={() => navigate(`/courses/${id}`)}
+                      <button onClick={() => navigate(`/quizzes?course=${encodeURIComponent(course.title)}`)}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${color.bg} ${color.border} ${color.text} hover:opacity-80`}>
                         View Quizzes <ChevronRight size={13} />
                       </button>
@@ -200,19 +201,19 @@ export default function Courses() {
                       </button>
                     </div>
                   </div>
-                </motion.div>
+                </MotionDiv>
               );
             })}
-          </motion.div>
+          </MotionDiv>
         )}
 
         {/* Create/Edit Modal */}
         <AnimatePresence>
           {modalOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4"
               onClick={() => setModalOpen(false)}>
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              <MotionDiv initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
                 className="bg-[#13131f] border border-white/[0.08] rounded-3xl p-7 w-full max-w-md shadow-2xl">
 
@@ -258,18 +259,18 @@ export default function Courses() {
                     <Save size={14} /> {saving ? "Saving..." : editing ? "Update" : "Create"}
                   </button>
                 </div>
-              </motion.div>
-            </motion.div>
+              </MotionDiv>
+            </MotionDiv>
           )}
         </AnimatePresence>
 
         {/* Delete confirm */}
         <AnimatePresence>
           {deleteId && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4"
               onClick={() => setDeleteId(null)}>
-              <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              <MotionDiv initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
                 onClick={e => e.stopPropagation()}
                 className="bg-[#13131f] border border-white/[0.08] rounded-3xl p-7 w-full max-w-sm shadow-2xl">
                 <div className="text-sm font-bold uppercase tracking-widest text-red-400 mb-4">Delete</div>
@@ -279,8 +280,8 @@ export default function Courses() {
                   <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 rounded-xl border border-white/[0.08] text-white/50 text-sm font-semibold">Cancel</button>
                   <button onClick={() => handleDelete(deleteId)} className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all">Delete</button>
                 </div>
-              </motion.div>
-            </motion.div>
+              </MotionDiv>
+            </MotionDiv>
           )}
         </AnimatePresence>
 

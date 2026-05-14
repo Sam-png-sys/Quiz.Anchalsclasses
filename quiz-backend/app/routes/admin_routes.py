@@ -7,6 +7,7 @@ import imghdr
 
 from app.dependencies.auth_dependency import admin_only, get_current_user
 from app.config.database import (
+    course_collection,
     quiz_collection,
     question_collection,
     attempt_collection,
@@ -109,6 +110,14 @@ def build_student_record(student):
 def get_student_records():
     students = list(users_collection.find({"role": "student"}))
     return [build_student_record(student) for student in students]
+
+
+def build_course_record(course):
+    record = serialize_value(course)
+    record["_id"] = str(course["_id"])
+    record["totalQuizzes"] = quiz_collection.count_documents({"course": course.get("title", "")})
+    record["enrolled"] = course.get("enrolled", 0)
+    return record
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -270,7 +279,7 @@ def add_question(data: dict, admin=Depends(admin_only)):
 
 
 @router.get("/courses")
-def get_courses(admin=Depends(admin_only)):
+def get_quizzes(admin=Depends(admin_only)):
     quizzes = list(quiz_collection.find())
     for q in quizzes:
         q["_id"]        = str(q["_id"])
@@ -283,10 +292,100 @@ def get_courses(admin=Depends(admin_only)):
     return quizzes
 
 
+@router.get("/course-catalog")
+def get_course_catalog(admin=Depends(admin_only)):
+    courses = list(course_collection.find().sort("createdAt", -1))
+    return [build_course_record(course) for course in courses]
+
+
+@router.post("/course")
+def create_course(data: dict, admin=Depends(admin_only)):
+    title = (data.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Course title is required")
+
+    existing = course_collection.find_one({"title": {"$regex": f"^{title}$", "$options": "i"}})
+    if existing:
+        raise HTTPException(status_code=400, detail="A course with this title already exists")
+
+    course = {
+        "title": title,
+        "description": (data.get("description") or "").strip(),
+        "tag": (data.get("tag") or "BDS").strip() or "BDS",
+        "duration": (data.get("duration") or "").strip(),
+        "totalQuizzes": int(data.get("totalQuizzes") or 0),
+        "enrolled": int(data.get("enrolled") or 0),
+        "createdAt": datetime.utcnow(),
+        "updatedAt": datetime.utcnow(),
+    }
+
+    result = course_collection.insert_one(course)
+    activity_collection.insert_one({
+        "type": "course_created",
+        "message": f"Course '{course['title']}' created",
+        "createdAt": datetime.utcnow(),
+    })
+    return {"course_id": str(result.inserted_id)}
+
+
+@router.put("/course/{id}")
+def update_course(id: str, data: dict, admin=Depends(admin_only)):
+    course = course_collection.find_one({"_id": ObjectId(id)})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    title = (data.get("title") or course.get("title", "")).strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Course title is required")
+
+    duplicate = course_collection.find_one({
+        "_id": {"$ne": ObjectId(id)},
+        "title": {"$regex": f"^{title}$", "$options": "i"}
+    })
+    if duplicate:
+        raise HTTPException(status_code=400, detail="A course with this title already exists")
+
+    update_fields = {
+        "title": title,
+        "description": (data.get("description") or "").strip(),
+        "tag": (data.get("tag") or "BDS").strip() or "BDS",
+        "duration": (data.get("duration") or "").strip(),
+        "updatedAt": datetime.utcnow(),
+    }
+
+    course_collection.update_one({"_id": ObjectId(id)}, {"$set": update_fields})
+
+    activity_collection.insert_one({
+        "type": "course_updated",
+        "message": f"Course '{title}' updated",
+        "createdAt": datetime.utcnow(),
+    })
+    return {"message": "Course updated"}
+
+
 @router.delete("/course/{id}")
 def delete_course(id: str, admin=Depends(admin_only)):
+    course = course_collection.find_one({"_id": ObjectId(id)})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    course_collection.delete_one({"_id": ObjectId(id)})
+
+    activity_collection.insert_one({
+        "type": "course_deleted",
+        "message": f"Course '{course.get('title', 'Unknown')}' deleted",
+        "createdAt": datetime.utcnow()
+    })
+    return {"message": "Course deleted"}
+
+
+@router.delete("/quiz/{id}")
+def delete_quiz(id: str, admin=Depends(admin_only)):
     quiz = quiz_collection.find_one({"_id": ObjectId(id)})
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
     quiz_collection.delete_one({"_id": ObjectId(id)})
+    question_collection.delete_many({"quizId": ObjectId(id)})
     if quiz:
         activity_collection.insert_one({
             "type":      "quiz_deleted",

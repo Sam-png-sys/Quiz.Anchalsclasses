@@ -13,6 +13,7 @@ def get_quizzes(page: int = 1, limit: int = 10):
             "_id":            str(q["_id"]),
             "title":          q.get("title", "Untitled Quiz"),
             "description":    q.get("description", ""),
+            "course":         q.get("course", ""),
             "duration":       q.get("duration"),
             "difficulty":     q.get("difficulty", "Medium"),
             "question_count": question_collection.count_documents({

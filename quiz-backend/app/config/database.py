@@ -16,6 +16,7 @@ client = MongoClient(
 db = client[DB_NAME]
 
 users_collection = db["users"]
+course_collection = db["courses"]
 quiz_collection = db["quizzes"]
 question_collection = db["questions"]
 attempt_collection = db["attempts"]
