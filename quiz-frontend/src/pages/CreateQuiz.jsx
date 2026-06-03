@@ -22,6 +22,12 @@ const DIFFICULTY_LEVELS = [
   { value: "hard",   label: "Hard",   color: "text-rose-400",    dot: "bg-rose-400",    badge: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
 ];
 
+const EXAM_TYPES = [
+  { value: "no_section_no_timer", label: "No Section No Timer" },
+  { value: "section_no_timer", label: "Section with No Timer" },
+  { value: "section_with_timer", label: "Section with Timer" },
+];
+
 const MotionDiv = motion.div;
 const emptyQuiz = () => ({
   title: "",
@@ -29,6 +35,9 @@ const emptyQuiz = () => ({
   duration: "",
   course: "",
   difficulty: "",
+  examType: "no_section_no_timer",
+  requireAnswer: true,
+  sections: [],
   studyMaterialUrl: "",
   studyMaterialName: "",
 });
@@ -43,6 +52,14 @@ function newQuestion() {
     imageUrl:     null,
     imagePreview: null,
     uploading:    false,
+  };
+}
+
+function newSection(index = 0) {
+  return {
+    title: `Section ${index + 1}`,
+    questionCount: "",
+    durationMinutes: "",
   };
 }
 
@@ -69,6 +86,38 @@ export default function CreateQuiz() {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const handleQuizChange = (field, value) =>
     setQuiz(prev => ({ ...prev, [field]: value }));
+
+  const updateSections = (sections) =>
+    setQuiz(prev => ({ ...prev, sections }));
+
+  const handleSectionChange = (index, field, value) =>
+    updateSections(
+      quiz.sections.map((section, sectionIndex) =>
+        sectionIndex === index ? { ...section, [field]: value } : section
+      )
+    );
+
+  const addSection = () => updateSections([...(quiz.sections || []), newSection(quiz.sections?.length || 0)]);
+
+  const removeSection = (index) => {
+    updateSections(
+      quiz.sections
+        .filter((_, sectionIndex) => sectionIndex !== index)
+        .map((section, sectionIndex) => ({
+          ...section,
+          title: section.title || `Section ${sectionIndex + 1}`,
+        }))
+    );
+  };
+
+  const usesSections = quiz.examType !== "no_section_no_timer";
+  const sectionQuestionTotal = (quiz.sections || []).reduce(
+    (total, section) => total + (Number(section.questionCount) || 0),
+    0
+  );
+  const computedDuration = quiz.examType === "section_with_timer"
+    ? (quiz.sections || []).reduce((total, section) => total + (Number(section.durationMinutes) || 0), 0)
+    : Number(quiz.duration) || 0;
 
   const updateQuestion = (index, patch) =>
     setQuestions(prev => {
@@ -210,7 +259,19 @@ export default function CreateQuiz() {
     if (!quiz.title.trim()) { alert("Quiz title is required"); return; }
     if (!quiz.course.trim()) { alert("Course name is required"); return; }
     if (!quiz.difficulty) { alert("Please select a difficulty level"); return; }
-    if (!quiz.duration) { alert("Duration is required"); return; }
+    if (quiz.examType === "no_section_no_timer" && !quiz.duration) { alert("Duration is required"); return; }
+    if (usesSections && (!quiz.sections?.length || quiz.sections.some(section => !section.questionCount || !section.title.trim()))) {
+      alert("Please complete all section details");
+      return;
+    }
+    if (quiz.examType === "section_with_timer" && quiz.sections.some(section => !section.durationMinutes)) {
+      alert("Each section needs a timer duration");
+      return;
+    }
+    if (usesSections && sectionQuestionTotal !== Number(aiQuestionCount)) {
+      alert(`Section question count must match AI question count (${aiQuestionCount})`);
+      return;
+    }
 
     try {
       setAiLoading(true);
@@ -220,8 +281,15 @@ export default function CreateQuiz() {
       formData.append("description", quiz.description);
       formData.append("course", quiz.course);
       formData.append("difficulty", quiz.difficulty);
-      formData.append("duration", Number(quiz.duration));
+      formData.append("duration", computedDuration);
       formData.append("questionCount", Number(aiQuestionCount));
+      formData.append("examType", quiz.examType);
+      formData.append("requireAnswer", quiz.requireAnswer ? "true" : "false");
+      formData.append("sections", JSON.stringify((quiz.sections || []).map(section => ({
+        title: section.title.trim(),
+        questionCount: Number(section.questionCount) || 0,
+        durationMinutes: section.durationMinutes ? Number(section.durationMinutes) : null,
+      }))));
       formData.append("studyMaterialUrl", quiz.studyMaterialUrl || "");
       formData.append("studyMaterialName", quiz.studyMaterialName || aiPdf.name);
 
@@ -249,10 +317,26 @@ export default function CreateQuiz() {
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
-    if (!quiz.title.trim() || !quiz.duration) { alert("Title and duration are required"); return false; }
+    if (!quiz.title.trim()) { alert("Title is required"); return false; }
     if (!quiz.course.trim())  { alert("Course name is required"); return false; }
     if (!quiz.difficulty)     { alert("Please select a difficulty level"); return false; }
+    if (quiz.examType === "no_section_no_timer" && !quiz.duration) { alert("Duration is required"); return false; }
     if (studyMaterialUploading) { alert("Please wait for the study material upload to finish"); return false; }
+    if (usesSections) {
+      if (!quiz.sections.length) { alert("Add at least one section"); return false; }
+      if (quiz.sections.some(section => !section.title.trim() || Number(section.questionCount) < 1)) {
+        alert("Each section needs a title and question count");
+        return false;
+      }
+      if (quiz.examType === "section_with_timer" && quiz.sections.some(section => Number(section.durationMinutes) < 1)) {
+        alert("Each timed section needs a duration");
+        return false;
+      }
+      if (sectionQuestionTotal !== questions.length) {
+        alert(`Section question count must match total questions (${questions.length})`);
+        return false;
+      }
+    }
     for (let q of questions) {
       if (!q.questionText.trim())            { alert("All questions need text"); return false; }
       if (q.options.some(o => !o.trim()))    { alert("Fill all options"); return false; }
@@ -273,10 +357,17 @@ export default function CreateQuiz() {
         body: JSON.stringify({
           title:          quiz.title,
           description:    quiz.description,
-          duration:       Number(quiz.duration),
+          duration:       computedDuration,
           totalQuestions: questions.length,
           course:         quiz.course,
           difficulty:     quiz.difficulty,
+          examType:       quiz.examType,
+          requireAnswer:  quiz.requireAnswer,
+          sections:       (quiz.sections || []).map(section => ({
+            title: section.title.trim(),
+            questionCount: Number(section.questionCount) || 0,
+            durationMinutes: section.durationMinutes ? Number(section.durationMinutes) : null,
+          })),
           studyMaterialUrl: quiz.studyMaterialUrl || null,
           studyMaterialName: quiz.studyMaterialName || null,
         }),
@@ -359,11 +450,127 @@ export default function CreateQuiz() {
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
               </Field>
               <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
-                <input type="number" min={1} value={quiz.duration} onChange={e => handleQuizChange("duration", e.target.value)}
-                  placeholder="e.g. 30"
-                  className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
+                <input
+                  type="number"
+                  min={quiz.examType === "no_section_no_timer" ? 1 : 0}
+                  value={quiz.duration}
+                  onChange={e => handleQuizChange("duration", e.target.value)}
+                  placeholder={quiz.examType === "no_section_no_timer" ? "e.g. 30" : "Auto from sections"}
+                  disabled={usesSections}
+                  className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none disabled:opacity-50"
+                />
               </Field>
             </div>
+
+            <Field icon={<Clock size={14} className="text-white/30" />} label="Exam Type">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                {EXAM_TYPES.map((type) => {
+                  const active = quiz.examType === type.value;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => handleQuizChange("examType", type.value)}
+                      className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                      style={active
+                        ? { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }
+                        : { color: "var(--app-text-subtle)", background: "var(--app-input)", borderColor: "var(--app-border)" }}
+                    >
+                      {type.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            <div className="rounded-xl px-4 py-3.5" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--app-text-subtle)" }}>Answer Required</p>
+                  <p className="text-[12px] mt-1" style={{ color: "var(--app-text-muted)" }}>
+                    When turned off, students can move to the next question without selecting an option.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleQuizChange("requireAnswer", !quiz.requireAnswer)}
+                  className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                  style={quiz.requireAnswer
+                    ? { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }
+                    : { color: "var(--app-text-subtle)", background: "var(--app-surface)", borderColor: "var(--app-border)" }}
+                >
+                  {quiz.requireAnswer ? "Required" : "Optional"}
+                </button>
+              </div>
+            </div>
+
+            {usesSections && (
+              <div className="rounded-xl px-4 py-4 flex flex-col gap-3" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--app-text-subtle)" }}>Sections</p>
+                    <p className="text-[12px] mt-1" style={{ color: "var(--app-text-muted)" }}>
+                      Divide the quiz into blocks like 80 questions in 60 minutes.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addSection}
+                    className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                    style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}
+                  >
+                    Add Section
+                  </button>
+                </div>
+
+                {(quiz.sections || []).map((section, index) => (
+                  <div key={`${section.title}-${index}`} className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,auto] gap-2 items-center">
+                    <input
+                      value={section.title}
+                      onChange={(e) => handleSectionChange(index, "title", e.target.value)}
+                      placeholder={`Section ${index + 1}`}
+                      className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none"
+                      style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      value={section.questionCount}
+                      onChange={(e) => handleSectionChange(index, "questionCount", e.target.value)}
+                      placeholder="Questions"
+                      className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none"
+                      style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      disabled={quiz.examType !== "section_with_timer"}
+                      value={section.durationMinutes}
+                      onChange={(e) => handleSectionChange(index, "durationMinutes", e.target.value)}
+                      placeholder={quiz.examType === "section_with_timer" ? "Minutes" : "No timer"}
+                      className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none disabled:opacity-50"
+                      style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSection(index)}
+                      className="w-10 h-10 rounded-xl border flex items-center justify-center"
+                      style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.28)" }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+
+                <div className="flex flex-wrap gap-4 text-[12px]" style={{ color: "var(--app-text-subtle)" }}>
+                  <span>Total section questions: <strong style={{ color: "var(--app-text)" }}>{sectionQuestionTotal}</strong></span>
+                  <span>Current quiz questions: <strong style={{ color: "var(--app-text)" }}>{questions.length}</strong></span>
+                  {quiz.examType === "section_with_timer" && (
+                    <span>Total timed duration: <strong style={{ color: "var(--app-text)" }}>{computedDuration} min</strong></span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-bold uppercase tracking-widest block" style={{ color: "var(--app-text-subtle)" }}>

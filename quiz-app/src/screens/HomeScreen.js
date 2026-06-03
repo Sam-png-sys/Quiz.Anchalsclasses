@@ -10,6 +10,7 @@ import {
   StatusBar,
   RefreshControl,
   TextInput,
+  ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -157,6 +158,8 @@ const HomeScreen = ({ navigation }) => {
   });
   const [searchText, setSearchText] = useState("");
   const [filter, setFilter] = useState("all");
+  const [courseFilter, setCourseFilter] = useState("all");
+  const [sortMode, setSortMode] = useState("title");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -222,16 +225,22 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const normalizedSearch = searchText.trim().toLowerCase();
+  const availableCourses = useMemo(() => {
+    const courses = Array.from(new Set(quizzes.map((quiz) => (quiz.course || "").trim()).filter(Boolean)));
+    return ["all", ...courses.sort((a, b) => a.localeCompare(b))];
+  }, [quizzes]);
+
   const filteredQuizzes = useMemo(() => {
     const searchTerms = normalizedSearch.split(/\s+/).filter(Boolean);
 
-    return quizzes.filter((quiz) => {
+    const filtered = quizzes.filter((quiz) => {
       const matchesFilter =
         filter === "all"
         || (filter === "completed" && quiz.completed)
         || (filter === "available" && !quiz.completed);
+      const matchesCourse = courseFilter === "all" || (quiz.course || "").trim() === courseFilter;
 
-      if (!matchesFilter) return false;
+      if (!matchesFilter || !matchesCourse) return false;
       if (!searchTerms.length) return true;
 
       const searchableText = [
@@ -247,7 +256,18 @@ const HomeScreen = ({ navigation }) => {
 
       return searchTerms.every((term) => searchableText.includes(term));
     });
-  }, [filter, normalizedSearch, quizzes]);
+
+    return filtered.sort((a, b) => {
+      if (sortMode === "course") {
+        const courseCompare = (a.course || "").localeCompare(b.course || "");
+        if (courseCompare !== 0) return courseCompare;
+      }
+      if (sortMode === "duration") {
+        return (Number(a.duration) || 0) - (Number(b.duration) || 0);
+      }
+      return (a.title || "").localeCompare(b.title || "");
+    });
+  }, [courseFilter, filter, normalizedSearch, quizzes, sortMode]);
 
   const listHeader = (
     <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
@@ -337,6 +357,57 @@ const HomeScreen = ({ navigation }) => {
           );
         })}
       </View>
+
+      <View style={styles.sortRow}>
+        <Text style={[styles.sortLabel, { color: themeColors.textGhost }]}>Sort</Text>
+        {[
+          { key: "title", label: "Title" },
+          { key: "course", label: "Course" },
+          { key: "duration", label: "Duration" },
+        ].map((item) => {
+          const active = sortMode === item.key;
+          return (
+            <TouchableOpacity
+              key={item.key}
+              style={[
+                styles.sortChip,
+                active
+                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+              ]}
+              onPress={() => setSortMode(item.key)}
+            >
+              <Text style={[styles.sortChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.sectionLabel, { color: themeColors.textGhost, marginBottom: 10 }]}>COURSES</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
+        {availableCourses.map((course) => {
+          const active = courseFilter === course;
+          const label = course === "all" ? "All Courses" : course;
+          return (
+            <TouchableOpacity
+              key={course}
+              style={[
+                styles.courseChip,
+                active
+                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+              ]}
+              onPress={() => setCourseFilter(course)}
+            >
+              <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       <Text style={[styles.sectionLabel, { color: themeColors.textGhost }]}>
         {filter === "completed" ? "COMPLETED QUIZZES" : filter === "available" ? "NEW QUIZZES" : "ALL QUIZZES"} ({filteredQuizzes.length})
@@ -458,6 +529,15 @@ const styles = StyleSheet.create({
   clearSearchBtn: { paddingHorizontal: 8, paddingVertical: 6 },
   clearSearchText: { fontSize: 12, fontWeight: "800" },
   filterRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
+  sortRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" },
+  sortLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1.4, marginRight: 4 },
+  sortChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  sortChipText: { fontSize: 12, fontWeight: "800" },
   filterChip: {
     borderWidth: 1,
     borderRadius: 999,
@@ -465,6 +545,14 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   filterChipText: { fontSize: 12, fontWeight: "800" },
+  courseChipRow: { gap: 8, paddingBottom: 14 },
+  courseChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  courseChipText: { fontSize: 12, fontWeight: "700" },
   sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 2.5, marginBottom: 14 },
   card: {
     borderRadius: 20,

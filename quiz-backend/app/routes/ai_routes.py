@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -33,6 +34,9 @@ async def generate_quiz(
     difficulty: str = Form("medium"),
     duration: int = Form(30),
     questionCount: int = Form(10),
+    examType: str = Form("no_section_no_timer"),
+    requireAnswer: bool = Form(True),
+    sections: str = Form("[]"),
     studyMaterialUrl: str = Form(""),
     studyMaterialName: str = Form(""),
     admin=Depends(admin_only),
@@ -44,6 +48,11 @@ async def generate_quiz(
 
     pdf_bytes = await file.read()
     validate_pdf_upload(file, pdf_bytes)
+
+    try:
+        parsed_sections = json.loads(sections or "[]")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid sections payload")
 
     quiz_data = generate_quiz_from_pdf(
         pdf_bytes,
@@ -64,6 +73,9 @@ async def generate_quiz(
         "duration": quiz_data["duration"],
         "course": quiz_data["course"],
         "difficulty": quiz_data["difficulty"],
+        "examType": examType,
+        "requireAnswer": requireAnswer,
+        "sections": parsed_sections,
         "studyMaterialName": studyMaterialName or file.filename or "AI source PDF",
         "studyMaterialUrl": studyMaterialUrl or None,
         "totalQuestions": len(quiz_data["questions"]),

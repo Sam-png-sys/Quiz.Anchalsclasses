@@ -24,10 +24,20 @@ const DIFFICULTY_LEVELS = [
     { value: "hard", label: "Hard", color: "text-rose-400", dot: "bg-rose-400", badge: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
 ];
 
+const EXAM_TYPES = [
+    { value: "no_section_no_timer", label: "No Section No Timer" },
+    { value: "section_no_timer", label: "Section with No Timer" },
+    { value: "section_with_timer", label: "Section with Timer" },
+];
+
 const MotionDiv = motion.div;
 
 function newQuestion() {
     return { questionText: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" };
+}
+
+function newSection(index = 0) {
+    return { title: `Section ${index + 1}`, questionCount: "", durationMinutes: "" };
 }
 
 // ── Reusable field wrapper ────────────────────────────────────────────────────
@@ -56,6 +66,14 @@ export default function EditQuiz() {
     const [collapsed, setCollapsed] = useState({});
     const [saved, setSaved] = useState(false);
     const [studyMaterialUploading, setStudyMaterialUploading] = useState(false);
+    const usesSections = quiz?.examType !== "no_section_no_timer";
+    const sectionQuestionTotal = (quiz?.sections || []).reduce(
+        (total, section) => total + (Number(section.questionCount) || 0),
+        0
+    );
+    const computedDuration = quiz?.examType === "section_with_timer"
+        ? (quiz.sections || []).reduce((total, section) => total + (Number(section.durationMinutes) || 0), 0)
+        : Number(quiz?.duration) || 0;
 
     // ── Fetch ──
     useEffect(() => {
@@ -89,6 +107,21 @@ export default function EditQuiz() {
         opts[oIndex] = value;
         updated[qIndex] = { ...updated[qIndex], options: opts };
         setQuiz({ ...quiz, questions: updated });
+    };
+
+    const handleSectionChange = (index, field, value) => {
+        const updated = [...(quiz.sections || [])];
+        updated[index] = { ...updated[index], [field]: value };
+        setQuiz({ ...quiz, sections: updated });
+    };
+
+    const addSection = () => {
+        setQuiz({ ...quiz, sections: [...(quiz.sections || []), newSection(quiz.sections?.length || 0)] });
+    };
+
+    const removeSection = (index) => {
+        const updated = (quiz.sections || []).filter((_, i) => i !== index);
+        setQuiz({ ...quiz, sections: updated });
     };
 
     const handleStudyMaterialPick = async (file) => {
@@ -142,6 +175,14 @@ export default function EditQuiz() {
             toast.error("Title is required");
             return;
         }
+        if (usesSections && sectionQuestionTotal !== (quiz.questions?.length || 0)) {
+            toast.error(`Section question count must match total questions (${quiz.questions?.length || 0})`);
+            return;
+        }
+        if (quiz.examType === "section_with_timer" && (quiz.sections || []).some((section) => Number(section.durationMinutes) < 1)) {
+            toast.error("Each timed section needs a duration");
+            return;
+        }
 
         try {
             setLoading(true);
@@ -153,6 +194,13 @@ export default function EditQuiz() {
             //  FIX PAYLOAD
             const payload = {
                 ...quiz,
+                duration: computedDuration,
+                requireAnswer: quiz.requireAnswer ?? true,
+                sections: (quiz.sections || []).map((section) => ({
+                    title: section.title?.trim() || "",
+                    questionCount: Number(section.questionCount) || 0,
+                    durationMinutes: section.durationMinutes ? Number(section.durationMinutes) : null,
+                })),
                 questions: quiz.questions.map(q => ({
                     questionText: q.questionText,
                     options: q.options,
@@ -264,14 +312,125 @@ export default function EditQuiz() {
 
                                 <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
                                     <input
-                                        type="number" min={1}
+                                        type="number" min={quiz.examType === "no_section_no_timer" ? 1 : 0}
                                         value={quiz.duration ?? ""}
                                         onChange={e => handleChange("duration", e.target.value)}
-                                        placeholder="e.g. 30"
-                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                        placeholder={quiz.examType === "no_section_no_timer" ? "e.g. 30" : "Auto from sections"}
+                                        disabled={usesSections}
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none disabled:opacity-50"
                                     />
                                 </Field>
                             </div>
+
+                            <Field icon={<Clock size={14} className="text-white/30" />} label="Exam Type">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                    {EXAM_TYPES.map((type) => {
+                                        const active = quiz.examType === type.value;
+                                        return (
+                                            <button
+                                                key={type.value}
+                                                type="button"
+                                                onClick={() => handleChange("examType", type.value)}
+                                                className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                                                style={active
+                                                    ? { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }
+                                                    : { color: "var(--app-text-subtle)", background: "var(--app-input)", borderColor: "var(--app-border)" }}
+                                            >
+                                                {type.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </Field>
+
+                            <div className="rounded-xl px-4 py-3.5" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--app-text-subtle)" }}>Answer Required</p>
+                                        <p className="text-[12px] mt-1" style={{ color: "var(--app-text-muted)" }}>
+                                            When turned off, students can move on without selecting any option.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange("requireAnswer", !(quiz.requireAnswer ?? true))}
+                                        className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                                        style={(quiz.requireAnswer ?? true)
+                                            ? { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }
+                                            : { color: "var(--app-text-subtle)", background: "var(--app-surface)", borderColor: "var(--app-border)" }}
+                                    >
+                                        {(quiz.requireAnswer ?? true) ? "Required" : "Optional"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {usesSections && (
+                                <div className="rounded-xl px-4 py-4 flex flex-col gap-3" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--app-text-subtle)" }}>Sections</p>
+                                            <p className="text-[12px] mt-1" style={{ color: "var(--app-text-muted)" }}>
+                                                Keep section counts aligned with total questions in this quiz.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={addSection}
+                                            className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                                            style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}
+                                        >
+                                            Add Section
+                                        </button>
+                                    </div>
+
+                                    {(quiz.sections || []).map((section, index) => (
+                                        <div key={`${section.title}-${index}`} className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,auto] gap-2 items-center">
+                                            <input
+                                                value={section.title ?? ""}
+                                                onChange={(e) => handleSectionChange(index, "title", e.target.value)}
+                                                placeholder={`Section ${index + 1}`}
+                                                className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none"
+                                                style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                                            />
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                value={section.questionCount ?? ""}
+                                                onChange={(e) => handleSectionChange(index, "questionCount", e.target.value)}
+                                                placeholder="Questions"
+                                                className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none"
+                                                style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                                            />
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                disabled={quiz.examType !== "section_with_timer"}
+                                                value={section.durationMinutes ?? ""}
+                                                onChange={(e) => handleSectionChange(index, "durationMinutes", e.target.value)}
+                                                placeholder={quiz.examType === "section_with_timer" ? "Minutes" : "No timer"}
+                                                className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none disabled:opacity-50"
+                                                style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeSection(index)}
+                                                className="w-10 h-10 rounded-xl border flex items-center justify-center"
+                                                style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.28)" }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    <div className="flex flex-wrap gap-4 text-[12px]" style={{ color: "var(--app-text-subtle)" }}>
+                                        <span>Total section questions: <strong style={{ color: "var(--app-text)" }}>{sectionQuestionTotal}</strong></span>
+                                        <span>Current quiz questions: <strong style={{ color: "var(--app-text)" }}>{quiz.questions?.length || 0}</strong></span>
+                                        {quiz.examType === "section_with_timer" && (
+                                            <span>Total timed duration: <strong style={{ color: "var(--app-text)" }}>{computedDuration} min</strong></span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex flex-col gap-2">
                                 <label className="text-[10px] font-bold uppercase tracking-widest block" style={{ color: "var(--app-text-subtle)" }}>

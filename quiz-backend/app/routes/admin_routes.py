@@ -438,6 +438,9 @@ def update_quiz(quiz_id: str, data: dict, admin=Depends(admin_only)):
             "duration":    data.get("duration"),
             "difficulty":  data.get("difficulty", "medium"),
             "course":      data.get("course", ""),
+            "examType":    data.get("examType", "no_section_no_timer"),
+            "requireAnswer": data.get("requireAnswer", True),
+            "sections":    data.get("sections", []),
             "studyMaterialUrl": data.get("studyMaterialUrl"),
             "studyMaterialName": data.get("studyMaterialName"),
         }}
