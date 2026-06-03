@@ -66,6 +66,11 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex, palet
     ]).start();
   }, [questionIndex]);
 
+  const selectedLabelBg = palette.glow + "88";
+  const defaultLabelBg = themeColors.isLight ? palette.glow + "12" : themeColors.surfaceStrong;
+  const defaultLabelBorder = themeColors.isLight ? palette.glow + "22" : "transparent";
+  const defaultLabelText = themeColors.isLight ? palette.light : themeColors.text;
+
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }, { scale: scaleAnim }] }}>
       <TouchableOpacity
@@ -87,12 +92,13 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex, palet
         <View
           style={[
             styles.optLabelBubble,
+            { borderColor: selected ? "transparent" : defaultLabelBorder },
             selected
-              ? { backgroundColor: palette.glow + "88" }
-              : { backgroundColor: themeColors.surfaceStrong },
+              ? { backgroundColor: selectedLabelBg }
+              : { backgroundColor: defaultLabelBg },
           ]}
         >
-          <Text style={styles.optLabelTxt}>{label}</Text>
+          <Text style={[styles.optLabelTxt, { color: selected ? "#fff" : defaultLabelText }]}>{label}</Text>
         </View>
         <Text style={[styles.optText, { color: selected ? themeColors.text : themeColors.textMuted }]} numberOfLines={3}>
           {text}
@@ -258,7 +264,13 @@ const QuizScreen = ({ route, navigation }) => {
       {/* Header */}
       <Animated.View style={[styles.header, { opacity: headerFade }]}>
         <TouchableOpacity
-          style={styles.exitBtn}
+          style={[
+            styles.exitBtn,
+            {
+              backgroundColor: themeColors.isLight ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.06)",
+              borderColor: themeColors.isLight ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.08)",
+            },
+          ]}
           onPress={() =>
             Alert.alert("Quit Quiz?", "Your progress will be lost.", [
               { text: "Cancel", style: "cancel" },
@@ -266,7 +278,7 @@ const QuizScreen = ({ route, navigation }) => {
             ])
           }
         >
-          <Text style={styles.exitIcon}>X</Text>
+          <Text style={[styles.exitIcon, { color: themeColors.textSubtle }]}>X</Text>
         </TouchableOpacity>
 
         <View style={styles.progressWrap}>
@@ -280,9 +292,9 @@ const QuizScreen = ({ route, navigation }) => {
             </Animated.View>
           </View>
           <View style={styles.progressMeta}>
-            <Text style={styles.progressLabel}>
-              <Text style={styles.progressCurrent}>{current + 1}</Text>
-              <Text style={styles.progressTotal}> / {questions.length}</Text>
+            <Text style={[styles.progressLabel, { color: themeColors.textSubtle }]}>
+              <Text style={[styles.progressCurrent, { color: themeColors.text }]}>{current + 1}</Text>
+              <Text style={[styles.progressTotal, { color: themeColors.textSubtle }]}> / {questions.length}</Text>
             </Text>
             <Text style={[styles.progressPct, { color: palette.light }]}>
               {Math.round(((current + 1) / questions.length) * 100)}%

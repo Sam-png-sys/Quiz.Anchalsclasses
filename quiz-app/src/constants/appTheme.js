@@ -9,6 +9,7 @@ export const ACCENT_OPTIONS = [
 
 export const APP_THEMES = {
   dark: {
+    isLight: false,
     background: "#0a0a12",
     backgroundAlt: "#0f0a1e",
     surface: "rgba(255,255,255,0.04)",
@@ -23,6 +24,7 @@ export const APP_THEMES = {
     success: "#10b981",
   },
   light: {
+    isLight: true,
     background: "#f4f7fb",
     backgroundAlt: "#e8eef8",
     surface: "#ffffff",
