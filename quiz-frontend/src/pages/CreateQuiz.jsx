@@ -299,7 +299,13 @@ export default function CreateQuiz() {
         body: formData,
       });
 
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = { detail: raw || "AI quiz generation failed" };
+      }
       if (!res.ok) throw new Error(data.detail || "AI quiz generation failed");
 
       alert(`AI created quiz with ${data.totalQuestions} questions`);
