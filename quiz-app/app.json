@@ -7,9 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "quizapp",
     "userInterfaceStyle": "automatic",
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
       "package": "com.dranchalclasses.quizapp",
       "versionCode": 1,
@@ -18,22 +20,25 @@
         "INTERNET"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "monochromeImage": "./assets/images/android-icon-monochrome.png",
+        "backgroundColor": "#E6F4FE"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
+
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#7c3aed",
           "dark": {
@@ -42,6 +47,7 @@
         }
       ]
     ],
+
     "extra": {
       "eas": {
         "projectId": "7be7f326-214c-4db4-81ac-bb7d5d252fb6"
@@ -49,4 +55,3 @@
     }
   }
 }
-
