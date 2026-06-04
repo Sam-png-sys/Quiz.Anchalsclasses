@@ -7,15 +7,12 @@
     "icon": "./assets/images/icon.png",
     "scheme": "quizapp",
     "userInterfaceStyle": "automatic",
-
     "ios": {
       "supportsTablet": true
     },
-
     "android": {
       "package": "com.dranchalclasses.quizapp",
       "versionCode": 1,
-      "usesCleartextTraffic": false,
       "permissions": [
         "INTERNET"
       ],
@@ -28,12 +25,10 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
-
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-
     "plugins": [
       [
         "expo-splash-screen",
@@ -45,9 +40,10 @@
             "backgroundColor": "#7c3aed"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
-
     "extra": {
       "eas": {
         "projectId": "7be7f326-214c-4db4-81ac-bb7d5d252fb6"
