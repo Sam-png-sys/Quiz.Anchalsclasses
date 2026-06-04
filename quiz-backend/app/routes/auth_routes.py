@@ -65,7 +65,9 @@ def verify(data: VerifyOTP):
             "user_id": str(user["_id"]),
             "role": user["role"],
             "name": user.get("name"),   
-            "email": user.get("email")  
+            "email": user.get("email"),
+            "currentCourse": user.get("currentCourse", ""),
+            "collegeName": user.get("collegeName", ""),
         })
 
         login_sessions.pop(data.email, None)
@@ -99,7 +101,9 @@ def verify(data: VerifyOTP):
         "user_id": str(result.inserted_id),
         "role": temp["role"],
         "name": temp.get("name"),   
-        "email": temp.get("email")  
+        "email": temp.get("email"),
+        "currentCourse": temp.get("currentCourse", ""),
+        "collegeName": temp.get("collegeName", ""),
     })
 
     return {"access_token": token}

@@ -113,16 +113,16 @@ def teacher_explain(data: dict, user=Depends(get_current_user)):
     question_id = data.get("questionId")
     message = (data.get("message") or "").strip()
 
-    if not quiz_id or not message:
-        raise HTTPException(status_code=400, detail="quizId and message are required")
+    if not quiz_id or not question_id or not message:
+        raise HTTPException(status_code=400, detail="quizId, questionId and message are required")
 
     quiz = quiz_collection.find_one({"_id": ObjectId(quiz_id)})
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
-    question = None
-    if question_id:
-        question = question_collection.find_one({"_id": ObjectId(question_id)})
+    question = question_collection.find_one({"_id": ObjectId(question_id)})
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
 
     topic_context = "\n".join([
         f"Quiz title: {quiz.get('title', '')}",
@@ -131,14 +131,12 @@ def teacher_explain(data: dict, user=Depends(get_current_user)):
         f"Difficulty: {quiz.get('difficulty', '')}",
     ])
 
-    question_context = ""
-    if question:
-        question_context = "\n".join([
-            f"Question: {question.get('question', '')}",
-            f"Options: {', '.join(question.get('options', []))}",
-            f"Correct answer: {question.get('correct_answer') or question.get('correctAnswer', '')}",
-            f"Stored explanation: {question.get('explanation', '')}",
-        ])
+    question_context = "\n".join([
+        f"Question: {question.get('question', '')}",
+        f"Options: {', '.join(question.get('options', []))}",
+        f"Correct answer: {question.get('correct_answer') or question.get('correctAnswer', '')}",
+        f"Stored explanation: {question.get('explanation', '')}",
+    ])
 
     answer = explain_like_teacher(topic_context, question_context, message)
     return {"answer": answer}

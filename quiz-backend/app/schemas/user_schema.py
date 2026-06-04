@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
 
 
 class VerifyOTP(BaseModel):
@@ -12,6 +13,8 @@ class UserRegister(BaseModel):
     phone: str = Field(..., min_length=10, max_length=10)
     password: str
     role: str
+    currentCourse: Optional[str] = ""
+    collegeName: Optional[str] = ""
 
 
 class UserLogin(BaseModel):

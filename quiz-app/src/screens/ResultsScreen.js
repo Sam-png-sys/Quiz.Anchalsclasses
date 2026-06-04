@@ -55,6 +55,7 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
   const correctAnswer = question.correct_answer;
   const isCorrect = userAnswer === correctAnswer;
   const skipped = userAnswer === null || userAnswer === undefined;
+  const storedExplanation = (question.explanation || "").trim();
 
   const askTeacher = async (message) => {
     try {
@@ -157,7 +158,24 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
             </TouchableOpacity>
           </View>
 
-          {!!teacherAnswer && <Text style={[styles.teacherAnswer, { color: themeColors.textMuted }]}>{teacherAnswer}</Text>}
+          {!!storedExplanation && (
+            <View
+              style={[
+                styles.explanationBox,
+                {
+                  backgroundColor: accentOption.colors[0] + "10",
+                  borderColor: accentOption.colors[0] + "24",
+                },
+              ]}
+            >
+              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>AI Explanation</Text>
+              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>{storedExplanation}</Text>
+            </View>
+          )}
+
+          {!!teacherAnswer && teacherAnswer !== storedExplanation && (
+            <Text style={[styles.teacherAnswer, { color: themeColors.textMuted }]}>{teacherAnswer}</Text>
+          )}
 
           <View style={styles.teacherInputRow}>
             <TextInput
@@ -444,6 +462,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
+  },
+  explanationBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    marginBottom: 10,
+  },
+  explanationLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    marginBottom: 6,
   },
   teacherTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   teacherTitle: { fontSize: 12, fontWeight: "800" },

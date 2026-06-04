@@ -20,6 +20,17 @@ import { useAppSettings } from "../context/AppSettingsContext";
 
 const { width } = Dimensions.get("window");
 
+const COURSE_OPTIONS = [
+  "BDS 1st",
+  "BDS 2nd Year",
+  "BDS 3rd Year",
+  "BDS 4th Year",
+  "Intern",
+  "Graduated",
+  "PG Scholar",
+  "Other",
+];
+
 // ── Pill Input ────────────────────────────────────────────────────────────────
 const PillInput = ({
   placeholder,
@@ -38,7 +49,7 @@ const PillInput = ({
 
   useEffect(() => {
     Animated.timing(anim, { toValue: focused ? 1 : 0, duration: 200, useNativeDriver: false }).start();
-  }, [focused]);
+  }, [anim, focused]);
 
   const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: [themeColors.border, accentColor] });
   const bg = anim.interpolate({ inputRange: [0, 1], outputRange: [themeColors.surface, accentColor + "12"] });
@@ -96,6 +107,8 @@ const SignUpScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [collegeName, setCollegeName] = useState("");
+  const [currentCourse, setCurrentCourse] = useState(COURSE_OPTIONS[0]);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -110,12 +123,14 @@ const SignUpScreen = ({ navigation }) => {
       Animated.timing(fadeAnim, { toValue: 1, duration: 650, delay: 80, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 56, friction: 12, delay: 80, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   const handleSignUp = async () => {
     if (!name.trim()) return Alert.alert("", "Please enter your name");
     if (!email.trim()) return Alert.alert("", "Please enter your email");
     if (!/^\d{10}$/.test(phone.trim())) return Alert.alert("", "Please enter a valid 10-digit phone number");
+    if (!collegeName.trim()) return Alert.alert("", "Please enter your college name");
+    if (!currentCourse.trim()) return Alert.alert("", "Please select your current course");
     if (password.length < 6) return Alert.alert("", "Password must be at least 6 characters");
     if (password !== confirm) return Alert.alert("", "Passwords do not match");
     if (!agreed) return Alert.alert("", "Please accept the terms to continue");
@@ -126,6 +141,8 @@ const SignUpScreen = ({ navigation }) => {
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
+        collegeName: collegeName.trim(),
+        currentCourse: currentCourse.trim(),
         password: password.trim(),
         role: "student",
       });
@@ -194,6 +211,38 @@ const SignUpScreen = ({ navigation }) => {
                 themeColors={themeColors}
                 accentColor={accentOption.colors[0]}
               />
+              <PillInput
+                placeholder="College name"
+                value={collegeName}
+                onChangeText={setCollegeName}
+                autoCapitalize="words"
+                themeColors={themeColors}
+                accentColor={accentOption.colors[0]}
+              />
+              <View style={[styles.selectWrap, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                <Text style={[styles.selectLabel, { color: themeColors.textGhost }]}>Current Course</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
+                  {COURSE_OPTIONS.map((option) => {
+                    const active = currentCourse === option;
+                    return (
+                      <TouchableOpacity
+                        key={option}
+                        style={[
+                          styles.courseChip,
+                          active
+                            ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                            : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
+                        ]}
+                        onPress={() => setCurrentCourse(option)}
+                      >
+                        <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                          {option}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
               <View style={{ width: "100%", gap: 8 }}>
                 <PillInput
                   placeholder="Password"
@@ -297,6 +346,30 @@ const styles = StyleSheet.create({
   subtitle: { color: "rgba(255,255,255,0.33)", fontSize: 14, textAlign: "center", marginBottom: 36 },
 
   form: { width: "100%", gap: 14, marginBottom: 20 },
+  selectWrap: {
+    width: "100%",
+    borderWidth: 1.5,
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  selectLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  courseChipRow: { gap: 8, paddingRight: 6 },
+  courseChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  courseChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
 
   pill: { width: "100%", flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 100, paddingHorizontal: 22, paddingVertical: Platform.OS === "ios" ? 15 : 13 },
   pillInput: { flex: 1, color: "#fff", fontSize: 15, fontWeight: "500", paddingVertical: 0 },

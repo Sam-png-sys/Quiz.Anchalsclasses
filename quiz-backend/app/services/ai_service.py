@@ -65,9 +65,15 @@ Quiz settings:
 Rules:
 - Use only facts supported by the PDF.
 - Do not invent facts outside the PDF.
+- If the PDF already contains explicit multiple-choice questions, answers, answer keys, model papers, solved papers, or question banks, EXTRACT those questions and answers first instead of rewriting them.
+- If the PDF contains an answer key separate from the questions, match the answers carefully.
+- Preserve original question wording as closely as possible when extracting existing questions from the PDF.
+- Only generate new questions when the PDF does not already contain enough usable questions.
 - Every question must have exactly 4 options.
 - correct_answer must exactly match one option string.
-- explanation must teach why the answer is correct in 2-4 clear sentences.
+- explanation must teach why the answer is correct in 2-4 clear sentences and must stay grounded in the PDF content.
+- Ignore headers, footers, page numbers, watermarks, duplicate questions, and incomplete fragments.
+- Prefer the most complete and clearly supported questions from the PDF.
 - Return JSON only. No markdown.
 
 JSON shape:
@@ -143,7 +149,7 @@ def explain_like_teacher(topic_context, question_context, user_message):
     client = get_openai_client()
 
     prompt = f"""
-You are a helpful teacher inside a quiz app.
+You are a strict AI teacher inside a quiz app.
 
 Allowed topic context:
 {topic_context}
@@ -155,10 +161,14 @@ Student message:
 {user_message}
 
 Rules:
-- Answer only if the student message is related to the allowed topic or current question.
-- If the message is outside the topic, politely say you can only help with this quiz topic.
-- Explain simply, like a teacher, with short examples when useful.
-- Do not give unrelated medical, legal, personal, or general advice.
+- You must answer ONLY when the student message is directly related to the current quiz question, its answer, its explanation, or the exact course/topic context above.
+- If the student message asks about anything outside this question or outside this quiz topic/course, refuse.
+- Refusal response must be exactly:
+  "I can only help with this quiz question and its topic."
+- Do not answer broader study questions, career questions, personal advice, general knowledge, medical advice, legal advice, or anything unrelated to the current question/topic.
+- Do not guess beyond the provided topic context and question context.
+- Keep the explanation tightly focused on the current question.
+- Explain simply, like a teacher, with short examples only when they are directly relevant to this question.
 - Keep the answer under 180 words.
 """
 
