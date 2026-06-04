@@ -3,7 +3,7 @@ import json
 import os
 
 from fastapi import HTTPException
-from openai import OpenAI
+from openai import APIError, BadRequestError, OpenAI
 
 
 AI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
@@ -46,6 +46,7 @@ def parse_json_response(response):
 def generate_quiz_from_pdf(pdf_bytes, filename, quiz_meta):
     client = get_openai_client()
     file_data = base64.b64encode(pdf_bytes).decode("utf-8")
+    file_data_url = f"data:application/pdf;base64,{file_data}"
 
     question_count = max(1, min(int(quiz_meta.get("questionCount", 10)), 30))
     difficulty = quiz_meta.get("difficulty") or "medium"
@@ -94,23 +95,28 @@ JSON shape:
 }}
 """
 
-    response = client.responses.create(
-        model=AI_MODEL,
-        input=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_file",
-                        "filename": filename,
-                        "file_data": file_data,
-                    },
-                    {"type": "input_text", "text": prompt},
-                ],
-            }
-        ],
-        text={"format": {"type": "json_object"}},
-    )
+    try:
+        response = client.responses.create(
+            model=AI_MODEL,
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_file",
+                            "filename": filename,
+                            "file_data": file_data_url,
+                        },
+                        {"type": "input_text", "text": prompt},
+                    ],
+                }
+            ],
+            text={"format": {"type": "json_object"}},
+        )
+    except BadRequestError as exc:
+        raise HTTPException(status_code=400, detail=f"OpenAI request error: {exc.message}")
+    except APIError as exc:
+        raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(exc)}")
 
     data = parse_json_response(response)
     questions = data.get("questions", [])
