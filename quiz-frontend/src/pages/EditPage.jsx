@@ -40,6 +40,21 @@ function newSection(index = 0) {
     return { title: `Section ${index + 1}`, questionCount: "", durationMinutes: "" };
 }
 
+function normalizeQuestion(question) {
+    const options = Array.isArray(question?.options) ? question.options : ["", "", "", ""];
+    const correctAnswerText = question?.correct_answer ?? question?.correctAnswer ?? "";
+    const correctAnswerIndex = Math.max(0, options.findIndex((option) => option === correctAnswerText));
+
+    return {
+        ...question,
+        questionText: question?.questionText ?? question?.question ?? "",
+        options,
+        correctAnswer: correctAnswerIndex,
+        explanation: question?.explanation ?? "",
+        imageUrl: question?.imageUrl ?? null,
+    };
+}
+
 // ── Reusable field wrapper ────────────────────────────────────────────────────
 function Field({ icon, label, children }) {
     return (
@@ -80,7 +95,11 @@ export default function EditQuiz() {
         const fetchQuiz = async () => {
             try {
                 const data = await apiRequest(`/admin/quiz-details/${id}`);
-                setQuiz(data);
+                setQuiz({
+                    ...data,
+                    questions: (data.questions || []).map(normalizeQuestion),
+                    sections: data.sections || [],
+                });
             } catch (err) {
                 console.error(err);
                 toast.error("Failed to load quiz");
@@ -202,10 +221,11 @@ export default function EditQuiz() {
                     durationMinutes: section.durationMinutes ? Number(section.durationMinutes) : null,
                 })),
                 questions: quiz.questions.map(q => ({
-                    questionText: q.questionText,
+                    question: q.questionText,
                     options: q.options,
-                    correctAnswer: q.options[q.correctAnswer], // 
-                    explanation: q.explanation || ""
+                    correct_answer: q.options[q.correctAnswer] || "",
+                    explanation: q.explanation || "",
+                    imageUrl: q.imageUrl || null,
                 }))
             };
 
