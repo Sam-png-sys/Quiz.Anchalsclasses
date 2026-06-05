@@ -671,7 +671,7 @@ export default function CreateQuiz() {
                 <input
                   type="number"
                   min={1}
-                  max={30}
+                  max={150}
                   value={aiQuestionCount}
                   onChange={e => setAiQuestionCount(e.target.value)}
                   className="w-20 bg-transparent text-[14px] text-white outline-none"

@@ -48,7 +48,7 @@ def generate_quiz_from_pdf(pdf_bytes, filename, quiz_meta):
     file_data = base64.b64encode(pdf_bytes).decode("utf-8")
     file_data_url = f"data:application/pdf;base64,{file_data}"
 
-    question_count = max(1, min(int(quiz_meta.get("questionCount", 10)), 30))
+    question_count = max(1, min(int(quiz_meta.get("questionCount", 10)), 150))
     difficulty = quiz_meta.get("difficulty") or "medium"
     duration = max(1, int(quiz_meta.get("duration") or 30))
 
