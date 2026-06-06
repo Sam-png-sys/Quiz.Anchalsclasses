@@ -21,7 +21,7 @@ const COURSE_COLORS = [
   { from: "from-green-500", to: "to-emerald-600", bg: "bg-green-500/10", border: "border-green-500/20", text: "text-green-400" },
 ];
 
-const EMPTY_FORM = { title: "", description: "", tag: "BDS", duration: "", totalQuizzes: "" };
+const EMPTY_FORM = { title: "", description: "", tag: "BDS", subjects: "", duration: "", totalQuizzes: "" };
 
 export default function Courses() {
   const navigate = useNavigate();
@@ -61,7 +61,18 @@ export default function Courses() {
   };
 
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
-  const openEdit = (c) => { setEditing(c._id || c.id); setForm({ title: c.title, description: c.description, tag: c.tag, duration: c.duration, totalQuizzes: c.totalQuizzes }); setModalOpen(true); };
+  const openEdit = (c) => {
+    setEditing(c._id || c.id);
+    setForm({
+      title: c.title,
+      description: c.description,
+      tag: c.tag,
+      subjects: Array.isArray(c.subjects) ? c.subjects.join(", ") : "",
+      duration: c.duration,
+      totalQuizzes: c.totalQuizzes,
+    });
+    setModalOpen(true);
+  };
 
   const handleSave = async () => {
     if (!form.title.trim()) { alert("Title required"); return; }
@@ -69,10 +80,17 @@ export default function Courses() {
     try {
       const url = editing ? `${API_BASE}/admin/course/${editing}` : `${API_BASE}/admin/course`;
       const method = editing ? "PUT" : "POST";
+      const payload = {
+        ...form,
+        subjects: form.subjects
+          .split(",")
+          .map(subject => subject.trim())
+          .filter(Boolean),
+      };
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
       await fetchCourses();
@@ -180,6 +198,21 @@ export default function Courses() {
 
                     <p className="text-[12px] text-white/35 leading-relaxed mb-4 line-clamp-2">{course.description || "No description provided."}</p>
 
+                    {Array.isArray(course.subjects) && course.subjects.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {course.subjects.slice(0, 4).map((subject) => (
+                          <span key={subject} className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${color.bg} ${color.border} ${color.text}`}>
+                            {subject}
+                          </span>
+                        ))}
+                        {course.subjects.length > 4 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border border-white/[0.08] text-white/35 bg-white/[0.03]">
+                            +{course.subjects.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-4 text-[11px] text-white/25 mb-5">
                       <span className="flex items-center gap-1"><Layers size={10} /> {course.totalQuizzes || 0} quizzes</span>
                       <span className="flex items-center gap-1"><Clock size={10} /> {course.duration || "—"}</span>
@@ -232,6 +265,10 @@ export default function Courses() {
                   <FormField label="Description">
                     <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                       placeholder="Describe this course..." className="field-input resize-none" />
+                  </FormField>
+                  <FormField label="Subjects">
+                    <input value={form.subjects} onChange={e => setForm({ ...form, subjects: e.target.value })}
+                      placeholder="Oral Anatomy, Prosthodontics, Pathology" className="field-input" />
                   </FormField>
                   <div className="grid grid-cols-2 gap-3">
                     <FormField label="Tag">

@@ -121,6 +121,19 @@ const QuizCard = ({ item, index, onPress, themeColors }) => {
             {item.description || "Test your knowledge and challenge yourself"}
           </Text>
 
+          <View style={styles.cardTagRow}>
+            {!!item.course && (
+              <View style={[styles.cardTag, { backgroundColor: colors[0] + "18", borderColor: colors[0] + "33" }]}>
+                <Text style={[styles.cardTagText, { color: colors[0] }]} numberOfLines={1}>{item.course}</Text>
+              </View>
+            )}
+            {!!item.subject && (
+              <View style={[styles.cardTag, { backgroundColor: "#05966918", borderColor: "#05966933" }]}>
+                <Text style={[styles.cardTagText, { color: "#059669" }]} numberOfLines={1}>{item.subject}</Text>
+              </View>
+            )}
+          </View>
+
           <View style={styles.cardFooter}>
             <View style={styles.metaRow}>
               {item.question_count != null && (
@@ -159,6 +172,7 @@ const HomeScreen = ({ navigation }) => {
   const [searchText, setSearchText] = useState("");
   const [filter, setFilter] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
+  const [subjectFilter, setSubjectFilter] = useState("all");
   const [sortMode, setSortMode] = useState("title");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -230,6 +244,22 @@ const HomeScreen = ({ navigation }) => {
     return ["all", ...courses.sort((a, b) => a.localeCompare(b))];
   }, [quizzes]);
 
+  const availableSubjects = useMemo(() => {
+    const subjects = Array.from(new Set(
+      quizzes
+        .filter((quiz) => courseFilter === "all" || (quiz.course || "").trim() === courseFilter)
+        .map((quiz) => (quiz.subject || "").trim())
+        .filter(Boolean)
+    ));
+    return ["all", ...subjects.sort((a, b) => a.localeCompare(b))];
+  }, [courseFilter, quizzes]);
+
+  useEffect(() => {
+    if (!availableSubjects.includes(subjectFilter)) {
+      setSubjectFilter("all");
+    }
+  }, [availableSubjects, subjectFilter]);
+
   const filteredQuizzes = useMemo(() => {
     const searchTerms = normalizedSearch.split(/\s+/).filter(Boolean);
 
@@ -239,8 +269,9 @@ const HomeScreen = ({ navigation }) => {
         || (filter === "completed" && quiz.completed)
         || (filter === "available" && !quiz.completed);
       const matchesCourse = courseFilter === "all" || (quiz.course || "").trim() === courseFilter;
+      const matchesSubject = subjectFilter === "all" || (quiz.subject || "").trim() === subjectFilter;
 
-      if (!matchesFilter || !matchesCourse) return false;
+      if (!matchesFilter || !matchesCourse || !matchesSubject) return false;
       if (!searchTerms.length) return true;
 
       const searchableText = [
@@ -248,6 +279,7 @@ const HomeScreen = ({ navigation }) => {
         quiz.description,
         quiz.difficulty,
         quiz.course,
+        quiz.subject,
         quiz.question_count != null ? `${quiz.question_count} questions` : "",
         quiz.duration != null ? `${quiz.duration} minutes` : "",
         quiz.id,
@@ -262,12 +294,16 @@ const HomeScreen = ({ navigation }) => {
         const courseCompare = (a.course || "").localeCompare(b.course || "");
         if (courseCompare !== 0) return courseCompare;
       }
+      if (sortMode === "subject") {
+        const subjectCompare = (a.subject || "").localeCompare(b.subject || "");
+        if (subjectCompare !== 0) return subjectCompare;
+      }
       if (sortMode === "duration") {
         return (Number(a.duration) || 0) - (Number(b.duration) || 0);
       }
       return (a.title || "").localeCompare(b.title || "");
     });
-  }, [courseFilter, filter, normalizedSearch, quizzes, sortMode]);
+  }, [courseFilter, filter, normalizedSearch, quizzes, sortMode, subjectFilter]);
 
   const listHeader = (
     <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
@@ -358,31 +394,39 @@ const HomeScreen = ({ navigation }) => {
         })}
       </View>
 
-      <View style={styles.sortRow}>
-        <Text style={[styles.sortLabel, { color: themeColors.textGhost }]}>Sort</Text>
-        {[
-          { key: "title", label: "Title" },
-          { key: "course", label: "Course" },
-          { key: "duration", label: "Duration" },
-        ].map((item) => {
-          const active = sortMode === item.key;
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={[
-                styles.sortChip,
-                active
-                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-              ]}
-              onPress={() => setSortMode(item.key)}
-            >
-              <Text style={[styles.sortChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={[styles.organizePanel, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+        <View style={styles.organizeHeader}>
+          <Text style={[styles.sortLabel, { color: themeColors.textGhost }]}>SORT</Text>
+          <Text style={[styles.organizeHint, { color: themeColors.textGhost }]}>
+            {sortMode === "subject" ? "Grouped by subject" : sortMode === "course" ? "Grouped by course" : "Clean list order"}
+          </Text>
+        </View>
+        <View style={styles.sortRow}>
+          {[
+            { key: "title", label: "Title" },
+            { key: "course", label: "Course" },
+            { key: "subject", label: "Subject" },
+            { key: "duration", label: "Duration" },
+          ].map((item) => {
+            const active = sortMode === item.key;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={[
+                  styles.sortChip,
+                  active
+                    ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                    : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
+                ]}
+                onPress={() => setSortMode(item.key)}
+              >
+                <Text style={[styles.sortChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       <Text style={[styles.sectionLabel, { color: themeColors.textGhost, marginBottom: 10 }]}>COURSES</Text>
@@ -400,6 +444,30 @@ const HomeScreen = ({ navigation }) => {
                   : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
               ]}
               onPress={() => setCourseFilter(course)}
+            >
+              <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <Text style={[styles.sectionLabel, { color: themeColors.textGhost, marginBottom: 10 }]}>SUBJECTS</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
+        {availableSubjects.map((subject) => {
+          const active = subjectFilter === subject;
+          const label = subject === "all" ? "All Subjects" : subject;
+          return (
+            <TouchableOpacity
+              key={subject}
+              style={[
+                styles.courseChip,
+                active
+                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+              ]}
+              onPress={() => setSubjectFilter(subject)}
             >
               <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
                 {label}
@@ -450,7 +518,7 @@ const HomeScreen = ({ navigation }) => {
           />
         )}
         ListHeaderComponent={listHeader}
-        extraData={{ searchText, filter, attemptSummary }}
+        extraData={{ searchText, filter, attemptSummary, courseFilter, subjectFilter, sortMode }}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={[styles.emptyEyebrow, { color: accentOption.colors[0] }]}>Quiz Feed</Text>
@@ -529,7 +597,15 @@ const styles = StyleSheet.create({
   clearSearchBtn: { paddingHorizontal: 8, paddingVertical: 6 },
   clearSearchText: { fontSize: 12, fontWeight: "800" },
   filterRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
-  sortRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" },
+  organizePanel: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 12,
+    marginBottom: 16,
+  },
+  organizeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10 },
+  organizeHint: { fontSize: 11, fontWeight: "700", flexShrink: 1, textAlign: "right" },
+  sortRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   sortLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1.4, marginRight: 4 },
   sortChip: {
     borderWidth: 1,
@@ -578,7 +654,16 @@ const styles = StyleSheet.create({
   },
   completedBadgeText: { color: "#6ee7b7", fontSize: 11, fontWeight: "700" },
   cardTitle: { fontSize: 17, fontWeight: "700", marginBottom: 6, letterSpacing: -0.2 },
-  cardDesc: { fontSize: 13, lineHeight: 20, marginBottom: 16 },
+  cardDesc: { fontSize: 13, lineHeight: 20, marginBottom: 12 },
+  cardTagRow: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 16 },
+  cardTag: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    maxWidth: "100%",
+  },
+  cardTagText: { fontSize: 11, fontWeight: "800" },
   cardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   metaRow: { flexDirection: "row", gap: 8 },
   metaPill: {

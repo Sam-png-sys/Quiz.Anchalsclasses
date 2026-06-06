@@ -117,6 +117,7 @@ def build_course_record(course):
     record["_id"] = str(course["_id"])
     record["totalQuizzes"] = quiz_collection.count_documents({"course": course.get("title", "")})
     record["enrolled"] = course.get("enrolled", 0)
+    record["subjects"] = course.get("subjects", [])
     return record
 
 
@@ -286,6 +287,7 @@ def get_quizzes(admin=Depends(admin_only)):
         q["isOpen"]     = q.get("isOpen", True)
         q["attempts"]   = q.get("attempts", 0)
         q["difficulty"] = q.get("difficulty", "Medium")
+        q["subject"]    = q.get("subject", "")
         q["totalQuestions"] = question_collection.count_documents({
             "quizId": ObjectId(q["_id"])
         })
@@ -312,6 +314,7 @@ def create_course(data: dict, admin=Depends(admin_only)):
         "title": title,
         "description": (data.get("description") or "").strip(),
         "tag": (data.get("tag") or "BDS").strip() or "BDS",
+        "subjects": [str(subject).strip() for subject in data.get("subjects", []) if str(subject).strip()],
         "duration": (data.get("duration") or "").strip(),
         "totalQuizzes": int(data.get("totalQuizzes") or 0),
         "enrolled": int(data.get("enrolled") or 0),
@@ -349,6 +352,7 @@ def update_course(id: str, data: dict, admin=Depends(admin_only)):
         "title": title,
         "description": (data.get("description") or "").strip(),
         "tag": (data.get("tag") or "BDS").strip() or "BDS",
+        "subjects": [str(subject).strip() for subject in data.get("subjects", []) if str(subject).strip()],
         "duration": (data.get("duration") or "").strip(),
         "updatedAt": datetime.utcnow(),
     }
@@ -438,6 +442,7 @@ def update_quiz(quiz_id: str, data: dict, admin=Depends(admin_only)):
             "duration":    data.get("duration"),
             "difficulty":  data.get("difficulty", "medium"),
             "course":      data.get("course", ""),
+            "subject":     data.get("subject", ""),
             "examType":    data.get("examType", "no_section_no_timer"),
             "requireAnswer": data.get("requireAnswer", True),
             "sections":    data.get("sections", []),

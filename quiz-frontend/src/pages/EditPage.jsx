@@ -194,6 +194,14 @@ export default function EditQuiz() {
             toast.error("Title is required");
             return;
         }
+        if (!quiz.course?.trim()) {
+            toast.error("Course is required");
+            return;
+        }
+        if (!quiz.subject?.trim()) {
+            toast.error("Subject is required");
+            return;
+        }
         if (usesSections && sectionQuestionTotal !== (quiz.questions?.length || 0)) {
             toast.error(`Section question count must match total questions (${quiz.questions?.length || 0})`);
             return;
@@ -319,13 +327,22 @@ export default function EditQuiz() {
                                 />
                             </Field>
 
-                            {/* Course + Duration side by side */}
-                            <div className="grid grid-cols-2 gap-3">
+                            {/* Course + Subject + Duration */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
                                     <input
                                         value={quiz.course ?? ""}
                                         onChange={e => handleChange("course", e.target.value)}
                                         placeholder="e.g. BDS Year 2"
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                    />
+                                </Field>
+
+                                <Field icon={<BookOpen size={14} className="text-emerald-400/60" />} label="Subject">
+                                    <input
+                                        value={quiz.subject ?? ""}
+                                        onChange={e => handleChange("subject", e.target.value)}
+                                        placeholder="e.g. Oral Anatomy"
                                         className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
                                     />
                                 </Field>

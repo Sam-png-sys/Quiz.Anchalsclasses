@@ -34,6 +34,7 @@ const emptyQuiz = () => ({
   description: "",
   duration: "",
   course: "",
+  subject: "",
   difficulty: "",
   examType: "no_section_no_timer",
   requireAnswer: true,
@@ -258,6 +259,7 @@ export default function CreateQuiz() {
     if (!aiPdf) { alert("Please select a PDF first"); return; }
     if (!quiz.title.trim()) { alert("Quiz title is required"); return; }
     if (!quiz.course.trim()) { alert("Course name is required"); return; }
+    if (!quiz.subject.trim()) { alert("Subject is required"); return; }
     if (!quiz.difficulty) { alert("Please select a difficulty level"); return; }
     if (quiz.examType === "no_section_no_timer" && !quiz.duration) { alert("Duration is required"); return; }
     if (usesSections && (!quiz.sections?.length || quiz.sections.some(section => !section.questionCount || !section.title.trim()))) {
@@ -280,6 +282,7 @@ export default function CreateQuiz() {
       formData.append("title", quiz.title);
       formData.append("description", quiz.description);
       formData.append("course", quiz.course);
+      formData.append("subject", quiz.subject);
       formData.append("difficulty", quiz.difficulty);
       formData.append("duration", computedDuration);
       formData.append("questionCount", Number(aiQuestionCount));
@@ -325,6 +328,7 @@ export default function CreateQuiz() {
   const validate = () => {
     if (!quiz.title.trim()) { alert("Title is required"); return false; }
     if (!quiz.course.trim())  { alert("Course name is required"); return false; }
+    if (!quiz.subject.trim()) { alert("Subject is required"); return false; }
     if (!quiz.difficulty)     { alert("Please select a difficulty level"); return false; }
     if (quiz.examType === "no_section_no_timer" && !quiz.duration) { alert("Duration is required"); return false; }
     if (studyMaterialUploading) { alert("Please wait for the study material upload to finish"); return false; }
@@ -366,6 +370,7 @@ export default function CreateQuiz() {
           duration:       computedDuration,
           totalQuestions: questions.length,
           course:         quiz.course,
+          subject:        quiz.subject,
           difficulty:     quiz.difficulty,
           examType:       quiz.examType,
           requireAnswer:  quiz.requireAnswer,
@@ -449,10 +454,15 @@ export default function CreateQuiz() {
                 placeholder="Brief description of this quiz..."
                 className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
             </Field>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
                 <input value={quiz.course} onChange={e => handleQuizChange("course", e.target.value)}
                   placeholder="e.g. BDS Year 2"
+                  className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
+              </Field>
+              <Field icon={<BookOpen size={14} className="text-emerald-400/60" />} label="Subject">
+                <input value={quiz.subject} onChange={e => handleQuizChange("subject", e.target.value)}
+                  placeholder="e.g. Oral Anatomy"
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
               </Field>
               <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">

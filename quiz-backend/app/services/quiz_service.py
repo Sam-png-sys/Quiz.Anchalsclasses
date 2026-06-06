@@ -14,6 +14,7 @@ def get_quizzes(page: int = 1, limit: int = 10):
             "title":          q.get("title", "Untitled Quiz"),
             "description":    q.get("description", ""),
             "course":         q.get("course", ""),
+            "subject":        q.get("subject", ""),
             "duration":       q.get("duration"),
             "difficulty":     q.get("difficulty", "Medium"),
             "examType":       q.get("examType", "no_section_no_timer"),

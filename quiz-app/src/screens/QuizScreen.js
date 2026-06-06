@@ -255,8 +255,8 @@ const QuizScreen = ({ route, navigation }) => {
     const newAnswers = { ...answersRef.current, [current]: valueToSave };
     saveAnswers(newAnswers);
 
-    if (isLastQuestion || !nextSection) {
-      navigation.navigate("Result", {
+    if (isLastQuestion) {
+      navigation.replace("Result", {
         answers: newAnswers,
         questions,
         quizId,
@@ -265,7 +265,7 @@ const QuizScreen = ({ route, navigation }) => {
       return;
     }
 
-    if (forcedByTimer || isLastInSection) {
+    if ((forcedByTimer || isLastInSection) && nextSection) {
       setCurrent(nextSection.start);
       setSelected(newAnswers[nextSection.start] ?? null);
       return;

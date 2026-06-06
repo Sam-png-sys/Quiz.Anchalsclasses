@@ -20,6 +20,8 @@ const SORT_OPTIONS = [
   { label: "Oldest First", value: "oldest" },
   { label: "Most Attempts", value: "attempts_desc" },
   { label: "Least Attempts", value: "attempts_asc" },
+  { label: "Course A -> Z", value: "course_asc" },
+  { label: "Subject A -> Z", value: "subject_asc" },
   { label: "A → Z", value: "alpha_asc" },
   { label: "Z → A", value: "alpha_desc" },
 ];
@@ -28,6 +30,11 @@ const DIFF_COLORS = {
   Easy: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   Medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   Hard: "bg-red-500/10 text-red-400 border-red-500/20",
+};
+
+const formatDifficulty = (value) => {
+  const normalized = (value || "Medium").toString().toLowerCase();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
 
 export default function QuizList() {
@@ -41,7 +48,8 @@ export default function QuizList() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [sortOpen, setSortOpen] = useState(false);
-  const [filterTag, setFilterTag] = useState("All");
+  const [filterCourse, setFilterCourse] = useState("All");
+  const [filterSubject, setFilterSubject] = useState("All");
   const [filterDiff, setFilterDiff] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -71,7 +79,8 @@ export default function QuizList() {
         isOpen: q.isOpen ?? true,
         attempts: q.attempts ?? 0,
         totalQuestions: q.totalQuestions ?? 0,
-        difficulty: q.difficulty ?? "Medium",
+        difficulty: formatDifficulty(q.difficulty),
+        subject: q.subject ?? "",
         createdAt: q.createdAt ?? new Date().toISOString(),
       }));
 
@@ -115,28 +124,42 @@ export default function QuizList() {
     }
   };
 
+  const courseOptions = ["All", ...Array.from(new Set(quizzes.map(q => q.course).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
+  const subjectOptions = ["All", ...Array.from(new Set(quizzes.map(q => q.subject).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
+
   // Filter + sort
   const processed = quizzes
     .filter(q => {
-      const matchSearch = q.title?.toLowerCase().includes(search.toLowerCase());
-      const matchTag = filterTag === "All" || q.tag === filterTag;
+      const query = search.toLowerCase();
+      const matchSearch = [
+        q.title,
+        q.description,
+        q.course,
+        q.subject,
+        q._id,
+        q.id,
+      ].some(value => String(value || "").toLowerCase().includes(query));
+      const matchCourse = filterCourse === "All" || q.course === filterCourse;
+      const matchSubject = filterSubject === "All" || q.subject === filterSubject;
       const matchDiff = filterDiff === "All" || q.difficulty === filterDiff;
       const matchStatus = filterStatus === "All" ||
         (filterStatus === "Open" && q.isOpen) ||
         (filterStatus === "Closed" && !q.isOpen);
-      return matchSearch && matchTag && matchDiff && matchStatus;
+      return matchSearch && matchCourse && matchSubject && matchDiff && matchStatus;
     })
     .sort((a, b) => {
       if (sort === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
       if (sort === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
       if (sort === "attempts_desc") return (b.attempts || 0) - (a.attempts || 0);
       if (sort === "attempts_asc") return (a.attempts || 0) - (b.attempts || 0);
+      if (sort === "course_asc") return (a.course || "").localeCompare(b.course || "") || (a.subject || "").localeCompare(b.subject || "");
+      if (sort === "subject_asc") return (a.subject || "").localeCompare(b.subject || "") || (a.title || "").localeCompare(b.title || "");
       if (sort === "alpha_asc") return a.title?.localeCompare(b.title);
       if (sort === "alpha_desc") return b.title?.localeCompare(a.title);
       return 0;
     });
 
-  const activeFilters = [filterTag, filterDiff, filterStatus].filter(f => f !== "All").length;
+  const activeFilters = [filterCourse, filterSubject, filterDiff, filterStatus].filter(f => f !== "All").length;
 
   return (
     <AdminShell>
@@ -184,7 +207,7 @@ export default function QuizList() {
             <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search quizzes by title..."
+              placeholder="Search title, course, subject..."
               className="w-full pl-10 pr-10 py-3 rounded-xl bg-[#0c0c18] border border-white/[0.06] text-sm text-white placeholder:text-white/20 outline-none focus:border-cyan-500/40 transition-all"
             />
             {search && (
@@ -239,11 +262,12 @@ export default function QuizList() {
               className="overflow-hidden mb-5"
             >
               <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 flex flex-wrap gap-6">
-                <FilterGroup label="Tag" options={["All", "BDS", "MDS"]} value={filterTag} onChange={setFilterTag} />
+                <FilterGroup label="Course" options={courseOptions} value={filterCourse} onChange={setFilterCourse} />
+                <FilterGroup label="Subject" options={subjectOptions} value={filterSubject} onChange={setFilterSubject} />
                 <FilterGroup label="Difficulty" options={["All", "Easy", "Medium", "Hard"]} value={filterDiff} onChange={setFilterDiff} />
                 <FilterGroup label="Status" options={["All", "Open", "Closed"]} value={filterStatus} onChange={setFilterStatus} />
                 {activeFilters > 0 && (
-                  <button onClick={() => { setFilterTag("All"); setFilterDiff("All"); setFilterStatus("All"); }}
+                  <button onClick={() => { setFilterCourse("All"); setFilterSubject("All"); setFilterDiff("All"); setFilterStatus("All"); }}
                     className="self-end text-[12px] font-semibold text-red-400/70 hover:text-red-400 transition-colors">
                     Clear all
                   </button>
@@ -278,15 +302,16 @@ export default function QuizList() {
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {processed.map((quiz) => {
               const id = quiz._id || quiz.id;
+              const courseLabel = quiz.course || "Course";
+              const courseShort = courseLabel.length <= 4 ? courseLabel : courseLabel.slice(0, 3).toUpperCase();
               return (
                 <MotionDiv key={id} variants={fadeUp}
                   className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/30 transition-all duration-300 group flex flex-col">
 
                   {/* Top row */}
                   <div className="flex items-start justify-between mb-3">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0
-                      ${quiz.tag === "BDS" ? "bg-blue-500/10" : "bg-purple-500/10"}`}>
-                      {quiz.tag === "BDS" ? "BDS" : "MDS"}
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-[11px] font-black flex-shrink-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      {courseShort}
                     </div>
                     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${quiz.isOpen ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white/[0.04] text-white/25 border-white/[0.06]"}`}>
                       {quiz.isOpen ? "● Open" : "○ Closed"}
@@ -318,9 +343,14 @@ export default function QuizList() {
 
                   {/* Badges */}
                   <div className="flex flex-wrap gap-1.5 mb-4">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${quiz.tag === "BDS" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-purple-500/10 text-purple-400 border-purple-500/20"}`}>
-                      {quiz.tag}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                      {courseLabel}
                     </span>
+                    {quiz.subject && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                        {quiz.subject}
+                      </span>
+                    )}
                     {quiz.difficulty && (
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${DIFF_COLORS[quiz.difficulty] || DIFF_COLORS.Medium}`}>
                         {quiz.difficulty}

@@ -59,6 +59,7 @@ Quiz settings:
 - title: {quiz_meta.get("title") or "AI Generated Quiz"}
 - description: {quiz_meta.get("description") or ""}
 - course/topic: {quiz_meta.get("course") or ""}
+- subject: {quiz_meta.get("subject") or ""}
 - difficulty: {difficulty}
 - number of questions: {question_count}
 - duration in minutes: {duration}
@@ -82,6 +83,7 @@ JSON shape:
   "title": "string",
   "description": "string",
   "course": "string",
+  "subject": "string",
   "difficulty": "easy|medium|hard",
   "duration": 30,
   "questions": [
@@ -145,6 +147,7 @@ JSON shape:
         "title": data.get("title") or quiz_meta.get("title") or "AI Generated Quiz",
         "description": data.get("description") or quiz_meta.get("description") or "",
         "course": data.get("course") or quiz_meta.get("course") or "",
+        "subject": data.get("subject") or quiz_meta.get("subject") or "",
         "difficulty": data.get("difficulty") or difficulty,
         "duration": int(data.get("duration") or duration),
         "questions": clean_questions,

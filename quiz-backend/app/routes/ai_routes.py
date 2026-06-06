@@ -31,6 +31,7 @@ async def generate_quiz(
     title: str = Form("AI Generated Quiz"),
     description: str = Form(""),
     course: str = Form(""),
+    subject: str = Form(""),
     difficulty: str = Form("medium"),
     duration: int = Form(30),
     questionCount: int = Form(10),
@@ -61,6 +62,7 @@ async def generate_quiz(
             "title": title,
             "description": description,
             "course": course,
+            "subject": subject,
             "difficulty": difficulty,
             "duration": duration,
             "questionCount": questionCount,
@@ -72,6 +74,7 @@ async def generate_quiz(
         "description": quiz_data["description"],
         "duration": quiz_data["duration"],
         "course": quiz_data["course"],
+        "subject": quiz_data.get("subject", subject),
         "difficulty": quiz_data["difficulty"],
         "examType": examType,
         "requireAnswer": requireAnswer,
@@ -127,6 +130,7 @@ def teacher_explain(data: dict, user=Depends(get_current_user)):
     topic_context = "\n".join([
         f"Quiz title: {quiz.get('title', '')}",
         f"Course/topic: {quiz.get('course', '')}",
+        f"Subject: {quiz.get('subject', '')}",
         f"Description: {quiz.get('description', '')}",
         f"Difficulty: {quiz.get('difficulty', '')}",
     ])
