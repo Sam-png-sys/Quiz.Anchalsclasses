@@ -11,14 +11,18 @@ def start_quiz(user_id, quiz_id):
     })
 
     if existing:
-        return {"error": "Quiz already started"}
+        return {
+            "message": "Quiz already started",
+            "attempt_id": str(existing["_id"]),
+            "answers": existing.get("answers", {}),
+        }
 
     questions = list(question_collection.find({"quizId": ObjectId(quiz_id)}))
 
     snapshot = [
         {
             "questionId": str(q["_id"]),
-            "correctAnswer": q["correctAnswer"]
+            "correctAnswer": q.get("correct_answer") or q.get("correctAnswer", "")
         }
         for q in questions
     ]
@@ -33,12 +37,26 @@ def start_quiz(user_id, quiz_id):
         "submittedAt": None
     }
 
-    attempt_collection.insert_one(attempt)
+    result = attempt_collection.insert_one(attempt)
 
-    return {"message": "Quiz started"}
+    return {"message": "Quiz started", "attempt_id": str(result.inserted_id), "answers": {}}
 
 
-def submit_quiz(user_id, quiz_id, answers):
+def save_quiz_progress(user_id, quiz_id, answers):
+    questions = list(question_collection.find({"quizId": ObjectId(quiz_id)}))
+    if not questions:
+        return {"error": "No questions found"}
+
+    normalized_answers = {}
+    for index, question in enumerate(questions):
+        question_id = str(question["_id"])
+        user_answer = (
+            answers.get(question_id)
+            or answers.get(str(index))
+            or answers.get(index)
+        )
+        if user_answer is not None:
+            normalized_answers[question_id] = user_answer
 
     attempt = attempt_collection.find_one({
         "userId": user_id,
@@ -47,34 +65,48 @@ def submit_quiz(user_id, quiz_id, answers):
     })
 
     if not attempt:
-        return {"error": "No active attempt"}
+        snapshot = [
+            {
+                "questionId": str(q["_id"]),
+                "correctAnswer": q.get("correct_answer") or q.get("correctAnswer", "")
+            }
+            for q in questions
+        ]
+        result = attempt_collection.insert_one({
+            "userId": user_id,
+            "quizId": ObjectId(quiz_id),
+            "questions": snapshot,
+            "answers": normalized_answers,
+            "score": 0,
+            "startTime": datetime.utcnow(),
+            "updatedAt": datetime.utcnow(),
+            "submittedAt": None
+        })
+        return {
+            "message": "Progress saved",
+            "attempt_id": str(result.inserted_id),
+            "savedAnswers": len(normalized_answers),
+        }
 
-    quiz = quiz_collection.find_one({"_id": ObjectId(quiz_id)})
-    duration = quiz["duration"]
-
-    elapsed = (datetime.utcnow() - attempt["startTime"]).total_seconds()
-
-    if elapsed > duration * 60:
-        return {"error": "Time exceeded"}
-
-    score = 0
-
-    for q in attempt["questions"]:
-        qid = q["questionId"]
-
-        if qid in answers and answers[qid] == q["correctAnswer"]:
-            score += 1
-
+    merged_answers = {**attempt.get("answers", {}), **normalized_answers}
     attempt_collection.update_one(
         {"_id": attempt["_id"]},
         {"$set": {
-            "answers": answers,
-            "score": score,
-            "submittedAt": datetime.utcnow()
+            "answers": merged_answers,
+            "updatedAt": datetime.utcnow(),
         }}
     )
+    return {
+        "message": "Progress saved",
+        "attempt_id": str(attempt["_id"]),
+        "savedAnswers": len(merged_answers),
+    }
 
-    return {"score": score}
+
+def submit_quiz(user_id, quiz_id, answers):
+    # Backward-compatible progress save. Older app builds used this endpoint
+    # after each question, so it must not finalize the attempt.
+    return save_quiz_progress(user_id, quiz_id, answers)
 
 
 def complete_quiz(user_id, quiz_id, answers):
@@ -104,15 +136,32 @@ def complete_quiz(user_id, quiz_id, answers):
         if user_answer and correct_answer and str(user_answer).strip() == str(correct_answer).strip():
             score += 1
 
-    attempt_collection.insert_one({
+    existing_attempt = attempt_collection.find_one({
         "userId": user_id,
         "quizId": ObjectId(quiz_id),
-        "questions": snapshot,
-        "answers": normalized_answers,
-        "score": score,
-        "startTime": datetime.utcnow(),
-        "submittedAt": datetime.utcnow(),
+        "submittedAt": None
     })
+
+    if existing_attempt:
+        attempt_collection.update_one(
+            {"_id": existing_attempt["_id"]},
+            {"$set": {
+                "questions": snapshot,
+                "answers": normalized_answers,
+                "score": score,
+                "submittedAt": datetime.utcnow(),
+            }}
+        )
+    else:
+        attempt_collection.insert_one({
+            "userId": user_id,
+            "quizId": ObjectId(quiz_id),
+            "questions": snapshot,
+            "answers": normalized_answers,
+            "score": score,
+            "startTime": datetime.utcnow(),
+            "submittedAt": datetime.utcnow(),
+        })
 
     return {
         "score": score,

@@ -174,6 +174,7 @@ const HomeScreen = ({ navigation }) => {
   const [courseFilter, setCourseFilter] = useState("all");
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [sortMode, setSortMode] = useState("title");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -305,6 +306,13 @@ const HomeScreen = ({ navigation }) => {
     });
   }, [courseFilter, filter, normalizedSearch, quizzes, sortMode, subjectFilter]);
 
+  const activeFilterCount = [
+    filter !== "all",
+    courseFilter !== "all",
+    subjectFilter !== "all",
+    sortMode !== "title",
+  ].filter(Boolean).length;
+
   const listHeader = (
     <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
       <View style={styles.headerTop}>
@@ -344,138 +352,173 @@ const HomeScreen = ({ navigation }) => {
         </View>
       </View>
 
-      <TouchableOpacity
-        activeOpacity={0.95}
-        onPress={() => searchInputRef.current?.focus()}
-        style={[styles.searchBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-      >
-        <Text style={[styles.searchIcon, { color: themeColors.textGhost }]}>Search</Text>
-        <TextInput
-          ref={searchInputRef}
-          value={searchText}
-          onChangeText={setSearchText}
-          placeholder="Search quizzes"
-          placeholderTextColor={themeColors.textGhost}
-          style={[styles.searchInput, { color: themeColors.text }]}
-          autoCorrect={false}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-        {!!searchText && (
-          <TouchableOpacity onPress={() => setSearchText("")} style={styles.clearSearchBtn}>
-            <Text style={[styles.clearSearchText, { color: themeColors.textSubtle }]}>Clear</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-
-      <View style={styles.filterRow}>
-        {[
-          { key: "all", label: "All" },
-          { key: "available", label: "New" },
-          { key: "completed", label: "Completed" },
-        ].map((item) => {
-          const active = filter === item.key;
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={[
-                styles.filterChip,
-                active
-                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-              ]}
-              onPress={() => setFilter(item.key)}
-            >
-              <Text style={[styles.filterChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                {item.label}
-              </Text>
+      <View style={styles.searchAndMenuRow}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={() => searchInputRef.current?.focus()}
+          style={[styles.searchBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+        >
+          <Text style={[styles.searchIcon, { color: themeColors.textGhost }]}>Search</Text>
+          <TextInput
+            ref={searchInputRef}
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Search quizzes"
+            placeholderTextColor={themeColors.textGhost}
+            style={[styles.searchInput, { color: themeColors.text }]}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+          {!!searchText && (
+            <TouchableOpacity onPress={() => setSearchText("")} style={styles.clearSearchBtn}>
+              <Text style={[styles.clearSearchText, { color: themeColors.textSubtle }]}>Clear</Text>
             </TouchableOpacity>
-          );
-        })}
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setFiltersOpen((value) => !value)}
+          style={[
+            styles.menuButton,
+            filtersOpen || activeFilterCount
+              ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+              : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+          ]}
+        >
+          <View style={[styles.menuLine, { backgroundColor: filtersOpen || activeFilterCount ? "#fff" : themeColors.textSubtle }]} />
+          <View style={[styles.menuLine, { backgroundColor: filtersOpen || activeFilterCount ? "#fff" : themeColors.textSubtle }]} />
+          <View style={[styles.menuLine, { backgroundColor: filtersOpen || activeFilterCount ? "#fff" : themeColors.textSubtle }]} />
+          {activeFilterCount > 0 && (
+            <View style={styles.menuBadge}>
+              <Text style={styles.menuBadgeText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      <View style={[styles.organizePanel, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-        <View style={styles.organizeHeader}>
-          <Text style={[styles.sortLabel, { color: themeColors.textGhost }]}>SORT</Text>
-          <Text style={[styles.organizeHint, { color: themeColors.textGhost }]}>
-            {sortMode === "subject" ? "Grouped by subject" : sortMode === "course" ? "Grouped by course" : "Clean list order"}
-          </Text>
-        </View>
-        <View style={styles.sortRow}>
-          {[
-            { key: "title", label: "Title" },
-            { key: "course", label: "Course" },
-            { key: "subject", label: "Subject" },
-            { key: "duration", label: "Duration" },
-          ].map((item) => {
-            const active = sortMode === item.key;
-            return (
+      {filtersOpen && (
+        <View style={[styles.organizePanel, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <View style={styles.organizeHeader}>
+            <Text style={[styles.sortLabel, { color: themeColors.textGhost }]}>VIEW</Text>
+            {activeFilterCount > 0 && (
               <TouchableOpacity
-                key={item.key}
-                style={[
-                  styles.sortChip,
-                  active
-                    ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                    : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
-                ]}
-                onPress={() => setSortMode(item.key)}
+                onPress={() => {
+                  setFilter("all");
+                  setCourseFilter("all");
+                  setSubjectFilter("all");
+                  setSortMode("title");
+                }}
               >
-                <Text style={[styles.sortChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                  {item.label}
-                </Text>
+                <Text style={[styles.clearFiltersText, { color: accentOption.colors[0] }]}>Clear</Text>
               </TouchableOpacity>
-            );
-          })}
+            )}
+          </View>
+
+          <View style={styles.filterRow}>
+            {[
+              { key: "all", label: "All" },
+              { key: "available", label: "New" },
+              { key: "completed", label: "Completed" },
+            ].map((item) => {
+              const active = filter === item.key;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.filterChip,
+                    active
+                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
+                  ]}
+                  onPress={() => setFilter(item.key)}
+                >
+                  <Text style={[styles.filterChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.filterSectionTitle, { color: themeColors.textGhost }]}>SORT</Text>
+          <View style={styles.sortRow}>
+            {[
+              { key: "title", label: "Title" },
+              { key: "course", label: "Course" },
+              { key: "subject", label: "Subject" },
+              { key: "duration", label: "Duration" },
+            ].map((item) => {
+              const active = sortMode === item.key;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.sortChip,
+                    active
+                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
+                  ]}
+                  onPress={() => setSortMode(item.key)}
+                >
+                  <Text style={[styles.sortChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.filterSectionTitle, { color: themeColors.textGhost }]}>COURSES</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
+            {availableCourses.map((course) => {
+              const active = courseFilter === course;
+              const label = course === "all" ? "All Courses" : course;
+              return (
+                <TouchableOpacity
+                  key={course}
+                  style={[
+                    styles.courseChip,
+                    active
+                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
+                  ]}
+                  onPress={() => setCourseFilter(course)}
+                >
+                  <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={[styles.filterSectionTitle, { color: themeColors.textGhost }]}>SUBJECTS</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
+            {availableSubjects.map((subject) => {
+              const active = subjectFilter === subject;
+              const label = subject === "all" ? "All Subjects" : subject;
+              return (
+                <TouchableOpacity
+                  key={subject}
+                  style={[
+                    styles.courseChip,
+                    active
+                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
+                  ]}
+                  onPress={() => setSubjectFilter(subject)}
+                >
+                  <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
-      </View>
-
-      <Text style={[styles.sectionLabel, { color: themeColors.textGhost, marginBottom: 10 }]}>COURSES</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
-        {availableCourses.map((course) => {
-          const active = courseFilter === course;
-          const label = course === "all" ? "All Courses" : course;
-          return (
-            <TouchableOpacity
-              key={course}
-              style={[
-                styles.courseChip,
-                active
-                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-              ]}
-              onPress={() => setCourseFilter(course)}
-            >
-              <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      <Text style={[styles.sectionLabel, { color: themeColors.textGhost, marginBottom: 10 }]}>SUBJECTS</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
-        {availableSubjects.map((subject) => {
-          const active = subjectFilter === subject;
-          const label = subject === "all" ? "All Subjects" : subject;
-          return (
-            <TouchableOpacity
-              key={subject}
-              style={[
-                styles.courseChip,
-                active
-                  ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-              ]}
-              onPress={() => setSubjectFilter(subject)}
-            >
-              <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      )}
 
       <Text style={[styles.sectionLabel, { color: themeColors.textGhost }]}>
         {filter === "completed" ? "COMPLETED QUIZZES" : filter === "available" ? "NEW QUIZZES" : "ALL QUIZZES"} ({filteredQuizzes.length})
@@ -582,29 +625,54 @@ const styles = StyleSheet.create({
   },
   statNumber: { fontSize: 22, fontWeight: "800", marginBottom: 2 },
   statLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5 },
+  searchAndMenuRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
   searchBox: {
+    flex: 1,
     minHeight: 50,
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
-    marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
+  menuButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  menuLine: { width: 20, height: 2, borderRadius: 2 },
+  menuBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  menuBadgeText: { color: "#fff", fontSize: 10, fontWeight: "900" },
   searchIcon: { fontSize: 11, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
   searchInput: { flex: 1, fontSize: 15, fontWeight: "600", paddingVertical: 10 },
   clearSearchBtn: { paddingHorizontal: 8, paddingVertical: 6 },
   clearSearchText: { fontSize: 12, fontWeight: "800" },
-  filterRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
+  filterRow: { flexDirection: "row", gap: 8, marginBottom: 16, flexWrap: "wrap" },
   organizePanel: {
     borderWidth: 1,
     borderRadius: 18,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   organizeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10 },
   organizeHint: { fontSize: 11, fontWeight: "700", flexShrink: 1, textAlign: "right" },
+  clearFiltersText: { fontSize: 12, fontWeight: "900" },
   sortRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   sortLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1.4, marginRight: 4 },
   sortChip: {
@@ -614,6 +682,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   sortChipText: { fontSize: 12, fontWeight: "800" },
+  filterSectionTitle: { fontSize: 10, fontWeight: "800", letterSpacing: 1.8, marginBottom: 9, marginTop: 4 },
   filterChip: {
     borderWidth: 1,
     borderRadius: 999,

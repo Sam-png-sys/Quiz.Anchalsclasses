@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useCallback, useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  BackHandler,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -212,18 +213,35 @@ const ResultScreen = ({ route, navigation }) => {
   const { accentOption, themeColors, settings } = useAppSettings();
   const completionSaved = useRef(false);
 
+  const goHome = useCallback(() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Home" }],
+    });
+  }, [navigation]);
+
+  const getAnswerForQuestion = useCallback((question, index) => (
+    answers[index]
+    ?? answers[String(index)]
+    ?? answers[question?._id]
+    ?? answers[question?.id]
+  ), [answers]);
+
   let score = 0;
   questions.forEach((q, i) => {
-    const userAnswer = answers[i];
+    const userAnswer = getAnswerForQuestion(q, i);
     const correct = q.correct_answer;
-    if (userAnswer && correct && userAnswer.trim() === correct.trim()) {
+    if (userAnswer && correct && String(userAnswer).trim() === String(correct).trim()) {
       score++;
     }
   });
 
   const total = questions.length;
   const pct = total > 0 ? Math.round((score / total) * 100) : 0;
-  const skipped = Object.values(answers).filter((a) => a === null || a === undefined).length;
+  const skipped = questions.filter((q, i) => {
+    const answer = getAnswerForQuestion(q, i);
+    return answer === null || answer === undefined;
+  }).length;
   const wrong = total - score - skipped;
 
   const grade = pct >= 80
@@ -270,6 +288,14 @@ const ResultScreen = ({ route, navigation }) => {
         saveLocalCompletion(quizId, score, total);
       });
   }, [answers, quizId, score, total]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      goHome();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [goHome]);
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.background }]}>
@@ -321,7 +347,7 @@ const ResultScreen = ({ route, navigation }) => {
         <Animated.View style={[styles.btnRow, { opacity: statsFade }]}>
           <TouchableOpacity
             style={[styles.btnSecondary, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
-            onPress={() => navigation.replace("Home")}
+            onPress={goHome}
           >
             <Text style={[styles.btnSecTxt, { color: themeColors.textMuted }]}>Back Home</Text>
           </TouchableOpacity>
@@ -353,7 +379,7 @@ const ResultScreen = ({ route, navigation }) => {
             <ReviewCard
               key={i}
               question={q}
-              userAnswer={answers[i]}
+              userAnswer={getAnswerForQuestion(q, i)}
               index={i}
               delay={i * 60}
               quizId={quizId}

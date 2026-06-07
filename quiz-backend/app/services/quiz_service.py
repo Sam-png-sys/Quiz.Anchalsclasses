@@ -34,6 +34,9 @@ def get_quiz_by_id(quiz_id: str):
         return None
     quiz["_id"] = str(quiz["_id"])
     quiz["id"]  = quiz["_id"]
+    actual_question_count = question_collection.count_documents({"quizId": ObjectId(quiz_id)})
+    quiz["question_count"] = actual_question_count
+    quiz["totalQuestions"] = actual_question_count
     return quiz
 
 

@@ -116,7 +116,8 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex, palet
 };
 
 const buildSections = (quiz, questions) => {
-  const rawSections = Array.isArray(quiz?.sections) ? quiz.sections : [];
+  const usesSections = quiz?.examType === "section_no_timer" || quiz?.examType === "section_with_timer";
+  const rawSections = usesSections && Array.isArray(quiz?.sections) ? quiz.sections : [];
   const validSections = rawSections
     .map((section, index) => ({
       title: section?.title?.trim() || `Section ${index + 1}`,
@@ -162,9 +163,11 @@ const QuizScreen = ({ route, navigation }) => {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [progressSaving, setProgressSaving] = useState(false);
 
   const answersRef = useRef({});
   const timerRef = useRef(null);
+  const advancingRef = useRef(false);
 
   const cardFade = useRef(new Animated.Value(0)).current;
   const cardSlide = useRef(new Animated.Value(width * 0.25)).current;
@@ -176,6 +179,31 @@ const QuizScreen = ({ route, navigation }) => {
     answersRef.current = newAnswers;
     setAnswers(newAnswers);
   };
+
+  const normalizeAnswerPayload = useCallback((answerMap) => {
+    const payload = {};
+    Object.entries(answerMap).forEach(([key, value]) => {
+      const question = questions[Number(key)];
+      const questionId = question?._id || question?.id;
+      if (questionId) payload[questionId] = value;
+      payload[key] = value;
+    });
+    return payload;
+  }, [questions]);
+
+  const saveProgress = useCallback(async (newAnswers) => {
+    if (!quizId) return;
+    try {
+      setProgressSaving(true);
+      await API.post(`/attempt/progress/${quizId}`, {
+        answers: normalizeAnswerPayload(newAnswers),
+      });
+    } catch (error) {
+      console.log("Progress save failed:", error.response?.data?.detail || error.message);
+    } finally {
+      setProgressSaving(false);
+    }
+  }, [normalizeAnswerPayload, quizId]);
 
   const examType = quizMeta?.examType || "no_section_no_timer";
   const requireAnswer = quizMeta?.requireAnswer ?? true;
@@ -192,11 +220,26 @@ const QuizScreen = ({ route, navigation }) => {
     Promise.all([
       API.get(`/quiz/${quizId}`),
       API.get(`/quiz/${quizId}/questions`),
+      API.post(`/attempt/start/${quizId}`).catch((error) => {
+        console.log("Attempt start skipped:", error.response?.data?.detail || error.message);
+        return { data: null };
+      }),
     ])
       .then(([quizRes, questionRes]) => {
         if (!mounted) return;
+        const loadedQuestions = Array.isArray(questionRes.data) ? questionRes.data : [];
+        const expectedQuestions = Number(quizRes.data?.totalQuestions || quizRes.data?.question_count || 0);
+        if (expectedQuestions > loadedQuestions.length) {
+          setLoading(false);
+          Alert.alert(
+            "Quiz is not ready",
+            `This quiz says it has ${expectedQuestions} questions, but the server returned ${loadedQuestions.length}. Please update the backend and try again.`,
+            [{ text: "Back", onPress: () => navigation.goBack() }]
+          );
+          return;
+        }
         setQuizMeta(quizRes.data || {});
-        setQuestions(Array.isArray(questionRes.data) ? questionRes.data : []);
+        setQuestions(loadedQuestions);
         setLoading(false);
       })
       .catch((err) => {
@@ -248,19 +291,32 @@ const QuizScreen = ({ route, navigation }) => {
   const canProceed = !requireAnswer || selected !== null;
   const options = Array.isArray(q?.options) ? q.options : [];
 
-  const goToNextStep = useCallback((forcedByTimer = false) => {
+  const goToNextStep = useCallback(async (forcedByTimer = false) => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     clearInterval(timerRef.current);
 
     const valueToSave = selected ?? null;
     const newAnswers = { ...answersRef.current, [current]: valueToSave };
     saveAnswers(newAnswers);
+    await saveProgress(newAnswers);
 
     if (isLastQuestion) {
-      navigation.replace("Result", {
-        answers: newAnswers,
-        questions,
-        quizId,
-        quizMeta,
+      advancingRef.current = false;
+      navigation.reset({
+        index: 1,
+        routes: [
+          { name: "Home" },
+          {
+            name: "Result",
+            params: {
+              answers: newAnswers,
+              questions,
+              quizId,
+              quizMeta,
+            },
+          },
+        ],
       });
       return;
     }
@@ -268,11 +324,13 @@ const QuizScreen = ({ route, navigation }) => {
     if ((forcedByTimer || isLastInSection) && nextSection) {
       setCurrent(nextSection.start);
       setSelected(newAnswers[nextSection.start] ?? null);
+      advancingRef.current = false;
       return;
     }
 
     setCurrent((value) => value + 1);
-  }, [current, isLastInSection, isLastQuestion, navigation, nextSection, questions, quizId, quizMeta, selected]);
+    advancingRef.current = false;
+  }, [current, isLastInSection, isLastQuestion, navigation, nextSection, questions, quizId, quizMeta, saveProgress, selected]);
 
   useEffect(() => {
     clearInterval(timerRef.current);
@@ -440,23 +498,23 @@ const QuizScreen = ({ route, navigation }) => {
             activeOpacity={canProceed ? 0.88 : 1}
             onPressIn={() => canProceed && Animated.spring(buttonScale, { toValue: 0.96, useNativeDriver: true }).start()}
             onPressOut={() => Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start()}
-            onPress={() => canProceed && goToNextStep(false)}
+            onPress={() => canProceed && !progressSaving && goToNextStep(false)}
             style={styles.nextBtnWrap}
           >
             <LinearGradient
-              colors={canProceed ? palette.accent : [themeColors.surfaceStrong, themeColors.surfaceStrong]}
+              colors={canProceed && !progressSaving ? palette.accent : [themeColors.surfaceStrong, themeColors.surfaceStrong]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.nextBtn}
             >
               <Text style={[styles.nextBtnTxt, !canProceed && { color: themeColors.textGhost }]}>
                 {isLastQuestion
-                  ? "Submit Quiz"
+                  ? progressSaving ? "Saving..." : "Submit Quiz"
                   : isLastInSection && nextSection
-                    ? `Go to ${nextSection.title}`
+                    ? progressSaving ? "Saving..." : `Go to ${nextSection.title}`
                     : requireAnswer
-                      ? "Next Question"
-                      : "Next / Skip"}
+                      ? progressSaving ? "Saving..." : "Next Question"
+                      : progressSaving ? "Saving..." : "Next / Skip"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
