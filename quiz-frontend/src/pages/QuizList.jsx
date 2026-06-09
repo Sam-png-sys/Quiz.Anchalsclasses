@@ -61,8 +61,13 @@ export default function QuizList() {
 
   useEffect(() => {
     const courseFilter = searchParams.get("course");
+    const subjectFilter = searchParams.get("subject");
     if (courseFilter) {
-      setSearch(courseFilter);
+      setFilterCourse(courseFilter);
+      setSearch("");
+    }
+    if (subjectFilter) {
+      setFilterSubject(subjectFilter);
     }
   }, [searchParams]);
 

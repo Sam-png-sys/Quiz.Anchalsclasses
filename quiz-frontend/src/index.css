@@ -67,6 +67,23 @@ select {
   font: inherit;
 }
 
+input,
+textarea,
+select {
+  color: var(--app-text) !important;
+  caret-color: var(--accent);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--app-text-ghost) !important;
+}
+
+select option {
+  color: #ffffff;
+  background: var(--app-surface-alt);
+}
+
 [data-theme] input::placeholder,
 [data-theme] textarea::placeholder {
   color: var(--app-text-ghost) !important;

@@ -35,6 +35,8 @@ export default function Courses() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [quizzes, setQuizzes] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState(null);
 
   useEffect(() => { fetchCourses(); }, []);
 
@@ -42,7 +44,10 @@ export default function Courses() {
     try {
       setLoading(true);
 
-      const data = await apiRequest("/admin/course-catalog");
+      const [data, quizData] = await Promise.all([
+        apiRequest("/admin/course-catalog"),
+        apiRequest("/admin/courses"),
+      ]);
 
       const list = data.map((c) => ({
         ...c,
@@ -51,6 +56,7 @@ export default function Courses() {
       }));
 
       setCourses(list);
+      setQuizzes(Array.isArray(quizData) ? quizData : []);
 
     } catch (err) {
       setError("Could not load courses.");
@@ -94,6 +100,7 @@ export default function Courses() {
       });
       if (!res.ok) throw new Error();
       await fetchCourses();
+      setSelectedCourse(null);
       setModalOpen(false);
     } catch {
       alert("Failed to save course");
@@ -108,9 +115,35 @@ export default function Courses() {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` },
       });
       setCourses(prev => prev.filter(c => (c._id || c.id) !== id));
+      if ((selectedCourse?._id || selectedCourse?.id) === id) {
+        setSelectedCourse(null);
+      }
       setDeleteId(null);
     } catch { alert("Failed to delete"); }
   };
+
+  const getCourseQuizzes = (course) =>
+    quizzes.filter((quiz) => (quiz.course || "").trim() === (course?.title || "").trim());
+
+  const getSubjectCards = (course) => {
+    const courseQuizzes = getCourseQuizzes(course);
+    const subjectMap = new Map();
+
+    (Array.isArray(course?.subjects) ? course.subjects : []).forEach((subject) => {
+      const name = String(subject || "").trim();
+      if (name) subjectMap.set(name, { title: name, totalQuizzes: 0 });
+    });
+
+    courseQuizzes.forEach((quiz) => {
+      const name = String(quiz.subject || "Unassigned").trim() || "Unassigned";
+      const current = subjectMap.get(name) || { title: name, totalQuizzes: 0 };
+      subjectMap.set(name, { ...current, totalQuizzes: current.totalQuizzes + 1 });
+    });
+
+    return Array.from(subjectMap.values()).sort((a, b) => a.title.localeCompare(b.title));
+  };
+
+  const selectedSubjects = selectedCourse ? getSubjectCards(selectedCourse) : [];
 
   return (
     <AdminShell>
@@ -121,25 +154,31 @@ export default function Courses() {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => selectedCourse ? setSelectedCourse(null) : navigate("/dashboard")}
               className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
             >
               <ArrowLeft size={16} />
             </button>
 
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Courses</h1>
-              <p className="text-sm text-white/35 mt-1">Manage your course catalog</p>
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                {selectedCourse ? selectedCourse.title : "Courses"}
+              </h1>
+              <p className="text-sm text-white/35 mt-1">
+                {selectedCourse ? "Choose a subject to see its quizzes" : "Manage your course catalog"}
+              </p>
             </div>
           </div>
 
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
-            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 32px var(--accent-glow)" }}
-          >
-            <Plus size={16} /> Add Course
-          </button>
+          {!selectedCourse && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
+              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 32px var(--accent-glow)" }}
+            >
+              <Plus size={16} /> Add Course
+            </button>
+          )}
 
         </div>
 
@@ -167,6 +206,66 @@ export default function Courses() {
               Create Course
             </button>
           </div>
+        ) : selectedCourse ? (
+          selectedSubjects.length === 0 ? (
+            <div className="text-center py-24">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-lg font-bold mx-auto mb-4">No Subjects</div>
+              <p className="text-white/40 font-semibold text-lg">No subjects yet</p>
+              <p className="text-white/20 text-sm mt-1 mb-6">Edit this course and add subjects to build the course tree</p>
+              <button onClick={() => openEdit(selectedCourse)}
+                className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                Edit Course
+              </button>
+            </div>
+          ) : (
+            <MotionDiv variants={stagger} initial="hidden" animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {selectedSubjects.map((subject, idx) => {
+                const color = COURSE_COLORS[idx % COURSE_COLORS.length];
+                return (
+                  <MotionDiv key={subject.title} variants={fadeUp}
+                    className="bg-[#0c0c18] border border-white/[0.06] rounded-3xl overflow-hidden hover:border-white/[0.12] hover:shadow-xl hover:shadow-black/40 transition-all duration-300 group">
+
+                    <div className={`h-24 bg-gradient-to-br ${color.from} ${color.to} opacity-10 relative`}>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-30 text-5xl">
+                        {subject.title.slice(0, 3).toUpperCase()}
+                      </div>
+                    </div>
+
+                    <div className="p-5 -mt-8 relative">
+                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${color.from} ${color.to} flex items-center justify-center text-[13px] font-black shadow-lg mb-4`}>
+                        {subject.title.slice(0, 3).toUpperCase()}
+                      </div>
+
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-bold text-white text-[15px] leading-snug flex-1 pr-2">{subject.title}</h3>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border flex-shrink-0 ${color.bg} ${color.border} ${color.text}`}>
+                          Subject
+                        </span>
+                      </div>
+
+                      <p className="text-[12px] text-white/35 leading-relaxed mb-4">
+                        {selectedCourse.title} subject collection
+                      </p>
+
+                      <div className="flex items-center gap-4 text-[11px] text-white/25 mb-5">
+                        <span className="flex items-center gap-1"><Layers size={10} /> {subject.totalQuizzes || 0} quizzes</span>
+                        <span className="flex items-center gap-1"><BookOpen size={10} /> {selectedCourse.tag || "Course"}</span>
+                      </div>
+
+                      <button
+                        onClick={() => navigate(`/quizzes?course=${encodeURIComponent(selectedCourse.title)}&subject=${encodeURIComponent(subject.title)}`)}
+                        className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${color.bg} ${color.border} ${color.text} hover:opacity-80`}
+                      >
+                        View Quizzes <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </MotionDiv>
+                );
+              })}
+            </MotionDiv>
+          )
         ) : (
           <MotionDiv variants={stagger} initial="hidden" animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -220,9 +319,9 @@ export default function Courses() {
                     </div>
 
                     <div className="flex gap-2">
-                      <button onClick={() => navigate(`/quizzes?course=${encodeURIComponent(course.title)}`)}
+                      <button onClick={() => setSelectedCourse(course)}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${color.bg} ${color.border} ${color.text} hover:opacity-80`}>
-                        View Quizzes <ChevronRight size={13} />
+                        View Subjects <ChevronRight size={13} />
                       </button>
                       <button onClick={() => openEdit(course)}
                         className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/[0.06] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all">
