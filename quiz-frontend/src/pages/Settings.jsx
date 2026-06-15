@@ -27,6 +27,7 @@ const TABS = [
   { id: "security",      label: "Security",      icon: Lock },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance",    label: "Appearance",    icon: Palette },
+  { id: "admins",        label: "Admin Settings", icon: Shield },
   { id: "danger",        label: "Danger Zone",   icon: AlertTriangle },
 ];
 
@@ -63,6 +64,60 @@ export default function Settings() {
     systemAlerts: true,
     emailDigest:  false,
   });
+
+  // Admin Settings Tab States
+  const [newAdmin, setNewAdmin] = useState({ name: "", email: "", phone: "", password: "", creationPassword: "" });
+  const [newAdminShowPass, setNewAdminShowPass] = useState(false);
+  const [newAdminShowPasscode, setNewAdminShowPasscode] = useState(false);
+  const [newAdminError, setNewAdminError] = useState("");
+  const [newAdminSaving, setNewAdminSaving] = useState(false);
+  const [newAdminSaved, setNewAdminSaved] = useState(false);
+
+  const handleAddAdmin = async () => {
+    setNewAdminError("");
+    setNewAdminSaved(false);
+
+    if (!newAdmin.name.trim()) return setNewAdminError("Name is required");
+    if (!newAdmin.email.trim()) return setNewAdminError("Email is required");
+    if (!newAdmin.phone.trim()) return setNewAdminError("Phone number is required");
+    if (newAdmin.phone.trim().length !== 10 || !/^\d+$/.test(newAdmin.phone.trim())) {
+      return setNewAdminError("Phone number must be exactly 10 digits");
+    }
+    if (!newAdmin.password) return setNewAdminError("Password is required");
+    if (newAdmin.password.length < 8) return setNewAdminError("Password must be at least 8 characters");
+    if (!newAdmin.creationPassword) return setNewAdminError("Admin creation passcode is required");
+
+    setNewAdminSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/add-admin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newAdmin.name,
+          email: newAdmin.email,
+          phone: newAdmin.phone,
+          password: newAdmin.password,
+          creationPassword: newAdmin.creationPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to add admin");
+      }
+
+      setNewAdmin({ name: "", email: "", phone: "", password: "", creationPassword: "" });
+      setNewAdminSaved(true);
+      setTimeout(() => setNewAdminSaved(false), 3000);
+    } catch (err) {
+      setNewAdminError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setNewAdminSaving(false);
+    }
+  };
 
   const panelStyle = {
     background: "var(--app-surface)",
@@ -412,6 +467,96 @@ export default function Settings() {
                 </MotionDiv>
               )}
 
+              {/* ──── ADMIN SETTINGS ──── */}
+              {tab === "admins" && (
+                <MotionDiv key="admins" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
+                  <div className="rounded-2xl p-6" style={panelStyle}>
+                    <SectionTitle>Add New Admin</SectionTitle>
+                    <p className="text-sm -mt-2 mb-6" style={{ color: "var(--app-text-subtle)" }}>
+                      Create a new administrator account. You will need to enter the secret admin creation passcode.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      <Field icon={<User size={14} className="text-white/30" />} label="Full Name">
+                        <input
+                          value={newAdmin.name}
+                          onChange={e => setNewAdmin(p => ({...p, name: e.target.value}))}
+                          placeholder="John Doe"
+                          className="field-input"
+                        />
+                      </Field>
+                      <Field icon={<Mail size={14} className="text-white/30" />} label="Email Address">
+                        <input
+                          type="email"
+                          value={newAdmin.email}
+                          onChange={e => setNewAdmin(p => ({...p, email: e.target.value}))}
+                          placeholder="admin@example.com"
+                          className="field-input"
+                        />
+                      </Field>
+                      <Field icon={<Phone size={14} className="text-white/30" />} label="Mobile Number">
+                        <input
+                          type="tel"
+                          value={newAdmin.phone}
+                          onChange={e => setNewAdmin(p => ({...p, phone: e.target.value}))}
+                          placeholder="10-digit mobile number"
+                          className="field-input"
+                          maxLength={10}
+                        />
+                      </Field>
+                      <Field icon={<Key size={14} className="text-white/30" />} label="Password">
+                        <div className="flex items-center gap-2 w-full">
+                          <input
+                            type={newAdminShowPass ? "text" : "password"}
+                            value={newAdmin.password}
+                            onChange={e => setNewAdmin(p => ({...p, password: e.target.value}))}
+                            placeholder="••••••••"
+                            className="flex-1 field-input"
+                          />
+                          <button
+                            onClick={() => setNewAdminShowPass(!newAdminShowPass)}
+                            className="text-white/25 hover:text-white transition-colors flex-shrink-0"
+                          >
+                            {newAdminShowPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </Field>
+                      {newAdmin.password && <StrengthBar password={newAdmin.password} />}
+                      <Field icon={<Shield size={14} className="text-white/30" />} label="Admin Creation Passcode">
+                        <div className="flex items-center gap-2 w-full">
+                          <input
+                            type={newAdminShowPasscode ? "text" : "password"}
+                            value={newAdmin.creationPassword}
+                            onChange={e => setNewAdmin(p => ({...p, creationPassword: e.target.value}))}
+                            placeholder="Enter the secret passcode"
+                            className="flex-1 field-input"
+                          />
+                          <button
+                            onClick={() => setNewAdminShowPasscode(!newAdminShowPasscode)}
+                            className="text-white/25 hover:text-white transition-colors flex-shrink-0"
+                          >
+                            {newAdminShowPasscode ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </Field>
+                    </div>
+                  </div>
+
+                  {newAdminError && (
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <X size={13} className="text-red-400 flex-shrink-0" />
+                      <p className="text-[12px] text-red-400">{newAdminError}</p>
+                    </div>
+                  )}
+
+                  <SaveBtn
+                    saving={newAdminSaving}
+                    saved={newAdminSaved}
+                    onClick={handleAddAdmin}
+                    label="Create Admin Account"
+                  />
+                </MotionDiv>
+              )}
+
               {/* ──── DANGER ZONE ──── */}
               {tab === "danger" && (
                 <MotionDiv key="danger" variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
@@ -421,6 +566,7 @@ export default function Settings() {
                       <span className="text-[13px] font-bold text-red-400 uppercase tracking-widest">Danger Zone</span>
                     </div>
                     {[
+
                       { label: "Sign out all devices", sub: "Revoke all active sessions immediately.",    btn: "Sign out all",   col: "amber", fn: () => alert("Coming soon") },
                       { label: "Export my data",        sub: "Download your account data as JSON.",       btn: "Export",         col: "blue",  fn: () => alert("Coming soon") },
                       { label: "Delete account",        sub: "Permanently delete your account and all data. Cannot be undone.", btn: "Delete account", col: "red", fn: () => setDeleteModal(true) },
