@@ -1,10 +1,40 @@
 from bson import ObjectId
-from app.config.database import quiz_collection, question_collection
+from app.config.database import quiz_collection, question_collection, users_collection
 
 
-def get_quizzes(page: int = 1, limit: int = 10):
+def get_quizzes(user_id: str = None, page: int = 1, limit: int = 10):
     skip = (page - 1) * limit
-    quizzes = list(quiz_collection.find({"isOpen": True}).skip(skip).limit(limit))
+
+    query = {"isOpen": True}
+
+    if user_id:
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if user and user.get("role") == "student":
+            allowed_courses = user.get("allowedCourses", [])
+            allowed_quizzes = user.get("allowedQuizzes", [])
+
+            # If restrictions exist, filter the results:
+            if allowed_courses or allowed_quizzes:
+                or_conditions = []
+                if allowed_courses:
+                    or_conditions.append({"course": {"$in": allowed_courses}})
+                if allowed_quizzes:
+                    quiz_ids = []
+                    for qid in allowed_quizzes:
+                        try:
+                            quiz_ids.append(ObjectId(qid))
+                        except Exception:
+                            pass
+                    if quiz_ids:
+                        or_conditions.append({"_id": {"$in": quiz_ids}})
+
+                if or_conditions:
+                    query["$or"] = or_conditions
+                else:
+                    # Restrictions are set but no valid IDs/courses, return empty list
+                    return []
+
+    quizzes = list(quiz_collection.find(query).skip(skip).limit(limit))
 
     result = []
     for q in quizzes:

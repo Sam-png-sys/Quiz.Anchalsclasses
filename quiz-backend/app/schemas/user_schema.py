@@ -20,3 +20,11 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class AdminCreate(BaseModel):
+    name: str
+    email: EmailStr
+    phone: str = Field(..., min_length=10, max_length=10)
+    password: str
+    creationPassword: str

@@ -15,6 +15,8 @@ from app.config.database import (
     activity_collection
 )
 from app.schemas.quiz_schema import QuizCreate
+from app.schemas.user_schema import AdminCreate
+
 from app.utils.hash import hash_password, verify_password
 from bson import ObjectId
 from datetime import datetime
@@ -540,3 +542,68 @@ def get_top_students(admin=Depends(admin_only)):
             "submittedAt": a.get("submittedAt")
         })
     return result
+
+
+@router.post("/add-admin")
+def add_admin(data: AdminCreate, admin=Depends(admin_only)):
+    # Verify the admin creation secret password
+    env_secret = os.getenv("ADMIN_CREATION_PASSWORD", "AdminPass123!")
+    if data.creationPassword != env_secret:
+        raise HTTPException(status_code=400, detail="Invalid admin creation passcode")
+
+    email = data.email.strip()
+    phone = data.phone.strip()
+
+    if users_collection.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    if users_collection.find_one({"phone": phone}):
+        raise HTTPException(status_code=400, detail="Phone number already registered")
+
+    new_admin = {
+        "name": data.name.strip(),
+        "email": email,
+        "phone": phone,
+        "password": hash_password(data.password),
+        "role": "admin",
+        "createdAt": datetime.utcnow(),
+    }
+
+    result = users_collection.insert_one(new_admin)
+
+    # Log the activity
+    admin_user = get_user_from_token(admin)
+    activity_collection.insert_one({
+        "type": "admin_created",
+        "message": f"Admin '{data.name}' was added by admin '{admin_user.get('name')}'",
+        "createdAt": datetime.utcnow()
+    })
+
+    return {"message": "Admin added successfully", "admin_id": str(result.inserted_id)}
+
+
+@router.patch("/students/{id}/access")
+def toggle_student_access(id: str, data: dict, admin=Depends(admin_only)):
+    is_active = data.get("isActive", True)
+    users_collection.update_one(
+        {"_id": ObjectId(id), "role": "student"},
+        {"$set": {"isActive": is_active}}
+    )
+    return {"message": "Student access updated successfully"}
+
+
+@router.put("/students/{id}/permissions")
+def update_student_permissions(id: str, data: dict, admin=Depends(admin_only)):
+    allowed_courses = data.get("allowedCourses", [])
+    allowed_quizzes = data.get("allowedQuizzes", [])
+
+    users_collection.update_one(
+        {"_id": ObjectId(id), "role": "student"},
+        {"$set": {
+            "allowedCourses": allowed_courses,
+            "allowedQuizzes": allowed_quizzes
+        }}
+    )
+    return {"message": "Student permissions updated successfully"}
+
+

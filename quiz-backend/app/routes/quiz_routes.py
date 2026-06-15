@@ -17,7 +17,7 @@ def fetch_quizzes(
     limit: int = Query(10, le=50),
     user=Depends(get_current_user),
 ):
-    return get_quizzes(page, limit)
+    return get_quizzes(user_id=user.get("user_id"), page=page, limit=limit)
 
 
 # ── GET QUIZ DETAILS ──────────────────────────────────────────────────────────
