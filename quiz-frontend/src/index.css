@@ -95,79 +95,91 @@ select option {
   color: var(--app-text);
 }
 
-[data-theme] [class*="bg-[#080810]"] {
+[data-theme] [class~="bg-[#080810]"] {
   background-color: var(--app-bg) !important;
 }
 
-[data-theme] [class*="bg-[#0B0F1A]"] {
+[data-theme] [class~="bg-[#0B0F1A]"] {
   background-color: var(--app-bg) !important;
 }
 
-[data-theme] [class*="bg-[#0c0c18]"] {
+[data-theme] [class~="bg-[#0c0c18]"] {
   background-color: var(--app-surface) !important;
 }
 
-[data-theme] [class*="bg-[#111827]"] {
+[data-theme] [class~="bg-[#111827]"] {
   background-color: var(--app-surface) !important;
 }
 
-[data-theme] [class*="bg-[#13131f]"] {
+[data-theme] [class~="bg-[#13131f]"] {
   background-color: var(--app-surface-alt) !important;
 }
 
-[data-theme] [class*="border-gray-700"] {
+[data-theme] [class~="border-gray-700"] {
   border-color: var(--app-border) !important;
 }
 
-[data-theme] [class*="text-gray-400"] {
+[data-theme] [class~="text-gray-400"] {
   color: var(--app-text-muted) !important;
 }
 
-[data-theme] [class*="border-white/"] {
+[data-theme] [class~="border-white/[0.03]"],
+[data-theme] [class~="border-white/[0.04]"],
+[data-theme] [class~="border-white/[0.05]"],
+[data-theme] [class~="border-white/[0.06]"],
+[data-theme] [class~="border-white/[0.08]"],
+[data-theme] [class~="border-white/[0.10]"],
+[data-theme] [class~="border-white/[0.12]"] {
   border-color: var(--app-border) !important;
 }
 
-[data-theme] [class*="bg-white/"] {
+[data-theme] [class~="bg-white/[0.01]"],
+[data-theme] [class~="bg-white/[0.02]"],
+[data-theme] [class~="bg-white/[0.03]"],
+[data-theme] [class~="bg-white/[0.04]"],
+[data-theme] [class~="bg-white/[0.05]"],
+[data-theme] [class~="bg-white/[0.06]"],
+[data-theme] [class~="bg-white/[0.08]"] {
   background-color: var(--app-input) !important;
 }
 
-[data-theme] [class*="text-white"] {
+[data-theme] [class~="text-white"] {
   color: var(--app-text) !important;
 }
 
-[data-theme] [class*="text-white/80"] {
+[data-theme] [class~="text-white/80"] {
   color: color-mix(in srgb, var(--app-text) 80%, transparent) !important;
 }
 
-[data-theme] [class*="text-white/70"] {
+[data-theme] [class~="text-white/70"] {
   color: color-mix(in srgb, var(--app-text) 70%, transparent) !important;
 }
 
-[data-theme] [class*="text-white/60"] {
+[data-theme] [class~="text-white/60"] {
   color: var(--app-text-muted) !important;
 }
 
-[data-theme] [class*="text-white/50"] {
+[data-theme] [class~="text-white/50"] {
   color: color-mix(in srgb, var(--app-text) 50%, transparent) !important;
 }
 
-[data-theme] [class*="text-white/40"] {
+[data-theme] [class~="text-white/40"] {
   color: color-mix(in srgb, var(--app-text) 40%, transparent) !important;
 }
 
-[data-theme] [class*="text-white/35"] {
+[data-theme] [class~="text-white/35"] {
   color: var(--app-text-subtle) !important;
 }
 
-[data-theme] [class*="text-white/30"] {
+[data-theme] [class~="text-white/30"] {
   color: color-mix(in srgb, var(--app-text) 30%, transparent) !important;
 }
 
-[data-theme] [class*="text-white/25"] {
+[data-theme] [class~="text-white/25"] {
   color: color-mix(in srgb, var(--app-text) 25%, transparent) !important;
 }
 
-[data-theme] [class*="text-white/20"] {
+[data-theme] [class~="text-white/20"] {
   color: var(--app-text-ghost) !important;
 }
 
