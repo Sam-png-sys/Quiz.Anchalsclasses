@@ -35,6 +35,7 @@ const emptyQuiz = () => ({
   duration: "",
   course: "",
   subject: "",
+  subSubject: "",
   difficulty: "",
   examType: "no_section_no_timer",
   requireAnswer: true,
@@ -283,6 +284,7 @@ export default function CreateQuiz() {
       formData.append("description", quiz.description);
       formData.append("course", quiz.course);
       formData.append("subject", quiz.subject);
+      formData.append("subSubject", quiz.subSubject || "");
       formData.append("difficulty", quiz.difficulty);
       formData.append("duration", computedDuration);
       formData.append("questionCount", Number(aiQuestionCount));
@@ -371,6 +373,7 @@ export default function CreateQuiz() {
           totalQuestions: questions.length,
           course:         quiz.course,
           subject:        quiz.subject,
+          subSubject:     quiz.subSubject || "",
           difficulty:     quiz.difficulty,
           examType:       quiz.examType,
           requireAnswer:  quiz.requireAnswer,
@@ -454,7 +457,7 @@ export default function CreateQuiz() {
                 placeholder="Brief description of this quiz..."
                 className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none" />
             </Field>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
                 <input value={quiz.course} onChange={e => handleQuizChange("course", e.target.value)}
                   placeholder="e.g. BDS Year 2"
@@ -463,6 +466,11 @@ export default function CreateQuiz() {
               <Field icon={<BookOpen size={14} className="text-emerald-400/60" />} label="Subject">
                 <input value={quiz.subject} onChange={e => handleQuizChange("subject", e.target.value)}
                   placeholder="e.g. Oral Anatomy"
+                  className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
+              </Field>
+              <Field icon={<BookOpen size={14} className="text-purple-400/60" />} label="Sub-subject">
+                <input value={quiz.subSubject || ""} onChange={e => handleQuizChange("subSubject", e.target.value)}
+                  placeholder="e.g. Teeth"
                   className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none" />
               </Field>
               <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">

@@ -221,6 +221,7 @@ export default function EditQuiz() {
             //  FIX PAYLOAD
             const payload = {
                 ...quiz,
+                subSubject: quiz.subSubject || "",
                 duration: computedDuration,
                 requireAnswer: quiz.requireAnswer ?? true,
                 sections: (quiz.sections || []).map((section) => ({
@@ -327,8 +328,8 @@ export default function EditQuiz() {
                                 />
                             </Field>
 
-                            {/* Course + Subject + Duration */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {/* Course + Subject + Sub-subject + Duration */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
                                     <input
                                         value={quiz.course ?? ""}
@@ -343,6 +344,15 @@ export default function EditQuiz() {
                                         value={quiz.subject ?? ""}
                                         onChange={e => handleChange("subject", e.target.value)}
                                         placeholder="e.g. Oral Anatomy"
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                    />
+                                </Field>
+
+                                <Field icon={<BookOpen size={14} className="text-purple-400/60" />} label="Sub-subject">
+                                    <input
+                                        value={quiz.subSubject ?? ""}
+                                        onChange={e => handleChange("subSubject", e.target.value)}
+                                        placeholder="e.g. Teeth"
                                         className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
                                     />
                                 </Field>

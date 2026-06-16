@@ -14,6 +14,7 @@ class QuizCreate(BaseModel):
     duration: int = 0
     course: Optional[str] = ""
     subject: Optional[str] = ""
+    subSubject: Optional[str] = ""
     difficulty: Optional[str] = "medium"
     studyMaterialUrl: Optional[str] = None
     studyMaterialName: Optional[str] = None

@@ -119,7 +119,21 @@ def build_course_record(course):
     record["_id"] = str(course["_id"])
     record["totalQuizzes"] = quiz_collection.count_documents({"course": course.get("title", "")})
     record["enrolled"] = course.get("enrolled", 0)
-    record["subjects"] = course.get("subjects", [])
+    
+    subjects_raw = course.get("subjects", [])
+    subjects = []
+    for s in subjects_raw:
+        if isinstance(s, dict):
+            subjects.append({
+                "name": str(s.get("name", "")).strip(),
+                "subSubjects": [str(sub).strip() for sub in s.get("subSubjects", []) if str(sub).strip()]
+            })
+        elif isinstance(s, (str, int, float)):
+            subjects.append({
+                "name": str(s).strip(),
+                "subSubjects": []
+            })
+    record["subjects"] = subjects
     return record
 
 
@@ -290,6 +304,7 @@ def get_quizzes(admin=Depends(admin_only)):
         q["attempts"]   = q.get("attempts", 0)
         q["difficulty"] = q.get("difficulty", "Medium")
         q["subject"]    = q.get("subject", "")
+        q["subSubject"] = q.get("subSubject", "")
         q["totalQuestions"] = question_collection.count_documents({
             "quizId": ObjectId(q["_id"])
         })
@@ -312,11 +327,24 @@ def create_course(data: dict, admin=Depends(admin_only)):
     if existing:
         raise HTTPException(status_code=400, detail="A course with this title already exists")
 
+    subjects_input = data.get("subjects", [])
+    subjects = []
+    for item in subjects_input:
+        if isinstance(item, dict):
+            name = str(item.get("name", "")).strip()
+            if name:
+                sub_subjects = [str(sub).strip() for sub in item.get("subSubjects", []) if str(sub).strip()]
+                subjects.append({"name": name, "subSubjects": sub_subjects})
+        elif isinstance(item, (str, int, float)):
+            name = str(item).strip()
+            if name:
+                subjects.append({"name": name, "subSubjects": []})
+
     course = {
         "title": title,
         "description": (data.get("description") or "").strip(),
         "tag": (data.get("tag") or "BDS").strip() or "BDS",
-        "subjects": [str(subject).strip() for subject in data.get("subjects", []) if str(subject).strip()],
+        "subjects": subjects,
         "duration": (data.get("duration") or "").strip(),
         "totalQuizzes": int(data.get("totalQuizzes") or 0),
         "enrolled": int(data.get("enrolled") or 0),
@@ -350,11 +378,24 @@ def update_course(id: str, data: dict, admin=Depends(admin_only)):
     if duplicate:
         raise HTTPException(status_code=400, detail="A course with this title already exists")
 
+    subjects_input = data.get("subjects", [])
+    subjects = []
+    for item in subjects_input:
+        if isinstance(item, dict):
+            name = str(item.get("name", "")).strip()
+            if name:
+                sub_subjects = [str(sub).strip() for sub in item.get("subSubjects", []) if str(sub).strip()]
+                subjects.append({"name": name, "subSubjects": sub_subjects})
+        elif isinstance(item, (str, int, float)):
+            name = str(item).strip()
+            if name:
+                subjects.append({"name": name, "subSubjects": []})
+
     update_fields = {
         "title": title,
         "description": (data.get("description") or "").strip(),
         "tag": (data.get("tag") or "BDS").strip() or "BDS",
-        "subjects": [str(subject).strip() for subject in data.get("subjects", []) if str(subject).strip()],
+        "subjects": subjects,
         "duration": (data.get("duration") or "").strip(),
         "updatedAt": datetime.utcnow(),
     }
@@ -445,6 +486,7 @@ def update_quiz(quiz_id: str, data: dict, admin=Depends(admin_only)):
             "difficulty":  data.get("difficulty", "medium"),
             "course":      data.get("course", ""),
             "subject":     data.get("subject", ""),
+            "subSubject":  data.get("subSubject", ""),
             "examType":    data.get("examType", "no_section_no_timer"),
             "requireAnswer": data.get("requireAnswer", True),
             "sections":    data.get("sections", []),

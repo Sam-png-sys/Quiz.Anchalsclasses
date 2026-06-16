@@ -32,12 +32,13 @@ export default function Courses() {
   const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({ title: "", description: "", tag: "BDS", subjects: [{ name: "", subSubjects: [] }], duration: "", totalQuizzes: "" });
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedSubSubject, setSelectedSubSubject] = useState(null);
 
   useEffect(() => { fetchCourses(); }, []);
 
@@ -67,14 +68,38 @@ export default function Courses() {
     }
   };
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ title: "", description: "", tag: "BDS", subjects: [{ name: "", subSubjects: [] }], duration: "", totalQuizzes: "" });
+    setModalOpen(true);
+  };
+
   const openEdit = (c) => {
     setEditing(c._id || c.id);
+    
+    const builderSubjects = (c.subjects || []).map(s => {
+      if (typeof s === "object" && s !== null) {
+        return {
+          name: s.name || "",
+          subSubjects: Array.isArray(s.subSubjects) ? s.subSubjects : []
+        };
+      } else {
+        return {
+          name: String(s),
+          subSubjects: []
+        };
+      }
+    });
+
+    if (builderSubjects.length === 0) {
+      builderSubjects.push({ name: "", subSubjects: [] });
+    }
+
     setForm({
       title: c.title,
       description: c.description,
       tag: c.tag,
-      subjects: Array.isArray(c.subjects) ? c.subjects.join(", ") : "",
+      subjects: builderSubjects,
       duration: c.duration,
       totalQuizzes: c.totalQuizzes,
     });
@@ -90,9 +115,15 @@ export default function Courses() {
       const payload = {
         ...form,
         subjects: form.subjects
-          .split(",")
-          .map(subject => subject.trim())
-          .filter(Boolean),
+          .map(s => ({
+            name: s.name.trim(),
+            subSubjects: Array.isArray(s.subSubjects) 
+              ? s.subSubjects.map(sub => sub.trim()).filter(Boolean)
+              : typeof s.subSubjects === "string"
+                ? s.subSubjects.split(",").map(sub => sub.trim()).filter(Boolean)
+                : []
+          }))
+          .filter(s => s.name),
       };
       const res = await fetch(url, {
         method,
@@ -103,6 +134,7 @@ export default function Courses() {
       await fetchCourses();
       setSelectedCourse(null);
       setSelectedSubject(null);
+      setSelectedSubSubject(null);
       setModalOpen(false);
     } catch {
       alert("Failed to save course");
@@ -120,6 +152,7 @@ export default function Courses() {
       if ((selectedCourse?._id || selectedCourse?.id) === id) {
         setSelectedCourse(null);
         setSelectedSubject(null);
+        setSelectedSubSubject(null);
       }
       setDeleteId(null);
     } catch { alert("Failed to delete"); }
@@ -158,7 +191,7 @@ export default function Courses() {
     const subjectMap = new Map();
 
     (Array.isArray(course?.subjects) ? course.subjects : []).forEach((subject) => {
-      const name = String(subject || "").trim();
+      const name = String(subject?.name || subject || "").trim();
       if (name) subjectMap.set(name, { title: name, totalQuizzes: 0 });
     });
 
@@ -173,15 +206,39 @@ export default function Courses() {
 
   const selectedSubjects = selectedCourse ? getSubjectCards(selectedCourse) : [];
 
-  const getSubjectQuizzes = (course, subjectTitle) =>
+  const getSubSubjectCards = (course, subjectTitle) => {
+    const courseQuizzes = getCourseQuizzes(course);
+    const subjectObj = (course?.subjects || []).find(s => String(s?.name || s).trim() === subjectTitle);
+    const subSubjectsList = subjectObj?.subSubjects || [];
+
+    const subSubjectMap = new Map();
+    subSubjectsList.forEach((sub) => {
+      const name = String(sub || "").trim();
+      if (name) subSubjectMap.set(name, { title: name, totalQuizzes: 0 });
+    });
+
+    courseQuizzes.forEach((quiz) => {
+      if (String(quiz.subject || "").trim() === subjectTitle) {
+        const name = String(quiz.subSubject || "General").trim();
+        const current = subSubjectMap.get(name) || { title: name, totalQuizzes: 0 };
+        subSubjectMap.set(name, { ...current, totalQuizzes: current.totalQuizzes + 1 });
+      }
+    });
+
+    return Array.from(subSubjectMap.values()).sort((a, b) => a.title.localeCompare(b.title));
+  };
+
+  const getSubSubjectQuizzes = (course, subjectTitle, subSubjectTitle) =>
     quizzes.filter(
       (q) =>
         (q.course || "").trim() === (course?.title || "").trim() &&
-        (q.subject || "").trim() === (subjectTitle || "").trim()
+        (q.subject || "").trim() === (subjectTitle || "").trim() &&
+        ((q.subSubject || "").trim() === (subSubjectTitle || "").trim() ||
+         (subSubjectTitle === "General" && !(q.subSubject || "").trim()))
     );
 
-  const subjectQuizzes = selectedSubject
-    ? getSubjectQuizzes(selectedCourse, selectedSubject)
+  const subjectQuizzes = (selectedCourse && selectedSubject && selectedSubSubject)
+    ? getSubSubjectQuizzes(selectedCourse, selectedSubject, selectedSubSubject)
     : [];
 
   const DIFF_COLORS = {
@@ -200,7 +257,9 @@ export default function Courses() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => {
-                if (selectedSubject) {
+                if (selectedSubSubject) {
+                  setSelectedSubSubject(null);
+                } else if (selectedSubject) {
                   setSelectedSubject(null);
                 } else if (selectedCourse) {
                   setSelectedCourse(null);
@@ -215,23 +274,27 @@ export default function Courses() {
 
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">
-                {selectedSubject
-                  ? selectedSubject
-                  : selectedCourse
-                    ? selectedCourse.title
-                    : "Courses"}
+                {selectedSubSubject
+                  ? selectedSubSubject
+                  : selectedSubject
+                    ? selectedSubject
+                    : selectedCourse
+                      ? selectedCourse.title
+                      : "Courses"}
               </h1>
               <p className="text-sm text-white/35 mt-1">
-                {selectedSubject
-                  ? `${subjectQuizzes.length} quiz${subjectQuizzes.length !== 1 ? "zes" : ""} in ${selectedCourse?.title}`
-                  : selectedCourse
-                    ? "Choose a subject to see its quizzes"
-                    : "Manage your course catalog"}
+                {selectedSubSubject
+                  ? `${subjectQuizzes.length} quiz${subjectQuizzes.length !== 1 ? "zes" : ""} in ${selectedSubject} (${selectedCourse?.title})`
+                  : selectedSubject
+                    ? "Choose a sub-subject to see its quizzes"
+                    : selectedCourse
+                      ? "Choose a subject to see its sub-subjects"
+                      : "Manage your course catalog"}
               </p>
             </div>
           </div>
 
-          {!selectedCourse && !selectedSubject && (
+          {!selectedCourse && !selectedSubject && !selectedSubSubject && (
             <button
               onClick={openCreate}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
@@ -240,9 +303,9 @@ export default function Courses() {
               <Plus size={16} /> Add Course
             </button>
           )}
-          {selectedSubject && (
+          {selectedSubSubject && (
             <button
-              onClick={() => navigate("/create-quiz")}
+              onClick={() => navigate(`/create-quiz?course=${encodeURIComponent(selectedCourse?.title)}&subject=${encodeURIComponent(selectedSubject)}&subSubject=${encodeURIComponent(selectedSubSubject)}`)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
               style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 32px var(--accent-glow)" }}
             >
@@ -276,96 +339,170 @@ export default function Courses() {
               Create Course
             </button>
           </div>
-        ) : selectedSubject ? (
-          /* ── Level 3: Quizzes for selected subject ── */
-          subjectQuizzes.length === 0 ? (
-            <div className="text-center py-24">
-              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-lg font-bold mx-auto mb-4">
-                <BookOpen size={28} className="text-cyan-400/50" />
+        ) : (selectedCourse && selectedSubject && selectedSubSubject) ? (
+          /* ── Level 4: Quizzes for selected sub-subject ── */
+          (() => {
+            const quizzesList = getSubSubjectQuizzes(selectedCourse, selectedSubject, selectedSubSubject);
+            return quizzesList.length === 0 ? (
+              <div className="text-center py-24">
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-lg font-bold mx-auto mb-4">
+                  <BookOpen size={28} className="text-cyan-400/50" />
+                </div>
+                <p className="text-white/40 font-semibold text-lg">No quizzes yet</p>
+                <p className="text-white/20 text-sm mt-1 mb-6">Create a quiz for this sub-subject to get started</p>
+                <button onClick={() => navigate("/create-quiz")}
+                  className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                  Create Quiz
+                </button>
               </div>
-              <p className="text-white/40 font-semibold text-lg">No quizzes yet</p>
-              <p className="text-white/20 text-sm mt-1 mb-6">Create a quiz for this subject to get started</p>
-              <button onClick={() => navigate("/create-quiz")}
-                className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
-                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
-                Create Quiz
-              </button>
-            </div>
-          ) : (
-            <MotionDiv variants={stagger} initial="hidden" animate="show"
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {subjectQuizzes.map((quiz) => {
-                const id = quiz._id || quiz.id;
-                const difficulty = (quiz.difficulty || "Medium").toString();
-                const diffNorm = difficulty.charAt(0).toUpperCase() + difficulty.slice(1).toLowerCase();
-                return (
-                  <MotionDiv key={id} variants={fadeUp}
-                    className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/30 transition-all duration-300 group flex flex-col">
+            ) : (
+              <MotionDiv variants={stagger} initial="hidden" animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {quizzesList.map((quiz) => {
+                  const id = quiz._id || quiz.id;
+                  const difficulty = (quiz.difficulty || "Medium").toString();
+                  const diffNorm = difficulty.charAt(0).toUpperCase() + difficulty.slice(1).toLowerCase();
+                  return (
+                    <MotionDiv key={id} variants={fadeUp}
+                      className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/30 transition-all duration-300 group flex flex-col">
 
-                    {/* Top row */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-[11px] font-black flex-shrink-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                        {(quiz.course || "Q").slice(0, 3).toUpperCase()}
+                      {/* Top row */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-[11px] font-black flex-shrink-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                          {(quiz.course || "Q").slice(0, 3).toUpperCase()}
+                        </div>
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${quiz.isOpen ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white/[0.04] text-white/25 border-white/[0.06]"}`}>
+                          {quiz.isOpen ? "● Open" : "○ Closed"}
+                        </span>
                       </div>
-                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${quiz.isOpen ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white/[0.04] text-white/25 border-white/[0.06]"}`}>
-                        {quiz.isOpen ? "● Open" : "○ Closed"}
-                      </span>
-                    </div>
 
-                    {/* Title */}
-                    <h3 className="font-bold text-white text-[14px] leading-snug mb-1">{quiz.title}</h3>
-                    <p className="text-[10px] text-white/30 mb-2">ID: {id}</p>
-                    {quiz.description && (
-                      <p className="text-[12px] text-white/35 mb-3 line-clamp-2 leading-relaxed">{quiz.description}</p>
-                    )}
-
-                    {/* Badges */}
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
-                        {quiz.course || "Course"}
-                      </span>
-                      {quiz.subject && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                          {quiz.subject}
-                        </span>
+                      {/* Title */}
+                      <h3 className="font-bold text-white text-[14px] leading-snug mb-1">{quiz.title}</h3>
+                      <p className="text-[10px] text-white/30 mb-2">ID: {id}</p>
+                      {quiz.description && (
+                        <p className="text-[12px] text-white/35 mb-3 line-clamp-2 leading-relaxed">{quiz.description}</p>
                       )}
-                      {diffNorm && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${DIFF_COLORS[diffNorm] || DIFF_COLORS.Medium}`}>
-                          {diffNorm}
+
+                      {/* Badges */}
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                          {quiz.course || "Course"}
                         </span>
-                      )}
-                    </div>
+                        {quiz.subject && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            {quiz.subject}
+                          </span>
+                        )}
+                        {quiz.subSubject && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            {quiz.subSubject}
+                          </span>
+                        )}
+                        {diffNorm && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${DIFF_COLORS[diffNorm] || DIFF_COLORS.Medium}`}>
+                            {diffNorm}
+                          </span>
+                        )}
+                      </div>
 
-                    {/* Stats */}
-                    <div className="flex items-center gap-3 text-[11px] text-white/30 mb-5">
-                      <span className="flex items-center gap-1"><Clock size={10} /> {quiz.duration || "—"}m</span>
-                      <span className="flex items-center gap-1"><BookOpen size={10} /> {quiz.totalQuestions || 0} Qs</span>
-                      <span className="flex items-center gap-1"><Users size={10} /> {quiz.attempts || 0}</span>
-                    </div>
+                      {/* Stats */}
+                      <div className="flex items-center gap-3 text-[11px] text-white/30 mb-5">
+                        <span className="flex items-center gap-1"><Clock size={10} /> {quiz.duration || "—"}m</span>
+                        <span className="flex items-center gap-1"><BookOpen size={10} /> {quiz.totalQuestions || 0} Qs</span>
+                        <span className="flex items-center gap-1"><Users size={10} /> {quiz.attempts || 0}</span>
+                      </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-2 mt-auto">
-                      <button onClick={() => handleToggleQuizStatus(quiz)}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all
-                          ${quiz.isOpen
-                            ? "border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
-                            : "border-emerald-500/20 text-emerald-400/70 hover:bg-emerald-500/10 hover:text-emerald-400"}`}>
-                        {quiz.isOpen ? <><XCircle size={13} /> Close</> : <><CheckCircle2 size={13} /> Open</>}
-                      </button>
-                      <button onClick={() => navigate(`/edit-quiz/${id}`)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/[0.06] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => setDeleteId(id)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/[0.06] text-white/30 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-all">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </MotionDiv>
-                );
-              })}
-            </MotionDiv>
-          )
+                      {/* Actions */}
+                      <div className="flex gap-2 mt-auto">
+                        <button onClick={() => handleToggleQuizStatus(quiz)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all
+                            ${quiz.isOpen
+                              ? "border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+                              : "border-emerald-500/20 text-emerald-400/70 hover:bg-emerald-500/10 hover:text-emerald-400"}`}>
+                          {quiz.isOpen ? <><XCircle size={13} /> Close</> : <><CheckCircle2 size={13} /> Open</>}
+                        </button>
+                        <button onClick={() => navigate(`/edit-quiz/${id}`)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/[0.06] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => setDeleteId(id)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/[0.06] text-white/30 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-all">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </MotionDiv>
+                  );
+                })}
+              </MotionDiv>
+            );
+          })()
+        ) : (selectedCourse && selectedSubject) ? (
+          /* ── Level 3: Sub-subjects for selected subject ── */
+          (() => {
+            const subSubjects = getSubSubjectCards(selectedCourse, selectedSubject);
+            return subSubjects.length === 0 ? (
+              <div className="text-center py-24">
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-lg font-bold mx-auto mb-4">
+                  <BookOpen size={28} className="text-cyan-400/50" />
+                </div>
+                <p className="text-white/40 font-semibold text-lg">No sub-subjects yet</p>
+                <p className="text-white/20 text-sm mt-1 mb-6">Add sub-subjects by editing the course subjects</p>
+                <button onClick={() => openEdit(selectedCourse)}
+                  className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                  Edit Course
+                </button>
+              </div>
+            ) : (
+              <MotionDiv variants={stagger} initial="hidden" animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {subSubjects.map((subSubject, idx) => {
+                  const color = COURSE_COLORS[idx % COURSE_COLORS.length];
+                  return (
+                    <MotionDiv key={subSubject.title} variants={fadeUp}
+                      className="bg-[#0c0c18] border border-white/[0.06] rounded-3xl overflow-hidden hover:border-white/[0.12] hover:shadow-xl hover:shadow-black/40 transition-all duration-300 group">
+
+                      <div className={`h-24 bg-gradient-to-br ${color.from} ${color.to} opacity-10 relative`}>
+                        <div className="absolute inset-0 flex items-center justify-center opacity-30 text-5xl">
+                          {subSubject.title.slice(0, 3).toUpperCase()}
+                        </div>
+                      </div>
+
+                      <div className="p-5 -mt-8 relative">
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${color.from} ${color.to} flex items-center justify-center text-[13px] font-black shadow-lg mb-4`}>
+                          {subSubject.title.slice(0, 3).toUpperCase()}
+                        </div>
+
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-bold text-white text-[15px] leading-snug flex-1 pr-2">{subSubject.title}</h3>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border flex-shrink-0 ${color.bg} ${color.border} ${color.text}`}>
+                            Sub-subject
+                          </span>
+                        </div>
+
+                        <p className="text-[12px] text-white/35 leading-relaxed mb-4">
+                          {selectedSubject} sub-category
+                        </p>
+
+                        <div className="flex items-center gap-4 text-[11px] text-white/25 mb-5">
+                          <span className="flex items-center gap-1"><Layers size={10} /> {subSubject.totalQuizzes || 0} quizzes</span>
+                          <span className="flex items-center gap-1"><BookOpen size={10} /> {selectedCourse.tag || "Course"}</span>
+                        </div>
+
+                        <button
+                          onClick={() => setSelectedSubSubject(subSubject.title)}
+                          className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${color.bg} ${color.border} ${color.text} hover:opacity-80`}
+                        >
+                          View Quizzes <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    </MotionDiv>
+                  );
+                })}
+              </MotionDiv>
+            );
+          })()
         ) : selectedCourse ? (
           /* ── Level 2: Subjects for selected course ── */
           selectedSubjects.length === 0 ? (
@@ -419,7 +556,7 @@ export default function Courses() {
                         onClick={() => setSelectedSubject(subject.title)}
                         className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${color.bg} ${color.border} ${color.text} hover:opacity-80`}
                       >
-                        View Quizzes <ChevronRight size={13} />
+                        View Sub-subjects <ChevronRight size={13} />
                       </button>
                     </div>
                   </MotionDiv>
@@ -460,11 +597,14 @@ export default function Courses() {
 
                     {Array.isArray(course.subjects) && course.subjects.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-4">
-                        {course.subjects.slice(0, 4).map((subject) => (
-                          <span key={subject} className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${color.bg} ${color.border} ${color.text}`}>
-                            {subject}
-                          </span>
-                        ))}
+                        {course.subjects.slice(0, 4).map((subject) => {
+                          const name = String(subject?.name || subject || "");
+                          return (
+                            <span key={name} className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${color.bg} ${color.border} ${color.text}`}>
+                              {name}
+                            </span>
+                          );
+                        })}
                         {course.subjects.length > 4 && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border border-white/[0.08] text-white/35 bg-white/[0.03]">
                             +{course.subjects.length - 4}
@@ -526,10 +666,54 @@ export default function Courses() {
                     <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                       placeholder="Describe this course..." className="field-input resize-none" />
                   </FormField>
-                  <FormField label="Subjects">
-                    <input value={form.subjects} onChange={e => setForm({ ...form, subjects: e.target.value })}
-                      placeholder="Oral Anatomy, Prosthodontics, Pathology" className="field-input" />
-                  </FormField>
+                  <div className="flex flex-col gap-3 max-h-60 overflow-y-auto pr-1">
+                    <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block">Subjects & Sub-subjects</label>
+                    {form.subjects.map((subject, sIdx) => (
+                      <div key={sIdx} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex flex-col gap-2 relative">
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={subject.name}
+                            onChange={(e) => {
+                              const updated = [...form.subjects];
+                              updated[sIdx].name = e.target.value;
+                              setForm({ ...form, subjects: updated });
+                            }}
+                            placeholder="Subject Name (e.g. Oral Anatomy)"
+                            className="field-input flex-1 bg-transparent text-[13px] border-b border-white/10 pb-1"
+                          />
+                          {form.subjects.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = form.subjects.filter((_, i) => i !== sIdx);
+                                setForm({ ...form, subjects: updated });
+                              }}
+                              className="text-red-400 hover:text-red-300 p-1"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          value={Array.isArray(subject.subSubjects) ? subject.subSubjects.join(", ") : ""}
+                          onChange={(e) => {
+                            const updated = [...form.subjects];
+                            updated[sIdx].subSubjects = e.target.value.split(",");
+                            setForm({ ...form, subjects: updated });
+                          }}
+                          placeholder="Sub-subjects (comma separated, e.g. Teeth, Jaw)"
+                          className="w-full bg-transparent text-[11px] text-white/60 placeholder:text-white/20 outline-none"
+                        />
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, subjects: [...form.subjects, { name: "", subSubjects: [] }] })}
+                      className="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 self-start mt-1"
+                    >
+                      <Plus size={12} /> Add Subject
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <FormField label="Tag">
                       <select value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value })}

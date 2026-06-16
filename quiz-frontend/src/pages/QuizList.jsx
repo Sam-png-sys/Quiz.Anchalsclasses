@@ -50,6 +50,7 @@ export default function QuizList() {
   const [sortOpen, setSortOpen] = useState(false);
   const [filterCourse, setFilterCourse] = useState("All");
   const [filterSubject, setFilterSubject] = useState("All");
+  const [filterSubSubject, setFilterSubSubject] = useState("All");
   const [filterDiff, setFilterDiff] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -62,12 +63,16 @@ export default function QuizList() {
   useEffect(() => {
     const courseFilter = searchParams.get("course");
     const subjectFilter = searchParams.get("subject");
+    const subSubjectFilter = searchParams.get("subSubject");
     if (courseFilter) {
       setFilterCourse(courseFilter);
       setSearch("");
     }
     if (subjectFilter) {
       setFilterSubject(subjectFilter);
+    }
+    if (subSubjectFilter) {
+      setFilterSubSubject(subSubjectFilter);
     }
   }, [searchParams]);
 
@@ -86,6 +91,7 @@ export default function QuizList() {
         totalQuestions: q.totalQuestions ?? 0,
         difficulty: formatDifficulty(q.difficulty),
         subject: q.subject ?? "",
+        subSubject: q.subSubject ?? "",
         createdAt: q.createdAt ?? new Date().toISOString(),
       }));
 
@@ -131,6 +137,7 @@ export default function QuizList() {
 
   const courseOptions = ["All", ...Array.from(new Set(quizzes.map(q => q.course).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
   const subjectOptions = ["All", ...Array.from(new Set(quizzes.map(q => q.subject).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
+  const subSubjectOptions = ["All", ...Array.from(new Set(quizzes.map(q => q.subSubject).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
 
   // Filter + sort
   const processed = quizzes
@@ -141,16 +148,18 @@ export default function QuizList() {
         q.description,
         q.course,
         q.subject,
+        q.subSubject,
         q._id,
         q.id,
       ].some(value => String(value || "").toLowerCase().includes(query));
       const matchCourse = filterCourse === "All" || q.course === filterCourse;
       const matchSubject = filterSubject === "All" || q.subject === filterSubject;
+      const matchSubSubject = filterSubSubject === "All" || q.subSubject === filterSubSubject;
       const matchDiff = filterDiff === "All" || q.difficulty === filterDiff;
       const matchStatus = filterStatus === "All" ||
         (filterStatus === "Open" && q.isOpen) ||
         (filterStatus === "Closed" && !q.isOpen);
-      return matchSearch && matchCourse && matchSubject && matchDiff && matchStatus;
+      return matchSearch && matchCourse && matchSubject && matchSubSubject && matchDiff && matchStatus;
     })
     .sort((a, b) => {
       if (sort === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
@@ -164,7 +173,7 @@ export default function QuizList() {
       return 0;
     });
 
-  const activeFilters = [filterCourse, filterSubject, filterDiff, filterStatus].filter(f => f !== "All").length;
+  const activeFilters = [filterCourse, filterSubject, filterSubSubject, filterDiff, filterStatus].filter(f => f !== "All").length;
 
   return (
     <AdminShell>
@@ -269,10 +278,11 @@ export default function QuizList() {
               <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 flex flex-wrap gap-6">
                 <FilterGroup label="Course" options={courseOptions} value={filterCourse} onChange={setFilterCourse} />
                 <FilterGroup label="Subject" options={subjectOptions} value={filterSubject} onChange={setFilterSubject} />
+                <FilterGroup label="Sub-subject" options={subSubjectOptions} value={filterSubSubject} onChange={setFilterSubSubject} />
                 <FilterGroup label="Difficulty" options={["All", "Easy", "Medium", "Hard"]} value={filterDiff} onChange={setFilterDiff} />
                 <FilterGroup label="Status" options={["All", "Open", "Closed"]} value={filterStatus} onChange={setFilterStatus} />
                 {activeFilters > 0 && (
-                  <button onClick={() => { setFilterCourse("All"); setFilterSubject("All"); setFilterDiff("All"); setFilterStatus("All"); }}
+                  <button onClick={() => { setFilterCourse("All"); setFilterSubject("All"); setFilterSubSubject("All"); setFilterDiff("All"); setFilterStatus("All"); }}
                     className="self-end text-[12px] font-semibold text-red-400/70 hover:text-red-400 transition-colors">
                     Clear all
                   </button>
@@ -354,6 +364,11 @@ export default function QuizList() {
                     {quiz.subject && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                         {quiz.subject}
+                      </span>
+                    )}
+                    {quiz.subSubject && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-purple-500/10 text-purple-400 border-purple-500/20">
+                        {quiz.subSubject}
                       </span>
                     )}
                     {quiz.difficulty && (

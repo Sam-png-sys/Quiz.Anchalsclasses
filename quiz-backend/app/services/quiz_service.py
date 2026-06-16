@@ -45,6 +45,7 @@ def get_quizzes(user_id: str = None, page: int = 1, limit: int = 10):
             "description":    q.get("description", ""),
             "course":         q.get("course", ""),
             "subject":        q.get("subject", ""),
+            "subSubject":     q.get("subSubject", ""),
             "duration":       q.get("duration"),
             "difficulty":     q.get("difficulty", "Medium"),
             "examType":       q.get("examType", "no_section_no_timer"),

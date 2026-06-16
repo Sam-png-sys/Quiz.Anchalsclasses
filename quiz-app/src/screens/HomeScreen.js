@@ -132,6 +132,11 @@ const QuizCard = ({ item, index, onPress, themeColors }) => {
                 <Text style={[styles.cardTagText, { color: "#059669" }]} numberOfLines={1}>{item.subject}</Text>
               </View>
             )}
+            {!!item.subSubject && (
+              <View style={[styles.cardTag, { backgroundColor: "#7c3aed18", borderColor: "#7c3aed33" }]}>
+                <Text style={[styles.cardTagText, { color: "#7c3aed" }]} numberOfLines={1}>{item.subSubject}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.cardFooter}>
