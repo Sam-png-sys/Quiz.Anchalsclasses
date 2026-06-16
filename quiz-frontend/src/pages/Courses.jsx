@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   GraduationCap, Plus, BookOpen, Clock, Users,
   ChevronRight, Trash2, Edit2, X, Save, Layers, 
-  ArrowLeft
+  ArrowLeft, CheckCircle2, XCircle, Eye
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../utils/api";
@@ -37,6 +37,7 @@ export default function Courses() {
   const [deleteId, setDeleteId] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(null);
 
   useEffect(() => { fetchCourses(); }, []);
 
@@ -101,6 +102,7 @@ export default function Courses() {
       if (!res.ok) throw new Error();
       await fetchCourses();
       setSelectedCourse(null);
+      setSelectedSubject(null);
       setModalOpen(false);
     } catch {
       alert("Failed to save course");
@@ -117,9 +119,35 @@ export default function Courses() {
       setCourses(prev => prev.filter(c => (c._id || c.id) !== id));
       if ((selectedCourse?._id || selectedCourse?.id) === id) {
         setSelectedCourse(null);
+        setSelectedSubject(null);
       }
       setDeleteId(null);
     } catch { alert("Failed to delete"); }
+  };
+
+  const handleDeleteQuiz = async (id) => {
+    try {
+      await apiRequest(`/admin/quiz/${id}`, "DELETE");
+      setQuizzes(prev => prev.filter(q => (q._id || q.id) !== id));
+      setDeleteId(null);
+    } catch {
+      alert("Failed to delete quiz");
+    }
+  };
+
+  const handleToggleQuizStatus = async (quiz) => {
+    const id = quiz._id || quiz.id;
+    try {
+      await fetch(`${API_BASE}/admin/quiz/${id}/toggle`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setQuizzes(prev => prev.map(q =>
+        (q._id || q.id) === id ? { ...q, isOpen: !q.isOpen } : q
+      ));
+    } catch {
+      alert("Failed to update status");
+    }
   };
 
   const getCourseQuizzes = (course) =>
@@ -145,6 +173,23 @@ export default function Courses() {
 
   const selectedSubjects = selectedCourse ? getSubjectCards(selectedCourse) : [];
 
+  const getSubjectQuizzes = (course, subjectTitle) =>
+    quizzes.filter(
+      (q) =>
+        (q.course || "").trim() === (course?.title || "").trim() &&
+        (q.subject || "").trim() === (subjectTitle || "").trim()
+    );
+
+  const subjectQuizzes = selectedSubject
+    ? getSubjectQuizzes(selectedCourse, selectedSubject)
+    : [];
+
+  const DIFF_COLORS = {
+    Easy: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    Medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    Hard: "bg-red-500/10 text-red-400 border-red-500/20",
+  };
+
   return (
     <AdminShell>
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
@@ -154,7 +199,15 @@ export default function Courses() {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => selectedCourse ? setSelectedCourse(null) : navigate("/dashboard")}
+              onClick={() => {
+                if (selectedSubject) {
+                  setSelectedSubject(null);
+                } else if (selectedCourse) {
+                  setSelectedCourse(null);
+                } else {
+                  navigate("/dashboard");
+                }
+              }}
               className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
             >
               <ArrowLeft size={16} />
@@ -162,21 +215,38 @@ export default function Courses() {
 
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">
-                {selectedCourse ? selectedCourse.title : "Courses"}
+                {selectedSubject
+                  ? selectedSubject
+                  : selectedCourse
+                    ? selectedCourse.title
+                    : "Courses"}
               </h1>
               <p className="text-sm text-white/35 mt-1">
-                {selectedCourse ? "Choose a subject to see its quizzes" : "Manage your course catalog"}
+                {selectedSubject
+                  ? `${subjectQuizzes.length} quiz${subjectQuizzes.length !== 1 ? "zes" : ""} in ${selectedCourse?.title}`
+                  : selectedCourse
+                    ? "Choose a subject to see its quizzes"
+                    : "Manage your course catalog"}
               </p>
             </div>
           </div>
 
-          {!selectedCourse && (
+          {!selectedCourse && !selectedSubject && (
             <button
               onClick={openCreate}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
               style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 32px var(--accent-glow)" }}
             >
               <Plus size={16} /> Add Course
+            </button>
+          )}
+          {selectedSubject && (
+            <button
+              onClick={() => navigate("/create-quiz")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
+              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 18px 32px var(--accent-glow)" }}
+            >
+              <Plus size={16} /> New Quiz
             </button>
           )}
 
@@ -206,7 +276,98 @@ export default function Courses() {
               Create Course
             </button>
           </div>
+        ) : selectedSubject ? (
+          /* ── Level 3: Quizzes for selected subject ── */
+          subjectQuizzes.length === 0 ? (
+            <div className="text-center py-24">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-lg font-bold mx-auto mb-4">
+                <BookOpen size={28} className="text-cyan-400/50" />
+              </div>
+              <p className="text-white/40 font-semibold text-lg">No quizzes yet</p>
+              <p className="text-white/20 text-sm mt-1 mb-6">Create a quiz for this subject to get started</p>
+              <button onClick={() => navigate("/create-quiz")}
+                className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                Create Quiz
+              </button>
+            </div>
+          ) : (
+            <MotionDiv variants={stagger} initial="hidden" animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {subjectQuizzes.map((quiz) => {
+                const id = quiz._id || quiz.id;
+                const difficulty = (quiz.difficulty || "Medium").toString();
+                const diffNorm = difficulty.charAt(0).toUpperCase() + difficulty.slice(1).toLowerCase();
+                return (
+                  <MotionDiv key={id} variants={fadeUp}
+                    className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/30 transition-all duration-300 group flex flex-col">
+
+                    {/* Top row */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-[11px] font-black flex-shrink-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                        {(quiz.course || "Q").slice(0, 3).toUpperCase()}
+                      </div>
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${quiz.isOpen ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white/[0.04] text-white/25 border-white/[0.06]"}`}>
+                        {quiz.isOpen ? "● Open" : "○ Closed"}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="font-bold text-white text-[14px] leading-snug mb-1">{quiz.title}</h3>
+                    <p className="text-[10px] text-white/30 mb-2">ID: {id}</p>
+                    {quiz.description && (
+                      <p className="text-[12px] text-white/35 mb-3 line-clamp-2 leading-relaxed">{quiz.description}</p>
+                    )}
+
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                        {quiz.course || "Course"}
+                      </span>
+                      {quiz.subject && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                          {quiz.subject}
+                        </span>
+                      )}
+                      {diffNorm && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${DIFF_COLORS[diffNorm] || DIFF_COLORS.Medium}`}>
+                          {diffNorm}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center gap-3 text-[11px] text-white/30 mb-5">
+                      <span className="flex items-center gap-1"><Clock size={10} /> {quiz.duration || "—"}m</span>
+                      <span className="flex items-center gap-1"><BookOpen size={10} /> {quiz.totalQuestions || 0} Qs</span>
+                      <span className="flex items-center gap-1"><Users size={10} /> {quiz.attempts || 0}</span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 mt-auto">
+                      <button onClick={() => handleToggleQuizStatus(quiz)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all
+                          ${quiz.isOpen
+                            ? "border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+                            : "border-emerald-500/20 text-emerald-400/70 hover:bg-emerald-500/10 hover:text-emerald-400"}`}>
+                        {quiz.isOpen ? <><XCircle size={13} /> Close</> : <><CheckCircle2 size={13} /> Open</>}
+                      </button>
+                      <button onClick={() => navigate(`/edit-quiz/${id}`)}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/[0.06] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => setDeleteId(id)}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/[0.06] text-white/30 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-all">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </MotionDiv>
+                );
+              })}
+            </MotionDiv>
+          )
         ) : selectedCourse ? (
+          /* ── Level 2: Subjects for selected course ── */
           selectedSubjects.length === 0 ? (
             <div className="text-center py-24">
               <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/20 flex items-center justify-center text-lg font-bold mx-auto mb-4">No Subjects</div>
@@ -255,7 +416,7 @@ export default function Courses() {
                       </div>
 
                       <button
-                        onClick={() => navigate(`/quizzes?course=${encodeURIComponent(selectedCourse.title)}&subject=${encodeURIComponent(subject.title)}`)}
+                        onClick={() => setSelectedSubject(subject.title)}
                         className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold border transition-all ${color.bg} ${color.border} ${color.text} hover:opacity-80`}
                       >
                         View Quizzes <ChevronRight size={13} />
@@ -410,11 +571,11 @@ export default function Courses() {
                 onClick={e => e.stopPropagation()}
                 className="bg-[#13131f] border border-white/[0.08] rounded-3xl p-7 w-full max-w-sm shadow-2xl">
                 <div className="text-sm font-bold uppercase tracking-widest text-red-400 mb-4">Delete</div>
-                <h3 className="text-lg font-bold text-white mb-2">Delete Course?</h3>
-                <p className="text-sm text-white/40 mb-6">This will permanently remove the course. This cannot be undone.</p>
+                <h3 className="text-lg font-bold text-white mb-2">{selectedSubject ? "Delete Quiz?" : "Delete Course?"}</h3>
+                <p className="text-sm text-white/40 mb-6">{selectedSubject ? "This will permanently delete the quiz and all its questions. This action cannot be undone." : "This will permanently remove the course. This cannot be undone."}</p>
                 <div className="flex gap-3">
                   <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 rounded-xl border border-white/[0.08] text-white/50 text-sm font-semibold">Cancel</button>
-                  <button onClick={() => handleDelete(deleteId)} className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all">Delete</button>
+                  <button onClick={() => selectedSubject ? handleDeleteQuiz(deleteId) : handleDelete(deleteId)} className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all">Delete</button>
                 </div>
               </MotionDiv>
             </MotionDiv>
