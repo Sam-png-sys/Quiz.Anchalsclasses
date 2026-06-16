@@ -141,9 +141,9 @@ export default function Dashboard() {
                   <TrendingUp size={15} style={{ color: "var(--accent)" }} />
                   <h2 className="text-[14px] font-bold text-white">Recent Activity</h2>
                 </div>
-                <button className="text-[11px] font-semibold hover:underline" style={{ color: "var(--accent)" }}>
+                {/* <button className="text-[11px] font-semibold hover:underline" style={{ color: "var(--accent)" }}>
                   View all
-                </button>
+                </button> */}
               </div>
 
               <div className="flex flex-col gap-0">
