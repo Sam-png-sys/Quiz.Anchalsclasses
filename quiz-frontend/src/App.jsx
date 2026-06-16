@@ -8,6 +8,7 @@ import QuizList from "./pages/QuizList";
 import Courses from "./pages/Courses";
 import Students from "./pages/Students";
 import Analytics from "./pages/Analytics";
+import Results from "./pages/Results";
 import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
 import EditQuiz from "./pages/EditPage";
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/courses"  element={<Courses />} />
         <Route path="/students" element={<Students />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/results" element={<Results />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/edit-quiz/:id" element={<EditQuiz />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
