@@ -108,10 +108,6 @@ export default function EditQuiz() {
                 setFetching(false);
             }
         };
-            } finally {
-                setFetching(false);
-            }
-        };
         fetchQuiz();
     }, [id]);
 
