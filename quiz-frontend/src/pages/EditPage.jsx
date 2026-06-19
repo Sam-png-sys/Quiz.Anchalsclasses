@@ -5,7 +5,7 @@ import {
     ArrowLeft, BookOpen, AlignLeft, Clock, Save,
     CheckCircle2, ChevronDown, ChevronUp, Trash2,
     Lightbulb, GraduationCap, BarChart2, PlusCircle,
-    RotateCcw, FileText,
+    RotateCcw, FileText, ImagePlus, X
 } from "lucide-react";
 import { apiRequest } from "../utils/api";
 import { Toaster, toast } from "react-hot-toast";
@@ -73,6 +73,7 @@ export default function EditQuiz() {
     const { id } = useParams();
     const navigate = useNavigate();
     const scrollRef = useRef(null);
+    const imageRefs = useRef([]);
     const token = localStorage.getItem("token");
 
     const [quiz, setQuiz] = useState(null);
@@ -107,6 +108,10 @@ export default function EditQuiz() {
                 setFetching(false);
             }
         };
+            } finally {
+                setFetching(false);
+            }
+        };
         fetchQuiz();
     }, [id]);
 
@@ -114,10 +119,16 @@ export default function EditQuiz() {
     const handleChange = (field, value) => setQuiz({ ...quiz, [field]: value });
 
     // ── Question-level changes ──
+    const updateQuestion = (index, patch) => {
+        setQuiz((prev) => {
+            const updated = [...prev.questions];
+            updated[index] = { ...updated[index], ...patch };
+            return { ...prev, questions: updated };
+        });
+    };
+
     const handleQuestionChange = (index, field, value) => {
-        const updated = [...quiz.questions];
-        updated[index] = { ...updated[index], [field]: value };
-        setQuiz({ ...quiz, questions: updated });
+        updateQuestion(index, { [field]: value });
     };
 
     const handleOptionChange = (qIndex, oIndex, value) => {
@@ -133,6 +144,60 @@ export default function EditQuiz() {
         updated[index] = { ...updated[index], [field]: value };
         setQuiz({ ...quiz, sections: updated });
     };
+
+    // ── Image upload ──────────────────────────────────────────────────────────
+    const uploadQuestionImage = async (index, file) => {
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            updateQuestion(index, { imagePreview: e.target.result, uploading: true });
+        };
+        reader.readAsDataURL(file);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch(`${API_BASE}/admin/upload-question-image`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            const text = await res.text();
+            if (!res.ok) throw new Error(`Upload failed: ${res.status} ${text}`);
+
+            const data = JSON.parse(text);
+            updateQuestion(index, { imageUrl: data.url, uploading: false });
+
+        } catch (err) {
+            console.error("Image upload error:", err.message);
+            toast.error(`Image upload failed: ${err.message}`);
+            updateQuestion(index, { imageUrl: null, imagePreview: null, uploading: false });
+        }
+    };
+
+    const handleImagePick = async (index, file) => {
+        await uploadQuestionImage(index, file);
+    };
+
+    const handleImagePaste = async (index, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return;
+
+        const imageItem = Array.from(items).find((item) => item.type?.startsWith("image/"));
+        if (!imageItem) return;
+
+        const file = imageItem.getAsFile();
+        if (!file) return;
+
+        event.preventDefault();
+        await uploadQuestionImage(index, file);
+    };
+
+    const removeImage = (index) =>
+        updateQuestion(index, { imageUrl: null, imagePreview: null });
 
     const addSection = () => {
         setQuiz({ ...quiz, sections: [...(quiz.sections || []), newSection(quiz.sections?.length || 0)] });
@@ -610,6 +675,67 @@ export default function EditQuiz() {
                                                     className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none"
                                                 />
                                             </Field>
+
+                                            {/* Image upload */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
+                                                    Question Image <span className="text-white/15 normal-case font-normal">(optional)</span>
+                                                </label>
+
+                                                {q.imagePreview || q.imageUrl ? (
+                                                    <div
+                                                        className="relative rounded-xl overflow-hidden border border-white/[0.08] group"
+                                                        onPaste={(e) => handleImagePaste(index, e)}
+                                                        tabIndex={0}
+                                                    >
+                                                        <img src={q.imagePreview || q.imageUrl} alt="question"
+                                                            className="w-full max-h-52 object-contain bg-white/[0.02]" />
+
+                                                        {q.uploading && (
+                                                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                                                                <div className="w-6 h-6 border-2 border-white/20 border-t-cyan-400 rounded-full animate-spin" />
+                                                                <span className="text-[11px] text-white/60">Uploading...</span>
+                                                            </div>
+                                                        )}
+
+                                                        {q.imageUrl && !q.uploading && (
+                                                            <div className="absolute top-2 left-2 flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/25 px-2 py-1 rounded-lg">
+                                                                <CheckCircle2 size={10} /> Uploaded
+                                                            </div>
+                                                        )}
+
+                                                        {!q.uploading && (
+                                                            <button onClick={() => removeImage(index)}
+                                                                className="absolute top-2 right-2 w-7 h-7 rounded-xl bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/40 transition-all opacity-0 group-hover:opacity-100">
+                                                                <X size={13} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => imageRefs.current[index]?.click()}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === "Enter" || e.key === " ") {
+                                                                e.preventDefault();
+                                                                imageRefs.current[index]?.click();
+                                                            }
+                                                        }}
+                                                        onPaste={(e) => handleImagePaste(index, e)}
+                                                        className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2"
+                                                        style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
+                                                        <ImagePlus size={22} />
+                                                        <span className="text-[12px] font-semibold">Click or paste image</span>
+                                                        <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>JPG, PNG, WEBP — max 5MB</span>
+                                                        <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>Click this box, then press Ctrl+V to paste</span>
+                                                    </div>
+                                                )}
+
+                                                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                                                    ref={el => imageRefs.current[index] = el}
+                                                    onChange={e => handleImagePick(index, e.target.files[0])} />
+                                            </div>
 
                                             {/* Options */}
                                             <div>

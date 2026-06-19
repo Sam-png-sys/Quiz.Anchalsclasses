@@ -9,6 +9,7 @@ import {
   Dimensions,
   ScrollView,
   Alert,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { usePreventScreenCapture } from "expo-screen-capture";
@@ -465,9 +466,10 @@ const QuizScreen = ({ route, navigation }) => {
           <Text style={[styles.questionTxt, { color: themeColors.text }]}>{q.question}</Text>
 
           {!!q.imageUrl && (
-            <View style={[styles.imageHint, { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border }]}>
-              <Text style={[styles.imageHintText, { color: themeColors.textSubtle }]}>This question includes an image in the admin panel.</Text>
-            </View>
+            <Image
+              source={{ uri: q.imageUrl }}
+              style={{ width: "100%", height: 220, borderRadius: 14, marginTop: 14, resizeMode: "contain" }}
+            />
           )}
         </Animated.View>
 
