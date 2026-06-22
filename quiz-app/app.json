@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dr. Anchal's Classes",
     "slug": "dr-anchal-classes",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "quizapp",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.dranchalclasses.quizapp",
-      "versionCode": 1,
+      "versionCode": 2,
       "permissions": [
         "INTERNET"
       ],

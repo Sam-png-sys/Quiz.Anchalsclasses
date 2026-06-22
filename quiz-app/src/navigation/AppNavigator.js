@@ -11,6 +11,7 @@ import QuizScreen from "../screens/QuizScreen";
 import ResultScreen from "../screens/ResultsScreen";
 import SignUpScreen from "../screens/SignupScreen";
 import SettingsScreen from "../screens/SettingsScreen";
+import StudyMaterialsScreen from "../screens/StudyMaterialsScreen";
 import { AuthContext } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 
@@ -84,6 +85,7 @@ const AppNavigator = () => {
                 <>
                     <Stack.Screen name="Home" component={HomeScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
+                    <Stack.Screen name="StudyMaterials" component={StudyMaterialsScreen} />
                     <Stack.Screen name="Quiz" component={QuizScreen} />
                     <Stack.Screen name="Result" component={ResultScreen} />
                 </>

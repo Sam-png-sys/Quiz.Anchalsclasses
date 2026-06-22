@@ -12,6 +12,7 @@ import Results from "./pages/Results";
 import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
 import EditQuiz from "./pages/EditPage";
+import StudyMaterials from "./pages/StudyMaterials";
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/results" element={<Results />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/study-materials" element={<StudyMaterials />} />
         <Route path="/edit-quiz/:id" element={<EditQuiz />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
       

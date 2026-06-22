@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, PlusCircle, Users, BarChart3,
-  PanelLeftClose, PanelLeftOpen, BookOpen, Zap, GraduationCapIcon, Trophy,
+  PanelLeftClose, PanelLeftOpen, BookOpen, Zap, GraduationCapIcon, Trophy, FileText
 } from "lucide-react";
 import Navbar from "../pages/Navbar";
 
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { icon: BookOpen, label: "All Quizzes", path: "/quizzes" },
   { icon: Users, label: "Students", path: "/students" },
   { icon: GraduationCapIcon, label: "Courses", path: "/courses" },
+  { icon: FileText, label: "Study Materials", path: "/study-materials" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Trophy, label: "Results", path: "/results" },
 ];

@@ -357,6 +357,24 @@ const HomeScreen = ({ navigation }) => {
         </View>
       </View>
 
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate("StudyMaterials")}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: themeColors.surface,
+          borderColor: themeColors.border,
+          borderWidth: 1,
+          borderRadius: 14,
+          paddingVertical: 14,
+          marginBottom: 16,
+        }}
+      >
+        <Text style={{ fontSize: 16, fontWeight: "600", color: themeColors.text }}>📚 View Study Materials</Text>
+      </TouchableOpacity>
+
       <View style={styles.searchAndMenuRow}>
         <TouchableOpacity
           activeOpacity={0.95}

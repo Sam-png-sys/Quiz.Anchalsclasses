@@ -51,6 +51,8 @@ def get_quizzes(user_id: str = None, page: int = 1, limit: int = 10):
             "examType":       q.get("examType", "no_section_no_timer"),
             "requireAnswer":  q.get("requireAnswer", True),
             "sections":       q.get("sections", []),
+            "studyMaterialUrl": q.get("studyMaterialUrl", None),
+            "studyMaterialName": q.get("studyMaterialName", None),
             "question_count": question_collection.count_documents({
                 "quizId": ObjectId(str(q["_id"]))
             }),
