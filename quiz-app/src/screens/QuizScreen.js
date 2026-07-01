@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { usePreventScreenCapture } from "expo-screen-capture";
+import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
 
@@ -165,6 +166,7 @@ const QuizScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
   const [progressSaving, setProgressSaving] = useState(false);
+  const [markedReviews, setMarkedReviews] = useState({});
 
   const answersRef = useRef({});
   const timerRef = useRef(null);
@@ -333,6 +335,18 @@ const QuizScreen = ({ route, navigation }) => {
     advancingRef.current = false;
   }, [current, isLastInSection, isLastQuestion, navigation, nextSection, questions, quizId, quizMeta, saveProgress, selected]);
 
+  const goToPrevious = async () => {
+    if (current > 0 && !progressSaving) {
+      const valueToSave = selected ?? null;
+      const newAnswers = { ...answersRef.current, [current]: valueToSave };
+      saveAnswers(newAnswers);
+      await saveProgress(newAnswers);
+
+      setCurrent((value) => value - 1);
+      setSelected(newAnswers[current - 1] ?? null);
+    }
+  };
+
   useEffect(() => {
     clearInterval(timerRef.current);
     if (!currentSection || examType !== "section_with_timer") {
@@ -495,6 +509,50 @@ const QuizScreen = ({ route, navigation }) => {
           </Text>
         )}
 
+        <View style={styles.reviewNavRow}>
+          {current > 0 && (
+            <TouchableOpacity
+              onPress={goToPrevious}
+              style={[
+                styles.prevBtn,
+                {
+                  backgroundColor: themeColors.surface,
+                  borderColor: themeColors.border,
+                },
+              ]}
+            >
+              <Ionicons name="arrow-back-outline" size={18} color={themeColors.text} style={{ marginRight: 6 }} />
+              <Text style={[styles.prevBtnText, { color: themeColors.text }]}>Previous</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            onPress={() => {
+              setMarkedReviews((prev) => ({
+                ...prev,
+                [current]: !prev[current],
+              }));
+            }}
+            style={[
+              styles.reviewBtn,
+              {
+                backgroundColor: markedReviews[current] ? "#d977061A" : themeColors.surface,
+                borderColor: markedReviews[current] ? "#d97706" : themeColors.border,
+              },
+            ]}
+          >
+            <Ionicons
+              name={markedReviews[current] ? "star" : "star-outline"}
+              size={18}
+              color={markedReviews[current] ? "#d97706" : themeColors.textSubtle}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.reviewBtnText, { color: markedReviews[current] ? "#d97706" : themeColors.textSubtle }]}>
+              {markedReviews[current] ? "Marked" : "Review"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             activeOpacity={canProceed ? 0.88 : 1}
@@ -534,6 +592,7 @@ const QuizScreen = ({ route, navigation }) => {
                 styles.dot,
                 i < current && answers[i] != null && styles.dotAnswered,
                 i < current && answers[i] == null && styles.dotSkipped,
+                markedReviews[i] && styles.dotMarked,
                 i === current && [styles.dotActive, { backgroundColor: accentOption.colors[0] }],
               ]}
             />
@@ -606,4 +665,10 @@ const styles = StyleSheet.create({
   dotActive: { width: 22, borderRadius: 4 },
   dotAnswered: { backgroundColor: "rgba(167,139,250,0.4)" },
   dotSkipped: { backgroundColor: "#dc2626" },
+  dotMarked: { backgroundColor: "#d97706" },
+  reviewNavRow: { flexDirection: "row", justifyContent: "space-between", gap: 12, marginBottom: 14 },
+  prevBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 16, borderWidth: 1, paddingVertical: 14 },
+  prevBtnText: { fontSize: 14, fontWeight: "700" },
+  reviewBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 16, borderWidth: 1, paddingVertical: 14 },
+  reviewBtnText: { fontSize: 14, fontWeight: "700" },
 });

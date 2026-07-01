@@ -12,6 +12,7 @@ import {
   ScrollView,
   Alert,
   Dimensions,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
@@ -176,15 +177,16 @@ const SignUpScreen = ({ navigation }) => {
             </TouchableOpacity>
 
             {/* Logo */}
-            <View style={styles.logoWrap}>
-              <LinearGradient colors={["#e5354a", "#b91c2e"]} style={styles.logoGrad}>
-                <Text style={styles.logoText}>A</Text>
-              </LinearGradient>
+            <View style={[styles.logoWrap, { backgroundColor: "#ffffff", borderRadius: 18, padding: 2 }]}>
+              <Image
+                source={require("../assets/images/dranchal_logo.png")}
+                style={{ width: 62, height: 62, borderRadius: 16 }}
+                resizeMode="contain"
+              />
             </View>
 
             <Text style={[styles.title, { color: themeColors.text }]}>Sign Up</Text>
             <Text style={[styles.subtitle, { color: themeColors.textSubtle }]}>Create your account to get started</Text>
-
             {/* Form */}
             <View style={styles.form}>
               <PillInput

@@ -320,60 +320,12 @@ const HomeScreen = ({ navigation }) => {
 
   const listHeader = (
     <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
-      <View style={styles.headerTop}>
+      <View style={[styles.headerTop, { marginBottom: 16, marginTop: 15 }]}>
         <View>
-          <Text style={[styles.greeting, { color: themeColors.textSubtle }]}>Good day</Text>
-          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Your Quizzes</Text>
-        </View>
-        <TouchableOpacity style={styles.avatarBtn} onPress={() => navigation.navigate("Settings")}>
-          <LinearGradient colors={accentOption.colors} style={styles.avatar}>
-            <Text style={styles.avatarText}>{(email || "User").charAt(0).toUpperCase()}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-          <Text style={[styles.statNumber, { color: themeColors.text }]}>{quizzes.length}</Text>
-          <Text style={[styles.statLabel, { color: themeColors.textSubtle }]}>Available</Text>
-        </View>
-        <View
-          style={[
-            styles.statCard,
-            {
-              borderColor: accentOption.colors[0] + "55",
-              backgroundColor: accentOption.colors[0] + (settings.theme === "light" ? "12" : "14"),
-            },
-          ]}
-        >
-          <Text style={[styles.statNumber, { color: themeColors.text }]}>{attemptSummary.completedCount}</Text>
-          <Text style={[styles.statLabel, { color: themeColors.textSubtle }]}>Completed</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-          <Text style={[styles.statNumber, { color: themeColors.text }]}>
-            {attemptSummary.bestScore == null ? "—" : `${attemptSummary.bestScore}%`}
-          </Text>
-          <Text style={[styles.statLabel, { color: themeColors.textSubtle }]}>Best Score</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text, fontSize: 24 }]}>Quiz Papers</Text>
+          <Text style={[styles.greeting, { color: themeColors.textSubtle }]}>Select a quiz to test your knowledge</Text>
         </View>
       </View>
-
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => navigation.navigate("StudyMaterials")}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: themeColors.surface,
-          borderColor: themeColors.border,
-          borderWidth: 1,
-          borderRadius: 14,
-          paddingVertical: 14,
-          marginBottom: 16,
-        }}
-      >
-        <Text style={{ fontSize: 16, fontWeight: "600", color: themeColors.text }}>📚 View Study Materials</Text>
-      </TouchableOpacity>
 
       <View style={styles.searchAndMenuRow}>
         <TouchableOpacity

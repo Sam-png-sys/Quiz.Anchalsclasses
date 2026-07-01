@@ -8,6 +8,7 @@ import {
   Animated,
   StatusBar,
   Dimensions,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
@@ -99,10 +100,12 @@ const OtpScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         {/* Logo mark */}
-        <View style={styles.logoWrap}>
-          <LinearGradient colors={accentOption.colors} style={styles.logoGrad}>
-            <Text style={styles.logoText}>A</Text>
-          </LinearGradient>
+        <View style={[styles.logoWrap, { backgroundColor: "#ffffff", borderRadius: 18, padding: 2 }]}>
+          <Image
+            source={require("../assets/images/dranchal_logo.png")}
+            style={{ width: 62, height: 62, borderRadius: 16 }}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Heading */}
