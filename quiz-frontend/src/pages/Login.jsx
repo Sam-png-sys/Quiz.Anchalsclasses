@@ -60,7 +60,6 @@ export default function Login() {
 
       const res = await fetch(`${API_BASE}/auth/verify-otp`, {
         method: "POST",
-        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
