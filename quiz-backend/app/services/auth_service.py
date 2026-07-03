@@ -59,4 +59,3 @@ def create_or_get_user_and_token(phone: str, name: str = None):
     return token
 
 
-print("JWT SECRET (auth_service):", os.getenv("JWT_SECRET"))

@@ -102,7 +102,7 @@ const OtpScreen = ({ navigation }) => {
         {/* Logo mark */}
         <View style={[styles.logoWrap, { backgroundColor: "#ffffff", borderRadius: 18, padding: 2 }]}>
           <Image
-            source={require("../assets/images/dranchal_logo.png")}
+            source={require("../../assets/images/dranchal_logo.png")}
             style={{ width: 62, height: 62, borderRadius: 16 }}
             resizeMode="contain"
           />
@@ -165,7 +165,14 @@ const OtpScreen = ({ navigation }) => {
           {resendTimer > 0 ? (
             <Text style={styles.resendTimer}>Resend in {resendTimer}s</Text>
           ) : (
-            <TouchableOpacity onPress={() => setResendTimer(30)}>
+            <TouchableOpacity onPress={async () => {
+              setResendTimer(30);
+              try {
+                await API.post("/auth/resend-otp", { email: email.trim() });
+              } catch (e) {
+                alert("Failed to resend OTP");
+              }
+            }}>
               <Text style={[styles.resendLink, { color: accentOption.colors[0] }]}>Resend code</Text>
             </TouchableOpacity>
           )}

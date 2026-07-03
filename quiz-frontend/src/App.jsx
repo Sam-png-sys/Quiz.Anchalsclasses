@@ -13,6 +13,7 @@ import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
 import EditQuiz from "./pages/EditPage";
 import StudyMaterials from "./pages/StudyMaterials";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
@@ -26,20 +27,21 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Navigate to="/login" replace />} />
 
-        {/* ADMIN */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/create-quiz" element={<CreateQuiz />} />
-        {/* DEFAULT */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-        <Route path="/quizzes"  element={<QuizList />} />
-        <Route path="/courses"  element={<Courses />} />
-        <Route path="/students" element={<Students />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/results" element={<Results />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/study-materials" element={<StudyMaterials />} />
-        <Route path="/edit-quiz/:id" element={<EditQuiz />} />
+        {/* ADMIN (PROTECTED) */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/create-quiz" element={<ProtectedRoute><CreateQuiz /></ProtectedRoute>} />
+        <Route path="/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />
+        <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+        <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+        <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/study-materials" element={<ProtectedRoute><StudyMaterials /></ProtectedRoute>} />
+        <Route path="/edit-quiz/:id" element={<ProtectedRoute><EditQuiz /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* DEFAULT CATCH-ALL */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       
       </Routes>
     </Router>

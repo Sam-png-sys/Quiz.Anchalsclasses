@@ -28,9 +28,6 @@ export async function apiRequest(endpoint, method = "GET", body = null) {
   return data;
 }
 
-const token =
-  localStorage.getItem("token") ||
-  sessionStorage.getItem("token");
 // ==========================
 // ADMIN APIs
 // ==========================

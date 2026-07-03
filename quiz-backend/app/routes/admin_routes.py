@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
 import os
-import imghdr
+
 
 from app.dependencies.auth_dependency import admin_only, get_current_user
 from app.config.database import (
@@ -37,12 +37,17 @@ MAX_FILE_SIZE  = 5 * 1024 * 1024   # 5 MB
 ALLOWED_TYPES  = ["jpeg", "png", "jpg", "webp"]
 MAX_PDF_SIZE   = 10 * 1024 * 1024  # 10 MB
 
-def validate_image(contents):
+def validate_image(contents: bytes):
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large (max 5MB)")
-    file_type = imghdr.what(None, contents)
-    if file_type not in ALLOWED_TYPES:
-        raise HTTPException(status_code=400, detail=f"Invalid image type: {file_type}")
+    
+    # Check magic bytes for JPEG, PNG, WEBP, GIF
+    if not (contents.startswith(b'\xff\xd8\xff') or 
+            contents.startswith(b'\x89PNG\r\n\x1a\n') or 
+            (contents.startswith(b'RIFF') and contents[8:12] == b'WEBP') or
+            contents.startswith(b'GIF87a') or 
+            contents.startswith(b'GIF89a')):
+        raise HTTPException(status_code=400, detail="Invalid image type")
 
 
 def validate_pdf(file: UploadFile, contents: bytes):
@@ -575,8 +580,18 @@ def get_top_students(admin=Depends(admin_only)):
     )
     result = []
     for a in attempts:
-        user = users_collection.find_one({"_id": ObjectId(a["userId"])})
-        quiz = quiz_collection.find_one({"_id": ObjectId(a["quizId"])})
+        user = None
+        if a.get("userId") and isinstance(a["userId"], str) and len(a["userId"]) == 24:
+            user = users_collection.find_one({"_id": ObjectId(a["userId"])})
+        elif isinstance(a.get("userId"), ObjectId):
+            user = users_collection.find_one({"_id": a["userId"]})
+            
+        quiz = None
+        if a.get("quizId") and isinstance(a["quizId"], str) and len(a["quizId"]) == 24:
+            quiz = quiz_collection.find_one({"_id": ObjectId(a["quizId"])})
+        elif isinstance(a.get("quizId"), ObjectId):
+            quiz = quiz_collection.find_one({"_id": a["quizId"]})
+            
         result.append({
             "name":        user.get("name", "Student") if user else "Student",
             "score":       a.get("score", 0),

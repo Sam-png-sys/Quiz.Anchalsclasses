@@ -8,8 +8,7 @@ from bson import ObjectId
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-temp_users = {}
-login_sessions = {}
+from app.config.database import users_collection, temp_user_collection, login_session_collection
 
 
 # =========================
@@ -20,7 +19,11 @@ def signup(data: UserRegister):
     if users_collection.find_one({"email": data.email}):
         raise HTTPException(status_code=400, detail="User already exists")
 
-    temp_users[data.email] = data.dict()
+    temp_user_collection.update_one(
+        {"email": data.email},
+        {"$set": data.dict()},
+        upsert=True
+    )
 
     generate_otp(data.email)
 
@@ -39,11 +42,27 @@ def login(data: UserLogin):
     if not user or not verify_password(data.password, user["password"]):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    login_sessions[data.email] = str(user["_id"])
+    login_session_collection.update_one(
+        {"email": data.email},
+        {"$set": {"user_id": str(user["_id"])}},
+        upsert=True
+    )
 
     generate_otp(data.email)
 
     return {"message": "OTP sent", "email": data.email}
+
+
+# =========================
+# RESEND OTP
+# =========================
+@router.post("/resend-otp")
+def resend_otp(data: dict):
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    generate_otp(email)
+    return {"message": "OTP resent"}
 
 
 # =========================
@@ -56,8 +75,9 @@ def verify(data: VerifyOTP):
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
     # ================= LOGIN FLOW =================
-    if data.email in login_sessions:
-        user_id = login_sessions[data.email]
+    login_session = login_session_collection.find_one({"email": data.email})
+    if login_session:
+        user_id = login_session["user_id"]
 
         user = users_collection.find_one({"_id": ObjectId(user_id)})
 
@@ -70,12 +90,12 @@ def verify(data: VerifyOTP):
             "collegeName": user.get("collegeName", ""),
         })
 
-        login_sessions.pop(data.email, None)
+        login_session_collection.delete_one({"email": data.email})
 
         return {"access_token": token}
 
     # ================= SIGNUP FLOW =================
-    temp = temp_users.get(data.email)
+    temp = temp_user_collection.find_one({"email": data.email})
 
     if not temp:
         raise HTTPException(status_code=400, detail="Signup session expired")
@@ -95,7 +115,7 @@ def verify(data: VerifyOTP):
     except Exception:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    temp_users.pop(data.email, None)
+    temp_user_collection.delete_one({"email": data.email})
 
     token = create_token({
         "user_id": str(result.inserted_id),
@@ -138,7 +158,9 @@ def forgot_password(data: dict):
 def reset_password(data: dict):
     email = data.get("email")
     otp = data.get("otp")
-    password = data.get("password")
+    password = data.get("password", "")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     if not verify_otp(email, otp):
         raise HTTPException(status_code=400, detail="Invalid OTP")

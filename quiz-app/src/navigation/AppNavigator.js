@@ -109,7 +109,7 @@ function StartupBuffer({ accentOption, themeColors, settings }) {
             <Animated.View style={[styles.loaderMarkWrap, { transform: [{ scale: pulse }] }]}>
                 <View style={[styles.loaderMark, { backgroundColor: "#ffffff" }]}>
                     <Image
-                        source={require("../assets/images/dranchal_logo.png")}
+                        source={require("../../assets/images/dranchal_logo.png")}
                         style={{ width: 72, height: 72, borderRadius: 22 }}
                         resizeMode="contain"
                     />

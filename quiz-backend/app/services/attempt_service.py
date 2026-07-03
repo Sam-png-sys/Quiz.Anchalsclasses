@@ -39,6 +39,11 @@ def start_quiz(user_id, quiz_id):
 
     result = attempt_collection.insert_one(attempt)
 
+    quiz_collection.update_one(
+        {"_id": ObjectId(quiz_id)},
+        {"$inc": {"attempts": 1}}
+    )
+
     return {"message": "Quiz started", "attempt_id": str(result.inserted_id), "answers": {}}
 
 

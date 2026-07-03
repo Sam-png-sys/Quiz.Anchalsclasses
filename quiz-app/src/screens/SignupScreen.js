@@ -179,7 +179,7 @@ const SignUpScreen = ({ navigation }) => {
             {/* Logo */}
             <View style={[styles.logoWrap, { backgroundColor: "#ffffff", borderRadius: 18, padding: 2 }]}>
               <Image
-                source={require("../assets/images/dranchal_logo.png")}
+                source={require("../../assets/images/dranchal_logo.png")}
                 style={{ width: 62, height: 62, borderRadius: 16 }}
                 resizeMode="contain"
               />
@@ -297,6 +297,7 @@ const SignUpScreen = ({ navigation }) => {
                 onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
                 onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
                 onPress={handleSignUp}
+                disabled={loading}
                 style={styles.btnOuter}
               >
                 <LinearGradient colors={accentOption.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.btn}>

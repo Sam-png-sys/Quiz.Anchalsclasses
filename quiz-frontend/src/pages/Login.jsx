@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { API_BASE } from "../utils/config";
+import { jwtDecode } from "jwt-decode";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -59,6 +60,7 @@ export default function Login() {
 
       const res = await fetch(`${API_BASE}/auth/verify-otp`, {
         method: "POST",
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -69,6 +71,14 @@ export default function Login() {
 
       if (!res.ok) {
         alert(data.detail || "Invalid OTP");
+        return;
+      }
+
+      const tokenPayload = jwtDecode(data.access_token);
+      if (tokenPayload.role !== "admin") {
+        alert("Access Denied: Admins only.");
+        setLoading(false);
+        setStep("form");
         return;
       }
 
@@ -87,8 +97,6 @@ export default function Login() {
 
   return (
     <div className="h-screen w-full flex" style={{ background: "var(--app-bg)", color: "var(--app-text)" }}>
-
-      {/* LEFT SIDE */}
       <motion.div
         initial={{ opacity: 0, x: -60 }}
         animate={{ opacity: 1, x: 0 }}

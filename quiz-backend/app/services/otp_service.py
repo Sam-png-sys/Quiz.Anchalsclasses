@@ -9,8 +9,7 @@ load_dotenv()
 #  RESEND API KEY
 resend.api_key = os.getenv("RESEND_API_KEY")
 
-# OTP STORE
-otp_store = {}
+from app.config.database import otp_collection
 OTP_EXPIRY = 300  # 5 minutes
 
 
@@ -35,12 +34,15 @@ def send_email(to_email, subject, html_body):
 def generate_otp(email):
     otp = str(random.randint(100000, 999999))
 
-    otp_store[email] = {
-        "otp": otp,
-        "expires": time.time() + OTP_EXPIRY
-    }
-
-    #print(f"OTP (dev): {otp}")
+    otp_collection.update_one(
+        {"email": email},
+        {"$set": {
+            "email": email,
+            "otp": otp,
+            "expires": time.time() + OTP_EXPIRY
+        }},
+        upsert=True
+    )
 
     #  SEND EMAIL
     send_email(
@@ -63,7 +65,7 @@ def generate_otp(email):
 # VERIFY OTP
 
 def verify_otp(email, otp):
-    data = otp_store.get(email)
+    data = otp_collection.find_one({"email": email})
 
     if not data:
         return False
@@ -74,5 +76,5 @@ def verify_otp(email, otp):
     if data["otp"] != otp:
         return False
 
-    del otp_store[email]
+    otp_collection.delete_one({"email": email})
     return True

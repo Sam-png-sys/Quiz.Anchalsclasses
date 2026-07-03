@@ -152,7 +152,7 @@ const DashboardScreen = ({ navigation }) => {
           
           <View style={[styles.logoPfpContainer, { borderColor: accentOption.colors[0] }]}>
             <Image
-              source={require("../assets/images/dranchal_logo.png")}
+              source={require("../../assets/images/dranchal_logo.png")}
               style={styles.logoPfp}
               resizeMode="contain"
             />

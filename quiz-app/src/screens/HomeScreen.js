@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useContext } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
-import { AuthContext } from "../context/AuthContext";
+
 import { useAppSettings } from "../context/AppSettingsContext";
 
 const QUIZ_PALETTES = [
@@ -166,7 +166,7 @@ const QuizCard = ({ item, index, onPress, themeColors }) => {
 };
 
 const HomeScreen = ({ navigation }) => {
-  const { email } = useContext(AuthContext);
+
   const { accentOption, themeColors, settings } = useAppSettings();
   const [quizzes, setQuizzes] = useState([]);
   const [attemptSummary, setAttemptSummary] = useState({

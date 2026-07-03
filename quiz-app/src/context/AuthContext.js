@@ -14,10 +14,17 @@ const decodeToken = (token) => {
       base64 += '=';
     }
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-    let str = base64.replace(/=+$/, '');
     let output = '';
-    for (let bc = 0, bs = 0, r1, r2, i = 0; (r2 = str.charAt(i++)); ~r2 && ((bs = bc % 4 ? bs * 64 + r2 : r2), bc++ % 4) ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6 }))) : 0) {
-      r2 = chars.indexOf(r2);
+    let i = 0;
+    while (i < base64.length) {
+      const e1 = chars.indexOf(base64[i++]);
+      const e2 = chars.indexOf(base64[i++]);
+      const e3 = chars.indexOf(base64[i++]);
+      const e4 = chars.indexOf(base64[i++]);
+      if (e1 < 0 || e2 < 0) break;
+      output += String.fromCharCode((e1 << 2) | (e2 >> 4));
+      if (e3 >= 0 && e3 !== 64) output += String.fromCharCode(((e2 & 15) << 4) | (e3 >> 2));
+      if (e4 >= 0 && e4 !== 64) output += String.fromCharCode(((e3 & 3) << 6) | e4);
     }
     try {
       return JSON.parse(decodeURIComponent(

@@ -114,7 +114,7 @@ const LoginScreen = ({ navigation }) => {
             {/* Logo */}
             <View style={[styles.logoWrap, { backgroundColor: "#ffffff", borderRadius: 18, padding: 2 }]}>
               <Image
-                source={require("../assets/images/dranchal_logo.png")}
+                source={require("../../assets/images/dranchal_logo.png")}
                 style={{ width: 62, height: 62, borderRadius: 16 }}
                 resizeMode="contain"
               />
@@ -132,7 +132,7 @@ const LoginScreen = ({ navigation }) => {
             {/* Remember + Forgot */}
             <View style={styles.row}>
               <TouchableOpacity style={styles.checkRow} onPress={() => setRemember(r => !r)} activeOpacity={0.8}>
-                <View style={[styles.checkbox, remember && styles.checkboxOn]}>
+                <View style={[styles.checkbox, remember && { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }]}>
                   {remember && <Text style={styles.tick}>✓</Text>}
                 </View>
                 <Text style={[styles.rememberLabel, { color: themeColors.textSubtle }]}>Remember me</Text>
@@ -149,6 +149,7 @@ const LoginScreen = ({ navigation }) => {
                 onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
                 onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
                 onPress={handleLogin}
+                disabled={loading}
                 style={styles.btnOuter}
               >
                 <LinearGradient colors={accentOption.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.btn}>
@@ -205,7 +206,6 @@ const styles = StyleSheet.create({
   row: { width: "100%", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 30, paddingHorizontal: 2 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   checkbox: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
-  checkboxOn: { backgroundColor: "#e5354a", borderColor: "#e5354a" },
   tick: { color: "#fff", fontSize: 10, fontWeight: "800" },
   rememberLabel: { color: "rgba(255,255,255,0.42)", fontSize: 13, fontWeight: "500" },
   forgot: { color: "#e5354a", fontSize: 13, fontWeight: "600" },

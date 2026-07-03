@@ -22,6 +22,7 @@ question_collection = db["questions"]
 attempt_collection = db["attempts"]
 
 # Indexes
+users_collection.create_index("email", unique=True)
 users_collection.create_index(
     "phone",
     unique=True,
@@ -30,4 +31,8 @@ users_collection.create_index(
 question_collection.create_index("quizId")
 attempt_collection.create_index([("userId", 1), ("quizId", 1)])
 attempt_collection.create_index("submittedAt")
-activity_collection = db["activities"]  
+
+activity_collection = db["activities"]
+otp_collection = db["otp_store"]
+temp_user_collection = db["temp_users"]
+login_session_collection = db["login_sessions"]
