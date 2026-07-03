@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Trophy, Award, ChevronRight, X, Calendar, BookOpen, ArrowLeft
+  Search, Trophy, Award, ChevronRight, X, Calendar, BookOpen, ArrowLeft, Download
 } from "lucide-react";
 import { apiRequest } from "../utils/api";
 import { useNavigate } from "react-router-dom";
@@ -94,6 +94,62 @@ export default function Results() {
 
   const leaderboardData = getLeaderboardData();
 
+  const exportToCSV = () => {
+    if (!leaderboardData || leaderboardData.length === 0) return;
+
+    let headers = [];
+    let rows = [];
+    let filename = "leaderboard_results.csv";
+
+    if (quizFilter === "all") {
+      headers = ["Rank", "Student Name", "Student Email", "Average Score (%)", "Total Attempts"];
+      rows = leaderboardData.map(({ rank, student }) => [
+        rank,
+        student.name || "",
+        student.email || "",
+        student.avgScore || 0,
+        student.totalAttempts || 0,
+      ]);
+      filename = "global_leaderboard.csv";
+    } else {
+      const selectedQuiz = quizzes.find(q => q._id === quizFilter);
+      const quizTitle = selectedQuiz?.title || "Quiz";
+      headers = ["Rank", "Student Name", "Student Email", "Best Score (%)", "Attempts on Quiz"];
+      rows = leaderboardData.map(({ rank, student, scoreValue, attemptsLabel }) => {
+        const match = attemptsLabel.match(/^(\d+)/);
+        const attemptCount = match ? match[1] : 0;
+        return [
+          rank,
+          student.name || "",
+          student.email || "",
+          scoreValue || 0,
+          attemptCount,
+        ];
+      });
+      filename = `${quizTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_leaderboard.csv`;
+    }
+
+    // Convert rows to CSV string
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(val => {
+        const strVal = String(val).replace(/"/g, '""');
+        return strVal.includes(",") || strVal.includes('"') ? `"${strVal}"` : strVal;
+      }).join(","))
+    ].join("\n");
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <AdminShell>
       <main className="max-w-6xl mx-auto w-full px-4 py-8">
@@ -143,6 +199,16 @@ export default function Results() {
               <ChevronRight className="rotate-90" size={16} />
             </div>
           </div>
+
+          {/* EXPORT CSV BUTTON */}
+          <button
+            onClick={exportToCSV}
+            disabled={leaderboardData.length === 0}
+            className="px-5 py-3 rounded-xl border border-cyan-500/20 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+          >
+            <Download size={15} />
+            <span>Export CSV</span>
+          </button>
         </div>
 
         {/* TABLE */}
