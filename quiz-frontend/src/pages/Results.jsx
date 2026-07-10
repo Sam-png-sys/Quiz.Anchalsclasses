@@ -75,6 +75,8 @@ export default function Results() {
             scoreLabel: `${bestAttempt.percentage}%`,
             scoreValue: bestAttempt.percentage,
             attemptsLabel: `${matchingAttempts.length} Attempt${matchingAttempts.length !== 1 ? "s" : ""}`,
+            correctAnswers: bestAttempt.score,
+            totalQuestions: bestAttempt.totalQuestions,
           };
         })
         .filter(item => item !== null)
@@ -102,28 +104,33 @@ export default function Results() {
     let filename = "leaderboard_results.csv";
 
     if (quizFilter === "all") {
-      headers = ["Rank", "Student Name", "Student Email", "Average Score (%)", "Total Attempts"];
+      headers = ["Rank", "Student Name", "Student Email", "Average Score (%)", "Total Attempts", "Correct / Total"];
       rows = leaderboardData.map(({ rank, student }) => [
         rank,
         student.name || "",
         student.email || "",
         student.avgScore || 0,
         student.totalAttempts || 0,
+        "N/A",
       ]);
       filename = "global_leaderboard.csv";
     } else {
       const selectedQuiz = quizzes.find(q => q._id === quizFilter);
       const quizTitle = selectedQuiz?.title || "Quiz";
-      headers = ["Rank", "Student Name", "Student Email", "Best Score (%)", "Attempts on Quiz"];
-      rows = leaderboardData.map(({ rank, student, scoreValue, attemptsLabel }) => {
+      headers = ["Rank", "Student Name", "Student Email", "Best Score (%)", "Attempts on Quiz", "Correct / Total"];
+      rows = leaderboardData.map(({ rank, student, scoreValue, attemptsLabel, correctAnswers, totalQuestions }) => {
         const match = attemptsLabel.match(/^(\d+)/);
         const attemptCount = match ? match[1] : 0;
+        const correctStr = (typeof correctAnswers === "number" && typeof totalQuestions === "number")
+          ? `${correctAnswers}/${totalQuestions}`
+          : "";
         return [
           rank,
           student.name || "",
           student.email || "",
           scoreValue || 0,
           attemptCount,
+          correctStr,
         ];
       });
       filename = `${quizTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_leaderboard.csv`;
