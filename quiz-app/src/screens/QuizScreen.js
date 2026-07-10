@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useContext } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { usePreventScreenCapture } from "expo-screen-capture";
 import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { AuthContext } from "../context/AuthContext";
 
 const { width } = Dimensions.get("window");
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
@@ -157,6 +158,7 @@ const QuizScreen = ({ route, navigation }) => {
 
   const { quizId } = route.params;
   const { accentOption, themeColors, settings } = useAppSettings();
+  const { email } = useContext(AuthContext);
 
   const [quizMeta, setQuizMeta] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -442,7 +444,13 @@ const QuizScreen = ({ route, navigation }) => {
         )}
       </Animated.View>
 
-      <Animated.View style={[styles.scorePill, { opacity: headerFade }]}>
+      <Animated.View style={[styles.metaRow, { opacity: headerFade }]}>
+        <View style={styles.emailBadge}>
+          <Ionicons name="person-circle-outline" size={13} color={themeColors.textSubtle} style={{ marginRight: 5 }} />
+          <Text style={[styles.emailText, { color: themeColors.textSubtle }]} numberOfLines={1}>
+            {email || "Student"}
+          </Text>
+        </View>
         <LinearGradient colors={palette.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.scorePillGrad}>
           <Text style={styles.scorePillTxt}>{answeredCount} answered</Text>
         </LinearGradient>
@@ -636,6 +644,9 @@ const styles = StyleSheet.create({
   scorePill: { alignSelf: "flex-end", marginRight: 20, marginBottom: 6 },
   scorePillGrad: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99 },
   scorePillTxt: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 8 },
+  emailBadge: { flexDirection: "row", alignItems: "center", maxWidth: width * 0.55 },
+  emailText: { fontSize: 11, fontWeight: "600" },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 50 },
   questionCard: { borderRadius: 24, padding: 22, marginBottom: 18, borderWidth: 1, overflow: "hidden" },
