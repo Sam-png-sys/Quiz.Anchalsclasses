@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Trophy, Award, ChevronRight, X, Calendar, BookOpen, ArrowLeft, Download
+  Search, Trophy, Award, ChevronRight, X, Calendar, BookOpen, ArrowLeft, Download 
 } from "lucide-react";
 import { apiRequest } from "../utils/api";
 import { useNavigate } from "react-router-dom";
