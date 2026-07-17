@@ -27,6 +27,7 @@ function TabNavigator() {
 
   return (
     <Tab.Navigator
+      sceneContainerStyle={{ backgroundColor: themeColors.background }}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ color, size, focused }) => {
@@ -47,7 +48,7 @@ function TabNavigator() {
         tabBarActiveTintColor: accentOption.colors[0],
         tabBarInactiveTintColor: themeColors.textGhost || themeColors.textSubtle,
         tabBarStyle: {
-          backgroundColor: themeColors.surface,
+          backgroundColor: themeColors.isLight ? themeColors.surface : themeColors.background,
           borderTopColor: themeColors.border,
           borderTopWidth: 1,
           height: 64,
