@@ -4,7 +4,8 @@ import {
   Users, Search, X, ToggleLeft, ToggleRight,
   ChevronDown, TrendingUp, CheckCircle2, XCircle,
   ArrowUpDown, ArrowLeft, Mail, Phone,
-  SlidersHorizontal, Download, Shield, BookOpen, Check, Save
+  SlidersHorizontal, Download, Shield, BookOpen, Check, Save,
+  FileText, ExternalLink
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../utils/api";
@@ -35,7 +36,9 @@ export default function Students() {
   const [sortOpen, setSortOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterTag, setFilterTag] = useState("All");
+  const [filterCategory, setFilterCategory] = useState("All");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, avgScore: 0 });
@@ -196,12 +199,14 @@ export default function Students() {
     .filter(s => {
       const matchSearch = s.name?.toLowerCase().includes(search.toLowerCase()) ||
         s.email?.toLowerCase().includes(search.toLowerCase()) ||
-        s.phone?.includes(search);
+        s.phone?.includes(search) ||
+        s.collegeName?.toLowerCase().includes(search.toLowerCase());
       const matchStatus = filterStatus === "All" ||
         (filterStatus === "Active" && s.isActive) ||
         (filterStatus === "Inactive" && !s.isActive);
       const matchTag = filterTag === "All" || s.branch === filterTag;
-      return matchSearch && matchStatus && matchTag;
+      const matchCategory = filterCategory === "All" || (s.category || "General") === filterCategory;
+      return matchSearch && matchStatus && matchTag && matchCategory;
     })
     .sort((a, b) => {
       if (sort === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
@@ -213,7 +218,7 @@ export default function Students() {
       return 0;
     });
 
-  const activeFilters = [filterStatus, filterTag].filter(f => f !== "All").length;
+  const activeFilters = [filterStatus, filterTag, filterCategory].filter(f => f !== "All").length;
 
   // Search filtered courses & quizzes for modal editor
   const filteredCourses = courses.filter(c =>
@@ -284,7 +289,7 @@ export default function Students() {
           <div className="flex-1 relative">
             <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, email or phone..."
+              placeholder="Search by name, email, phone, college..."
               className="w-full pl-10 pr-10 py-3 rounded-xl bg-[#0c0c18] border border-white/[0.06] text-sm text-white placeholder:text-white/20 outline-none focus:border-cyan-500/40 transition-all" />
             {search && (
               <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">
@@ -327,8 +332,9 @@ export default function Students() {
               <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-5 flex flex-wrap gap-6">
                 <FilterGroup label="Status" options={["All", "Active", "Inactive"]} value={filterStatus} onChange={setFilterStatus} />
                 <FilterGroup label="Branch" options={["All", "BDS", "MDS"]} value={filterTag} onChange={setFilterTag} />
+                <FilterGroup label="Category" options={["All", "General", "OBC", "SC", "ST", "EWS"]} value={filterCategory} onChange={setFilterCategory} />
                 {activeFilters > 0 && (
-                  <button onClick={() => { setFilterStatus("All"); setFilterTag("All"); }}
+                  <button onClick={() => { setFilterStatus("All"); setFilterTag("All"); setFilterCategory("All"); }}
                     className="self-end text-[12px] font-semibold text-red-400/70 hover:text-red-400 transition-colors">
                     Clear all
                   </button>
@@ -359,8 +365,8 @@ export default function Students() {
         ) : (
           <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-6 py-3.5 border-b border-white/[0.05] bg-white/[0.02]">
-              {["", "Student", "Branch", "Avg Score", "Attempts", "Access"].map(h => (
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-4 px-6 py-3.5 border-b border-white/[0.05] bg-white/[0.02]">
+              {["", "Student", "Category", "Proof Doc", "Avg Score", "Attempts", "Access"].map(h => (
                 <span key={h} className="text-[10px] font-bold text-white/25 uppercase tracking-widest">{h}</span>
               ))}
             </div>
@@ -368,10 +374,14 @@ export default function Students() {
             <motion.div variants={stagger} initial="hidden" animate="show">
               {processed.map((student) => {
                 const id = student._id || student.id;
+                const docUrl = student.enrollmentProofUrl
+                  ? (student.enrollmentProofUrl.startsWith("http") ? student.enrollmentProofUrl : `${API_BASE}${student.enrollmentProofUrl}`)
+                  : null;
+
                 return (
                   <motion.div key={id} variants={fadeUp}
                     onClick={() => setSelectedStudent(student)}
-                    className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 items-center px-6 py-4 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors group cursor-pointer">
+                    className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-4 items-center px-6 py-4 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors group cursor-pointer">
 
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/10 flex items-center justify-center text-sm font-bold text-cyan-400 flex-shrink-0">
@@ -384,10 +394,27 @@ export default function Students() {
                       <p className="text-[11px] text-white/35 truncate mt-0.5">{student.email || student.phone || "—"}</p>
                     </div>
 
-                    {/* Branch */}
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${student.branch === "BDS" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-purple-500/10 text-purple-400 border-purple-500/20"}`}>
-                      {student.branch || "—"}
+                    {/* Category */}
+                    <span className="text-[10px] font-bold px-2 py-1 rounded-lg border bg-amber-500/10 text-amber-400 border-amber-500/20 whitespace-nowrap">
+                      {student.category || "General"}
                     </span>
+
+                    {/* Proof Doc */}
+                    <div>
+                      {docUrl ? (
+                        <a
+                          href={docUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-all whitespace-nowrap"
+                        >
+                          <FileText size={12} /> View Proof <ExternalLink size={10} />
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-white/20">—</span>
+                      )}
+                    </div>
 
                     {/* Score */}
                     <span className={`text-[13px] font-bold ${(student.avgScore || 0) >= 70 ? "text-emerald-400" : (student.avgScore || 0) >= 50 ? "text-amber-400" : "text-red-400"}`}>
@@ -432,17 +459,39 @@ export default function Students() {
                     <Shield size={20} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Student Permissions</h3>
-                    <p className="text-xs text-white/40 mt-0.5">Manage which courses and quizzes {selectedStudent.name} can access</p>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-white">{selectedStudent.name}</h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                        {selectedStudent.category || "General"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/40 mt-0.5">
+                      {selectedStudent.collegeName ? `${selectedStudent.collegeName} • ` : ""}
+                      {selectedStudent.currentCourse || "No Course Specified"}
+                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelectedStudent(null)}
-                  className="w-8 h-8 rounded-lg border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
-                >
-                  <X size={16} />
-                </button>
+
+                <div className="flex items-center gap-3">
+                  {selectedStudent.enrollmentProofUrl && (
+                    <a
+                      href={selectedStudent.enrollmentProofUrl.startsWith("http") ? selectedStudent.enrollmentProofUrl : `${API_BASE}${selectedStudent.enrollmentProofUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold transition-all"
+                    >
+                      <FileText size={14} /> View Enrollment Proof <ExternalLink size={12} />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setSelectedStudent(null)}
+                    className="w-8 h-8 rounded-lg border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
+
 
               {/* Modal Content */}
               <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0">

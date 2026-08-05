@@ -15,6 +15,7 @@ import {
   Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import * as DocumentPicker from "expo-document-picker";
 import API from "../api/client";
 import { AuthContext } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
@@ -29,6 +30,15 @@ const COURSE_OPTIONS = [
   "Intern",
   "Graduated",
   "PG Scholar",
+  "Other",
+];
+
+const CATEGORY_OPTIONS = [
+  "General",
+  "OBC",
+  "SC",
+  "ST",
+  "EWS",
   "Other",
 ];
 
@@ -110,6 +120,8 @@ const SignUpScreen = ({ navigation }) => {
   const [phone, setPhone] = useState("");
   const [collegeName, setCollegeName] = useState("");
   const [currentCourse, setCurrentCourse] = useState(COURSE_OPTIONS[0]);
+  const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
+  const [document, setDocument] = useState(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -126,24 +138,68 @@ const SignUpScreen = ({ navigation }) => {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
+  const handlePickDocument = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*"],
+        copyToCacheDirectory: true,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setDocument(res.assets[0]);
+      } else if (res.type && res.type !== "cancel") {
+        setDocument(res);
+      }
+    } catch (err) {
+      Alert.alert("Error", "Failed to select document");
+    }
+  };
+
   const handleSignUp = async () => {
     if (!name.trim()) return Alert.alert("", "Please enter your name");
     if (!email.trim()) return Alert.alert("", "Please enter your email");
     if (!/^\d{10}$/.test(phone.trim())) return Alert.alert("", "Please enter a valid 10-digit phone number");
     if (!collegeName.trim()) return Alert.alert("", "Please enter your college name");
     if (!currentCourse.trim()) return Alert.alert("", "Please select your current course");
+    if (!category) return Alert.alert("", "Please select your category");
+    if (!document) return Alert.alert("", "Please upload proof of course enrollment (Student ID / Receipt)");
     if (password.length < 6) return Alert.alert("", "Password must be at least 6 characters");
     if (password !== confirm) return Alert.alert("", "Passwords do not match");
     if (!agreed) return Alert.alert("", "Please accept the terms to continue");
 
     setLoading(true);
     try {
+      let uploadedUrl = "";
+      let uploadedName = document.name || "enrollment_proof";
+
+      // Upload document file to backend
+      const formData = new FormData();
+      formData.append("file", {
+        uri: document.uri,
+        name: uploadedName,
+        type: document.mimeType || document.type || "application/octet-stream",
+      });
+
+      try {
+        const uploadRes = await API.post("/auth/upload-document", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        if (uploadRes.data && uploadRes.data.url) {
+          uploadedUrl = uploadRes.data.url;
+        }
+      } catch (uploadErr) {
+        console.warn("Document upload error:", uploadErr?.response?.data || uploadErr);
+        // Continue if backend handled or fallback
+      }
+
       await API.post("/auth/signup", {
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
         collegeName: collegeName.trim(),
         currentCourse: currentCourse.trim(),
+        category: category,
+        enrollmentProofUrl: uploadedUrl,
+        enrollmentProofName: uploadedName,
         password: password.trim(),
         role: "student",
       });
@@ -157,6 +213,7 @@ const SignUpScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
 
   const passwordsMatch = confirm.length > 0 && password === confirm;
 
@@ -245,6 +302,60 @@ const SignUpScreen = ({ navigation }) => {
                   })}
                 </ScrollView>
               </View>
+
+              {/* Category selection */}
+              <View style={[styles.selectWrap, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                <Text style={[styles.selectLabel, { color: themeColors.textGhost }]}>Category *</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
+                  {CATEGORY_OPTIONS.map((cat) => {
+                    const active = category === cat;
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[
+                          styles.courseChip,
+                          active
+                            ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
+                            : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
+                        ]}
+                        onPress={() => setCategory(cat)}
+                      >
+                        <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Enrollment Proof Document */}
+              <TouchableOpacity
+                onPress={handlePickDocument}
+                activeOpacity={0.8}
+                style={[
+                  styles.docPickerPill,
+                  {
+                    backgroundColor: document ? accentOption.colors[0] + "1A" : themeColors.surface,
+                    borderColor: document ? accentOption.colors[0] : themeColors.border,
+                  },
+                ]}
+              >
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={[styles.docPickerLabel, { color: document ? accentOption.colors[0] : themeColors.textGhost }]}>
+                    {document ? "Enrollment Proof Attached ✓" : "Upload Enrollment Proof *"}
+                  </Text>
+                  <Text style={[styles.docPickerVal, { color: themeColors.text }]} numberOfLines={1}>
+                    {document ? (document.name || "Document attached") : "Student ID / Fee Receipt / Admission Slip"}
+                  </Text>
+                </View>
+                <View style={[styles.docBadge, { backgroundColor: accentOption.colors[0] }]}>
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+                    {document ? "Change" : "Browse"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
               <View style={{ width: "100%", gap: 8 }}>
                 <PillInput
                   placeholder="Password"
@@ -374,7 +485,33 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  docPickerPill: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderRadius: 26,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  docPickerLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  docPickerVal: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  docBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+
   pill: { width: "100%", flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 100, paddingHorizontal: 22, paddingVertical: Platform.OS === "ios" ? 15 : 13 },
+
   pillInput: { flex: 1, color: "#fff", fontSize: 15, fontWeight: "500", paddingVertical: 0 },
   showBtn: { color: "rgba(255,255,255,0.38)", fontSize: 13, fontWeight: "600", paddingLeft: 8 },
 

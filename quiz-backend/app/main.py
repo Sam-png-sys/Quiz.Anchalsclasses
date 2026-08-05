@@ -40,6 +40,11 @@ app.include_router(attempt_router)
 app.include_router(admin_router)
 app.include_router(ai_router)
 
+# ── Static uploads directory fallback ──────────────────────────────────────────
+from fastapi.staticfiles import StaticFiles
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.get("/")
 def root():

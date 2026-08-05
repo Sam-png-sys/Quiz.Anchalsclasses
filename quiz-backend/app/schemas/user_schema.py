@@ -15,6 +15,9 @@ class UserRegister(BaseModel):
     role: str
     currentCourse: Optional[str] = ""
     collegeName: Optional[str] = ""
+    category: Optional[str] = "General"
+    enrollmentProofUrl: Optional[str] = ""
+    enrollmentProofName: Optional[str] = ""
 
 
 class UserLogin(BaseModel):
