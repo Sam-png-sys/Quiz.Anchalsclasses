@@ -43,8 +43,8 @@ async def generate_quiz(
     studyMaterialName: str = Form(""),
     admin=Depends(admin_only),
 ):
-    if questionCount < 1 or questionCount > 30:
-        raise HTTPException(status_code=400, detail="Question count must be between 1 and 30")
+    if questionCount < 1 or questionCount > 300:
+        raise HTTPException(status_code=400, detail="Question count must be between 1 and 300")
     if duration < 1:
         raise HTTPException(status_code=400, detail="Duration must be at least 1 minute")
 
