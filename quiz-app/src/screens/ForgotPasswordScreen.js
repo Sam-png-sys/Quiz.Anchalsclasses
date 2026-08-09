@@ -10,6 +10,7 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import API from "../api/client";
@@ -87,10 +88,12 @@ export default function ForgotPasswordScreen({ navigation }) {
             <Text style={[styles.backText, { color: themeColors.textMuted }]}>Back</Text>
           </TouchableOpacity>
 
-          <View style={styles.logoWrap}>
-            <LinearGradient colors={accentOption.colors} style={styles.logo}>
-              <Text style={styles.logoText}>A</Text>
-            </LinearGradient>
+          <View style={[styles.logoWrap, { backgroundColor: "#ffffff", borderRadius: 18, padding: 2 }]}>
+            <Image
+              source={require("../../assets/images/dranchal_logo.png")}
+              style={{ width: 62, height: 62, borderRadius: 16 }}
+              resizeMode="contain"
+            />
           </View>
 
           <Text style={[styles.title, { color: themeColors.text }]}>Reset Password</Text>
@@ -225,7 +228,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   backText: { fontSize: 13, fontWeight: "700" },
-  logoWrap: { alignItems: "center", marginBottom: 24 },
+  logoWrap: { alignSelf: "center", marginBottom: 24 },
   logo: {
     width: 58,
     height: 58,

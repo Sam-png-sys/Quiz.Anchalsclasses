@@ -54,12 +54,12 @@ export default function Navbar() {
     >
 
       {/* Left — Logo */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
-          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 14px 24px var(--accent-glow)" }}
+          className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg bg-white p-0.5"
+          style={{ boxShadow: "0 4px 14px var(--accent-glow)" }}
         >
-          <Shield size={15} className="text-white" />
+          <img src="/dranchal_logo.png" alt="Logo" className="w-full h-full rounded-lg object-contain" />
         </div>
         <div>
           <span className="text-[15px] font-bold tracking-tight" style={{ color: "var(--app-text)" }}>Dr. Anchal</span>

@@ -62,39 +62,40 @@ export default function Signup() {
 
   // ================= VERIFY OTP =================
   const handleVerify = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const res = await fetch(`${API_BASE}/auth/verify-otp`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: signupEmail,
-        otp,
-      }),
-    });
+      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: signupEmail,
+          otp,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      alert(data.detail || "Invalid OTP");
-      return;
+      if (!res.ok) {
+        alert(data.detail || "Invalid OTP");
+        return;
+      }
+
+      // New flow
+      alert("Signup successful! Please login.");
+
+      window.location.href = "/login";
+
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // New flow
-    alert("Signup successful! Please login.");
-
-    window.location.href = "/login";
-
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
-  } finally {
-    setLoading(false);
-  }
-};
   return (
     <div className="h-screen w-full flex bg-[#0B0F1A] text-white">
 
@@ -105,6 +106,10 @@ export default function Signup() {
         className="w-1/2 flex items-center justify-center"
       >
         <div className="w-[380px]">
+
+          <div className="w-16 h-16 rounded-2xl bg-white p-1 shadow-lg mb-6 flex items-center justify-center">
+            <img src="/dranchal_logo.png" alt="Logo" className="w-full h-full rounded-xl object-contain" />
+          </div>
 
           <h1 className="text-4xl font-semibold mb-2">
             Create Account

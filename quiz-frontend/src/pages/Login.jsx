@@ -103,6 +103,10 @@ export default function Login() {
       >
         <div className="w-[380px]">
 
+          <div className="w-16 h-16 rounded-2xl bg-white p-1 shadow-lg mb-6 flex items-center justify-center">
+            <img src="/dranchal_logo.png" alt="Logo" className="w-full h-full rounded-xl object-contain" />
+          </div>
+
           <h1 className="text-4xl font-semibold mb-2" style={{ color: "var(--app-text)" }}>Welcome back</h1>
           <p className="mb-8" style={{ color: "var(--app-text-muted)" }}>
             Please enter your details.
