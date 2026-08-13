@@ -21,7 +21,9 @@ export const APP_THEMES = {
     textSubtle: "#6b7280",
     textGhost: "#4b5563",
     danger: "#ef4444",
+    error: "#ef4444",
     success: "#10b981",
+    primary: "#7c3aed",
   },
   light: {
     isLight: true,
@@ -36,10 +38,13 @@ export const APP_THEMES = {
     textSubtle: "#64748b",
     textGhost: "#94a3b8",
     danger: "#dc2626",
+    error: "#dc2626",
     success: "#059669",
+    primary: "#7c3aed",
   },
 };
 
 export function getAccentOption(accentId) {
   return ACCENT_OPTIONS.find((option) => option.id === accentId) || ACCENT_OPTIONS[0];
 }
+

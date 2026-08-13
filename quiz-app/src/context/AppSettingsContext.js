@@ -58,7 +58,12 @@ export function AppSettingsProvider({ children }) {
 
   const value = useMemo(() => {
     const accentOption = getAccentOption(settings.accent);
-    const themeColors = APP_THEMES[settings.theme] || APP_THEMES.dark;
+    const baseTheme = APP_THEMES[settings.theme] || APP_THEMES.dark;
+    const themeColors = {
+      ...baseTheme,
+      primary: accentOption.colors[0],
+      error: baseTheme.danger || "#ef4444",
+    };
 
     return {
       ready,

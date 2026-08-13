@@ -4,15 +4,18 @@ import { NavigationContainer } from "@react-navigation/native";
 import { AuthProvider } from "./src/context/AuthContext";
 import { AppSettingsProvider } from "./src/context/AppSettingsContext";
 import AppNavigator from "./src/navigation/AppNavigator";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppSettingsProvider>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
-      </AppSettingsProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppSettingsProvider>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </AppSettingsProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

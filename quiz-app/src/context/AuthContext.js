@@ -59,11 +59,19 @@ export const AuthProvider = ({ children }) => {
         const storedCourse = await AsyncStorage.getItem("currentCourse");
         const storedCollege = await AsyncStorage.getItem("collegeName");
 
-        if (storedEmail) setEmail(storedEmail);
-        if (storedToken) setUserToken(storedToken);
-        if (storedName) setName(storedName);
-        if (storedCourse) setCurrentCourse(storedCourse);
-        if (storedCollege) setCollegeName(storedCollege);
+        if (storedToken) {
+          const decoded = decodeToken(storedToken);
+          if (decoded && decoded.exp && decoded.exp * 1000 < Date.now()) {
+            console.log("Token expired, clearing auth state");
+            await AsyncStorage.multiRemove(["token", "email", "name", "currentCourse", "collegeName"]);
+          } else {
+            setUserToken(storedToken);
+            if (storedEmail) setEmail(storedEmail);
+            if (storedName) setName(storedName);
+            if (storedCourse) setCurrentCourse(storedCourse);
+            if (storedCollege) setCollegeName(storedCollege);
+          }
+        }
       } catch (error) {
         console.log("AUTH STATE LOAD ERROR", error?.message || error);
       } finally {

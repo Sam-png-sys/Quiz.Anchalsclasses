@@ -14,10 +14,13 @@ import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
 
 const StudyMaterialsScreen = ({ navigation }) => {
-  const { themeColors, settings } = useAppSettings();
+  const { themeColors, accentOption, settings } = useAppSettings();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const primaryColor = accentOption?.colors?.[0] || themeColors.primary || "#7c3aed";
+  const errorColor = themeColors.danger || themeColors.error || "#ef4444";
 
   useEffect(() => {
     fetchMaterials();
@@ -26,10 +29,17 @@ const StudyMaterialsScreen = ({ navigation }) => {
   const fetchMaterials = async () => {
     try {
       setLoading(true);
-      const res = await API.get("/quiz/");
-      const data = res.data;
+      setError(null);
+      const res = await API.get("/quiz/?page=1&limit=50");
+      const quizData = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.quizzes)
+          ? res.data.quizzes
+          : Array.isArray(res.data?.data)
+            ? res.data.data
+            : [];
       
-      const materials = data.filter(q => q.studyMaterialUrl);
+      const materials = quizData.filter(q => q && q.studyMaterialUrl);
       setQuizzes(materials);
     } catch (err) {
       setError("Could not load study materials.");
@@ -73,11 +83,11 @@ const StudyMaterialsScreen = ({ navigation }) => {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={themeColors.primary} />
+          <ActivityIndicator size="large" color={primaryColor} />
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
-          <Text style={[styles.errorText, { color: themeColors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: errorColor }]}>{error}</Text>
         </View>
       ) : quizzes.length === 0 ? (
         <View style={styles.centerContainer}>
@@ -108,12 +118,12 @@ const StudyMaterialsScreen = ({ navigation }) => {
                         <View style={styles.itemsGrid}>
                           {items.map((quiz) => (
                             <TouchableOpacity
-                              key={quiz._id}
+                              key={quiz._id || quiz.id}
                               style={[styles.materialCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                               onPress={() => handleOpenPdf(quiz.studyMaterialUrl)}
                             >
-                              <View style={[styles.iconContainer, { backgroundColor: themeColors.primary + "1A" }]}>
-                                <Ionicons name="document-text" size={20} color={themeColors.primary} />
+                              <View style={[styles.iconContainer, { backgroundColor: primaryColor + "1A" }]}>
+                                <Ionicons name="document-text" size={20} color={primaryColor} />
                               </View>
                               <View style={styles.materialInfo}>
                                 <Text style={[styles.materialName, { color: themeColors.text }]} numberOfLines={2}>
@@ -123,7 +133,7 @@ const StudyMaterialsScreen = ({ navigation }) => {
                                   Quiz: {quiz.title}
                                 </Text>
                               </View>
-                              <Ionicons name="download-outline" size={20} color={themeColors.primary} />
+                              <Ionicons name="download-outline" size={20} color={primaryColor} />
                             </TouchableOpacity>
                           ))}
                         </View>
