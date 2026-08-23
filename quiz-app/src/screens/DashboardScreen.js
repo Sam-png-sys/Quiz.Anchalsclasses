@@ -36,7 +36,7 @@ const DashboardScreen = ({ navigation }) => {
   const fetchData = async () => {
     try {
       // 1. Fetch quizzes
-      const quizRes = await API.get("/quiz/?page=1&limit=50");
+      const quizRes = await API.get("/quiz/?page=1&limit=1000");
       const quizData = Array.isArray(quizRes.data)
         ? quizRes.data
         : Array.isArray(quizRes.data.quizzes)

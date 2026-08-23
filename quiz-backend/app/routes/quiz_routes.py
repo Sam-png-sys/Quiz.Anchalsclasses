@@ -14,7 +14,7 @@ router = APIRouter(prefix="/quiz", tags=["Quiz"])
 @router.get("/")
 def fetch_quizzes(
     page: int = Query(1, ge=1),
-    limit: int = Query(10, le=50),
+    limit: int = Query(1000, ge=1, le=5000),
     user=Depends(get_current_user),
 ):
     return get_quizzes(user_id=user.get("user_id"), page=page, limit=limit)

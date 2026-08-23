@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, SafeAreaView, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 export class ErrorBoundary extends Component {

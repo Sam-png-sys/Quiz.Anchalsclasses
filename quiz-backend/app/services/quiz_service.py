@@ -2,7 +2,7 @@ from bson import ObjectId
 from app.config.database import quiz_collection, question_collection, users_collection
 
 
-def get_quizzes(user_id: str = None, page: int = 1, limit: int = 10):
+def get_quizzes(user_id: str = None, page: int = 1, limit: int = 1000):
     skip = (page - 1) * limit
 
     query = {"isOpen": True}

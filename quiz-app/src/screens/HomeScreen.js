@@ -10,10 +10,11 @@ import {
   StatusBar,
   RefreshControl,
   TextInput,
-  ScrollView,
+  BackHandler,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 
 import { useAppSettings } from "../context/AppSettingsContext";
@@ -78,8 +79,8 @@ const QuizCard = ({ item, index, onPress, themeColors }) => {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, delay: index * 80, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 10, delay: index * 80, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, delay: index * 60, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 10, delay: index * 60, useNativeDriver: true }),
     ]).start();
   }, [fadeAnim, index, slideAnim]);
 
@@ -165,40 +166,89 @@ const QuizCard = ({ item, index, onPress, themeColors }) => {
   );
 };
 
-const HomeScreen = ({ navigation }) => {
+const FolderCard = ({ title, subTitle, badgeCount, completedCount, index, onPress, themeColors, iconName }) => {
+  const colors = QUIZ_PALETTES[index % QUIZ_PALETTES.length];
 
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={[
+        styles.folderCard,
+        {
+          backgroundColor: themeColors.surface,
+          borderColor: themeColors.border,
+        },
+      ]}
+    >
+      <View style={[styles.folderIconWrap, { backgroundColor: colors[0] + "1A" }]}>
+        <Ionicons name={iconName || "folder-open"} size={26} color={colors[0]} />
+      </View>
+
+      <View style={styles.folderInfo}>
+        <Text style={[styles.folderTitle, { color: themeColors.text }]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={[styles.folderSubTitle, { color: themeColors.textSubtle }]} numberOfLines={1}>
+          {subTitle}
+        </Text>
+      </View>
+
+      <View style={styles.folderRight}>
+        {badgeCount != null && (
+          <View style={[styles.countPill, { backgroundColor: colors[0] + "18" }]}>
+            <Text style={[styles.countPillText, { color: colors[0] }]}>{badgeCount}</Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={20} color={themeColors.textGhost || "#888"} />
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const HomeScreen = ({ navigation }) => {
   const { accentOption, themeColors, settings } = useAppSettings();
   const [quizzes, setQuizzes] = useState([]);
-  const [attemptSummary, setAttemptSummary] = useState({
-    completedCount: 0,
-    completedQuizIds: [],
-    bestScore: null,
-  });
+
+  // Hierarchy Navigation State: Course -> Subject -> SubSubject -> Quizzes
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedSubSubject, setSelectedSubSubject] = useState(null);
+
   const [searchText, setSearchText] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [courseFilter, setCourseFilter] = useState("all");
-  const [subjectFilter, setSubjectFilter] = useState("all");
-  const [sortMode, setSortMode] = useState("title");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const headerFade = useRef(new Animated.Value(0)).current;
-  const headerSlide = useRef(new Animated.Value(-20)).current;
   const searchInputRef = useRef(null);
 
+  // Hardware Back Handler for stepping back hierarchy levels
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(headerFade, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.spring(headerSlide, { toValue: 0, tension: 70, friction: 10, useNativeDriver: true }),
-    ]).start();
-  }, [headerFade, headerSlide]);
+    const onBackPress = () => {
+      if (selectedSubSubject !== null) {
+        setSelectedSubSubject(null);
+        return true;
+      }
+      if (selectedSubject !== null) {
+        setSelectedSubject(null);
+        return true;
+      }
+      if (selectedCourse !== null) {
+        setSelectedCourse(null);
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => subscription.remove();
+  }, [selectedCourse, selectedSubject, selectedSubSubject]);
 
   const fetchQuizzes = async () => {
     try {
       setError("");
-      const quizRes = await API.get("/quiz/?page=1&limit=50");
+      // Fetch up to 1000 quizzes (all 98+ quizzes available)
+      const quizRes = await API.get("/quiz/?page=1&limit=1000");
       let serverSummary = {};
       try {
         const summaryRes = await API.get("/attempt/summary");
@@ -216,11 +266,6 @@ const HomeScreen = ({ navigation }) => {
             ? quizRes.data.data
             : [];
       const completedIds = new Set(summary.completedQuizIds || []);
-      setAttemptSummary({
-        completedCount: summary.completedCount || 0,
-        completedQuizIds: summary.completedQuizIds || [],
-        bestScore: summary.bestScore ?? null,
-      });
       setQuizzes(quizData.map((quiz) => ({
         ...quiz,
         completed: completedIds.has(quiz._id?.toString() || quiz.id?.toString()),
@@ -244,261 +289,222 @@ const HomeScreen = ({ navigation }) => {
     fetchQuizzes();
   };
 
-  const normalizedSearch = searchText.trim().toLowerCase();
-  const availableCourses = useMemo(() => {
-    const courses = Array.from(new Set(quizzes.map((quiz) => (quiz.course || "").trim()).filter(Boolean)));
-    return ["all", ...courses.sort((a, b) => a.localeCompare(b))];
+  // Derive Hierarchy Level Data
+  const courseCards = useMemo(() => {
+    const map = new Map();
+    quizzes.forEach((q) => {
+      const course = (q.course || "General").trim();
+      if (!map.has(course)) {
+        map.set(course, { title: course, totalQuizzes: 0, subjects: new Set(), completedCount: 0 });
+      }
+      const item = map.get(course);
+      item.totalQuizzes += 1;
+      if (q.subject) item.subjects.add(q.subject.trim());
+      if (q.completed) item.completedCount += 1;
+    });
+    return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title));
   }, [quizzes]);
 
-  const availableSubjects = useMemo(() => {
-    const subjects = Array.from(new Set(
-      quizzes
-        .filter((quiz) => courseFilter === "all" || (quiz.course || "").trim() === courseFilter)
-        .map((quiz) => (quiz.subject || "").trim())
-        .filter(Boolean)
-    ));
-    return ["all", ...subjects.sort((a, b) => a.localeCompare(b))];
-  }, [courseFilter, quizzes]);
+  const subjectCards = useMemo(() => {
+    if (!selectedCourse) return [];
+    const map = new Map();
+    quizzes.forEach((q) => {
+      if ((q.course || "General").trim() === selectedCourse.trim()) {
+        const subject = (q.subject || "General").trim();
+        if (!map.has(subject)) {
+          map.set(subject, { title: subject, totalQuizzes: 0, subSubjects: new Set(), completedCount: 0 });
+        }
+        const item = map.get(subject);
+        item.totalQuizzes += 1;
+        if (q.subSubject) item.subSubjects.add(q.subSubject.trim());
+        if (q.completed) item.completedCount += 1;
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title));
+  }, [quizzes, selectedCourse]);
 
-  useEffect(() => {
-    if (!availableSubjects.includes(subjectFilter)) {
-      setSubjectFilter("all");
-    }
-  }, [availableSubjects, subjectFilter]);
+  const subSubjectCards = useMemo(() => {
+    if (!selectedCourse || !selectedSubject) return [];
+    const map = new Map();
+    quizzes.forEach((q) => {
+      if (
+        (q.course || "General").trim() === selectedCourse.trim() &&
+        (q.subject || "General").trim() === selectedSubject.trim()
+      ) {
+        const sub = (q.subSubject || "General").trim();
+        if (!map.has(sub)) {
+          map.set(sub, { title: sub, totalQuizzes: 0, completedCount: 0 });
+        }
+        const item = map.get(sub);
+        item.totalQuizzes += 1;
+        if (q.completed) item.completedCount += 1;
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title));
+  }, [quizzes, selectedCourse, selectedSubject]);
 
-  const filteredQuizzes = useMemo(() => {
-    const searchTerms = normalizedSearch.split(/\s+/).filter(Boolean);
+  const leafQuizzes = useMemo(() => {
+    if (!selectedCourse || !selectedSubject || !selectedSubSubject) return [];
+    return quizzes.filter(
+      (q) =>
+        (q.course || "General").trim() === selectedCourse.trim() &&
+        (q.subject || "General").trim() === selectedSubject.trim() &&
+        (q.subSubject || "General").trim() === selectedSubSubject.trim()
+    );
+  }, [quizzes, selectedCourse, selectedSubject, selectedSubSubject]);
 
-    const filtered = quizzes.filter((quiz) => {
-      const matchesFilter =
-        filter === "all"
-        || (filter === "completed" && quiz.completed)
-        || (filter === "available" && !quiz.completed);
-      const matchesCourse = courseFilter === "all" || (quiz.course || "").trim() === courseFilter;
-      const matchesSubject = subjectFilter === "all" || (quiz.subject || "").trim() === subjectFilter;
+  // Global Search Filtering across all 98+ quizzes
+  const searchResults = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    if (!query) return null;
 
-      if (!matchesFilter || !matchesCourse || !matchesSubject) return false;
-      if (!searchTerms.length) return true;
-
-      const searchableText = [
+    const terms = query.split(/\s+/).filter(Boolean);
+    return quizzes.filter((quiz) => {
+      const text = [
         quiz.title,
         quiz.description,
-        quiz.difficulty,
         quiz.course,
         quiz.subject,
-        quiz.question_count != null ? `${quiz.question_count} questions` : "",
-        quiz.duration != null ? `${quiz.duration} minutes` : "",
-        quiz.id,
-        quiz._id,
-      ].map((value) => String(value || "").toLowerCase()).join(" ");
+        quiz.subSubject,
+        quiz.difficulty,
+      ]
+        .map((v) => String(v || "").toLowerCase())
+        .join(" ");
 
-      return searchTerms.every((term) => searchableText.includes(term));
+      return terms.every((t) => text.includes(t));
     });
+  }, [quizzes, searchText]);
 
-    return filtered.sort((a, b) => {
-      if (sortMode === "course") {
-        const courseCompare = (a.course || "").localeCompare(b.course || "");
-        if (courseCompare !== 0) return courseCompare;
-      }
-      if (sortMode === "subject") {
-        const subjectCompare = (a.subject || "").localeCompare(b.subject || "");
-        if (subjectCompare !== 0) return subjectCompare;
-      }
-      if (sortMode === "duration") {
-        return (Number(a.duration) || 0) - (Number(b.duration) || 0);
-      }
-      return (a.title || "").localeCompare(b.title || "");
-    });
-  }, [courseFilter, filter, normalizedSearch, quizzes, sortMode, subjectFilter]);
+  // Handle Step Back in Hierarchy
+  const handleStepBack = () => {
+    if (selectedSubSubject) {
+      setSelectedSubSubject(null);
+    } else if (selectedSubject) {
+      setSelectedSubject(null);
+    } else if (selectedCourse) {
+      setSelectedCourse(null);
+    }
+  };
 
-  const activeFilterCount = [
-    filter !== "all",
-    courseFilter !== "all",
-    subjectFilter !== "all",
-    sortMode !== "title",
-  ].filter(Boolean).length;
+  // Determine current active level
+  const isSearching = searchResults !== null;
+  const currentLevel = isSearching
+    ? "search"
+    : selectedSubSubject
+    ? "quizzes"
+    : selectedSubject
+    ? "subSubjects"
+    : selectedCourse
+    ? "subjects"
+    : "courses";
 
-  const listHeader = (
-    <Animated.View style={[styles.headerBlock, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
-      <View style={[styles.headerTop, { marginBottom: 16, marginTop: 15 }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: themeColors.text, fontSize: 24 }]}>Quiz Papers</Text>
-          <Text style={[styles.greeting, { color: themeColors.textSubtle }]}>Select a quiz to test your knowledge</Text>
+  const primaryColor = accentOption?.colors?.[0] || "#7c3aed";
+
+  const renderHeader = () => (
+    <View style={styles.headerBlock}>
+      <View style={styles.headerTop}>
+        <View style={styles.titleWrap}>
+          {currentLevel !== "courses" && currentLevel !== "search" && (
+            <TouchableOpacity activeOpacity={0.8} onPress={handleStepBack} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={22} color={themeColors.text} />
+            </TouchableOpacity>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
+              {isSearching
+                ? "Search Results"
+                : selectedSubSubject
+                ? selectedSubSubject
+                : selectedSubject
+                ? selectedSubject
+                : selectedCourse
+                ? selectedCourse
+                : "Course Catalog"}
+            </Text>
+            <Text style={[styles.greeting, { color: themeColors.textSubtle }]} numberOfLines={1}>
+              {isSearching
+                ? `Found ${searchResults.length} matching quiz${searchResults.length !== 1 ? "zes" : ""}`
+                : selectedSubSubject
+                ? `Select a quiz paper to begin`
+                : selectedSubject
+                ? `Choose a sub-subject`
+                : selectedCourse
+                ? `Choose a subject`
+                : `Select a course to explore subjects & quizzes`}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View style={styles.searchAndMenuRow}>
-        <TouchableOpacity
-          activeOpacity={0.95}
-          onPress={() => searchInputRef.current?.focus()}
-          style={[styles.searchBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-        >
-          <Text style={[styles.searchIcon, { color: themeColors.textGhost }]}>Search</Text>
-          <TextInput
-            ref={searchInputRef}
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Search quizzes"
-            placeholderTextColor={themeColors.textGhost}
-            style={[styles.searchInput, { color: themeColors.text }]}
-            autoCorrect={false}
-            autoCapitalize="none"
-            clearButtonMode="while-editing"
-          />
-          {!!searchText && (
-            <TouchableOpacity onPress={() => setSearchText("")} style={styles.clearSearchBtn}>
-              <Text style={[styles.clearSearchText, { color: themeColors.textSubtle }]}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => setFiltersOpen((value) => !value)}
-          style={[
-            styles.menuButton,
-            filtersOpen || activeFilterCount
-              ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-              : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-          ]}
-        >
-          <View style={[styles.menuLine, { backgroundColor: filtersOpen || activeFilterCount ? "#fff" : themeColors.textSubtle }]} />
-          <View style={[styles.menuLine, { backgroundColor: filtersOpen || activeFilterCount ? "#fff" : themeColors.textSubtle }]} />
-          <View style={[styles.menuLine, { backgroundColor: filtersOpen || activeFilterCount ? "#fff" : themeColors.textSubtle }]} />
-          {activeFilterCount > 0 && (
-            <View style={styles.menuBadge}>
-              <Text style={styles.menuBadgeText}>{activeFilterCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {filtersOpen && (
-        <View style={[styles.organizePanel, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-          <View style={styles.organizeHeader}>
-            <Text style={[styles.sortLabel, { color: themeColors.textGhost }]}>VIEW</Text>
-            {activeFilterCount > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setFilter("all");
-                  setCourseFilter("all");
-                  setSubjectFilter("all");
-                  setSortMode("title");
-                }}
-              >
-                <Text style={[styles.clearFiltersText, { color: accentOption.colors[0] }]}>Clear</Text>
+      {/* Breadcrumb Bar */}
+      {!isSearching && (selectedCourse || selectedSubject || selectedSubSubject) && (
+        <View style={[styles.breadcrumbRow, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <TouchableOpacity onPress={() => { setSelectedCourse(null); setSelectedSubject(null); setSelectedSubSubject(null); }}>
+            <Text style={[styles.crumbText, { color: primaryColor }]}>Courses</Text>
+          </TouchableOpacity>
+          {selectedCourse && (
+            <>
+              <Ionicons name="chevron-forward" size={12} color={themeColors.textGhost} />
+              <TouchableOpacity onPress={() => { setSelectedSubject(null); setSelectedSubSubject(null); }}>
+                <Text style={[styles.crumbText, { color: selectedSubject ? primaryColor : themeColors.text }]} numberOfLines={1}>
+                  {selectedCourse}
+                </Text>
               </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.filterRow}>
-            {[
-              { key: "all", label: "All" },
-              { key: "available", label: "New" },
-              { key: "completed", label: "Completed" },
-            ].map((item) => {
-              const active = filter === item.key;
-              return (
-                <TouchableOpacity
-                  key={item.key}
-                  style={[
-                    styles.filterChip,
-                    active
-                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
-                  ]}
-                  onPress={() => setFilter(item.key)}
-                >
-                  <Text style={[styles.filterChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={[styles.filterSectionTitle, { color: themeColors.textGhost }]}>SORT</Text>
-          <View style={styles.sortRow}>
-            {[
-              { key: "title", label: "Title" },
-              { key: "course", label: "Course" },
-              { key: "subject", label: "Subject" },
-              { key: "duration", label: "Duration" },
-            ].map((item) => {
-              const active = sortMode === item.key;
-              return (
-                <TouchableOpacity
-                  key={item.key}
-                  style={[
-                    styles.sortChip,
-                    active
-                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
-                  ]}
-                  onPress={() => setSortMode(item.key)}
-                >
-                  <Text style={[styles.sortChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={[styles.filterSectionTitle, { color: themeColors.textGhost }]}>COURSES</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
-            {availableCourses.map((course) => {
-              const active = courseFilter === course;
-              const label = course === "all" ? "All Courses" : course;
-              return (
-                <TouchableOpacity
-                  key={course}
-                  style={[
-                    styles.courseChip,
-                    active
-                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
-                  ]}
-                  onPress={() => setCourseFilter(course)}
-                >
-                  <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          <Text style={[styles.filterSectionTitle, { color: themeColors.textGhost }]}>SUBJECTS</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseChipRow}>
-            {availableSubjects.map((subject) => {
-              const active = subjectFilter === subject;
-              const label = subject === "all" ? "All Subjects" : subject;
-              return (
-                <TouchableOpacity
-                  key={subject}
-                  style={[
-                    styles.courseChip,
-                    active
-                      ? { backgroundColor: accentOption.colors[0], borderColor: accentOption.colors[0] }
-                      : { backgroundColor: themeColors.surfaceStrong, borderColor: themeColors.border },
-                  ]}
-                  onPress={() => setSubjectFilter(subject)}
-                >
-                  <Text style={[styles.courseChipText, { color: active ? "#fff" : themeColors.textSubtle }]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+            </>
+          )}
+          {selectedSubject && (
+            <>
+              <Ionicons name="chevron-forward" size={12} color={themeColors.textGhost} />
+              <TouchableOpacity onPress={() => setSelectedSubSubject(null)}>
+                <Text style={[styles.crumbText, { color: selectedSubSubject ? primaryColor : themeColors.text }]} numberOfLines={1}>
+                  {selectedSubject}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {selectedSubSubject && (
+            <>
+              <Ionicons name="chevron-forward" size={12} color={themeColors.textGhost} />
+              <Text style={[styles.crumbText, { color: themeColors.text }]} numberOfLines={1}>
+                {selectedSubSubject}
+              </Text>
+            </>
+          )}
         </View>
       )}
 
+      {/* Search Input Bar */}
+      <View style={[styles.searchBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+        <Ionicons name="search-outline" size={18} color={themeColors.textGhost || "#888"} />
+        <TextInput
+          ref={searchInputRef}
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search all 98+ quizzes by title or topic…"
+          placeholderTextColor={themeColors.textGhost}
+          style={[styles.searchInput, { color: themeColors.text }]}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+        {!!searchText && (
+          <TouchableOpacity onPress={() => setSearchText("")} style={styles.clearSearchBtn}>
+            <Ionicons name="close-circle" size={18} color={themeColors.textSubtle} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <Text style={[styles.sectionLabel, { color: themeColors.textGhost }]}>
-        {filter === "completed" ? "COMPLETED QUIZZES" : filter === "available" ? "NEW QUIZZES" : "ALL QUIZZES"} ({filteredQuizzes.length})
+        {currentLevel === "search"
+          ? `MATCHING QUIZZES (${searchResults.length})`
+          : currentLevel === "courses"
+          ? `AVAILABLE COURSES (${courseCards.length})`
+          : currentLevel === "subjects"
+          ? `SUBJECTS IN ${selectedCourse.toUpperCase()} (${subjectCards.length})`
+          : currentLevel === "subSubjects"
+          ? `SUB-SUBJECTS IN ${selectedSubject.toUpperCase()} (${subSubjectCards.length})`
+          : `QUIZZES IN ${selectedSubSubject.toUpperCase()} (${leafQuizzes.length})`}
       </Text>
-    </Animated.View>
+    </View>
   );
 
   if (loading) {
@@ -506,11 +512,8 @@ const HomeScreen = ({ navigation }) => {
       <View style={[styles.loaderWrap, { backgroundColor: themeColors.background }]}>
         <StatusBar barStyle={settings.theme === "light" ? "dark-content" : "light-content"} />
         <LinearGradient colors={[themeColors.background, themeColors.backgroundAlt]} style={StyleSheet.absoluteFill} />
-        <View style={styles.loaderOrb}>
-          <LinearGradient colors={accentOption.colors} style={{ flex: 1, borderRadius: 999 }} />
-        </View>
-        <ActivityIndicator size="large" color={accentOption.colors[0]} />
-        <Text style={[styles.loaderText, { color: themeColors.textSubtle }]}>Loading quizzes…</Text>
+        <ActivityIndicator size="large" color={primaryColor} />
+        <Text style={[styles.loaderText, { color: themeColors.textSubtle }]}>Loading catalog…</Text>
       </View>
     );
   }
@@ -520,41 +523,110 @@ const HomeScreen = ({ navigation }) => {
       <StatusBar barStyle={settings.theme === "light" ? "dark-content" : "light-content"} />
       <LinearGradient colors={[themeColors.background, themeColors.backgroundAlt, themeColors.background]} style={StyleSheet.absoluteFill} />
 
-      <View style={[styles.bgOrb, { opacity: settings.theme === "light" ? 0.08 : 0.15 }]} pointerEvents="none">
-        <LinearGradient colors={accentOption.colors} style={{ flex: 1, borderRadius: 999 }} />
-      </View>
+      {currentLevel === "courses" && (
+        <FlatList
+          data={courseCards}
+          keyExtractor={(item) => item.title}
+          ListHeaderComponent={renderHeader}
+          renderItem={({ item, index }) => (
+            <FolderCard
+              title={item.title}
+              subTitle={`${item.subjects.size} subjects • ${item.totalQuizzes} quizzes`}
+              badgeCount={`${item.totalQuizzes} Qs`}
+              completedCount={item.completedCount}
+              index={index}
+              iconName="school-outline"
+              themeColors={themeColors}
+              onPress={() => setSelectedCourse(item.title)}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No courses found</Text>
+              <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>Check back later for new content</Text>
+            </View>
+          }
+        />
+      )}
 
-      <FlatList
-        data={filteredQuizzes}
-        keyExtractor={(item, i) => item._id?.toString() || item.id || i.toString()}
-        renderItem={({ item, index }) => (
-          <QuizCard
-            item={item}
-            index={index}
-            themeColors={themeColors}
-            onPress={() => navigation.navigate("Quiz", { quizId: item._id?.toString() || item.id })}
-          />
-        )}
-        ListHeaderComponent={listHeader}
-        extraData={{ searchText, filter, attemptSummary, courseFilter, subjectFilter, sortMode }}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={[styles.emptyEyebrow, { color: accentOption.colors[0] }]}>Quiz Feed</Text>
-            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>
-              {error ? "Unable to load quizzes" : quizzes.length ? "No matching quizzes" : "No quizzes yet"}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>
-              {error || (quizzes.length ? "Try a different search or filter" : "Check back soon for new challenges")}
-            </Text>
-          </View>
-        }
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accentOption.colors[0]} />
-        }
-      />
+      {currentLevel === "subjects" && (
+        <FlatList
+          data={subjectCards}
+          keyExtractor={(item) => item.title}
+          ListHeaderComponent={renderHeader}
+          renderItem={({ item, index }) => (
+            <FolderCard
+              title={item.title}
+              subTitle={`${item.subSubjects.size || 1} sub-subjects • ${item.totalQuizzes} quizzes`}
+              badgeCount={`${item.totalQuizzes} Qs`}
+              completedCount={item.completedCount}
+              index={index}
+              iconName="book-outline"
+              themeColors={themeColors}
+              onPress={() => setSelectedSubject(item.title)}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
+        />
+      )}
+
+      {currentLevel === "subSubjects" && (
+        <FlatList
+          data={subSubjectCards}
+          keyExtractor={(item) => item.title}
+          ListHeaderComponent={renderHeader}
+          renderItem={({ item, index }) => (
+            <FolderCard
+              title={item.title}
+              subTitle={`${item.totalQuizzes} quiz paper${item.totalQuizzes !== 1 ? "s" : ""}`}
+              badgeCount={`${item.totalQuizzes}`}
+              completedCount={item.completedCount}
+              index={index}
+              iconName="layers-outline"
+              themeColors={themeColors}
+              onPress={() => setSelectedSubSubject(item.title)}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
+        />
+      )}
+
+      {(currentLevel === "quizzes" || currentLevel === "search") && (
+        <FlatList
+          data={currentLevel === "search" ? searchResults : leafQuizzes}
+          keyExtractor={(item, i) => item._id?.toString() || item.id || i.toString()}
+          ListHeaderComponent={renderHeader}
+          renderItem={({ item, index }) => (
+            <QuizCard
+              item={item}
+              index={index}
+              themeColors={themeColors}
+              onPress={() => navigation.navigate("Quiz", { quizId: item._id?.toString() || item.id })}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Ionicons name="documents-outline" size={48} color={themeColors.textGhost || "#888"} />
+              <Text style={[styles.emptyTitle, { color: themeColors.text }]}>
+                {isSearching ? "No matching quizzes found" : "No quizzes in this section"}
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>
+                {isSearching ? "Try searching with a different keyword" : "Select another subject or sub-subject"}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };
@@ -563,126 +635,82 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  bgOrb: {
-    position: "absolute",
-    width: 300,
-    height: 300,
-    top: -100,
-    right: -80,
-    borderRadius: 999,
-  },
   loaderWrap: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loaderOrb: {
-    position: "absolute",
-    width: 250,
-    height: 250,
-    top: -50,
-    right: -50,
-    opacity: 0.2,
-    borderRadius: 999,
-  },
   loaderText: { marginTop: 14, fontSize: 14, fontWeight: "500" },
-  listContent: { paddingHorizontal: 20, paddingBottom: 40 },
-  headerBlock: { paddingTop: 64, marginBottom: 28 },
-  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 },
-  greeting: { fontSize: 14, fontWeight: "500", marginBottom: 4 },
-  headerTitle: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
-  avatarBtn: { marginTop: 4 },
-  avatar: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  statsRow: { flexDirection: "row", gap: 10, marginBottom: 32 },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 14,
+  listContent: { paddingHorizontal: 18, paddingBottom: 40 },
+  headerBlock: { paddingTop: 54, marginBottom: 16 },
+  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  titleWrap: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
-    borderWidth: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(150, 150, 150, 0.12)",
   },
-  statNumber: { fontSize: 22, fontWeight: "800", marginBottom: 2 },
-  statLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5 },
-  searchAndMenuRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
+  greeting: { fontSize: 13, fontWeight: "500", marginTop: 2 },
+  headerTitle: { fontSize: 22, fontWeight: "800", letterSpacing: -0.3 },
+  breadcrumbRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  crumbText: { fontSize: 12, fontWeight: "700" },
   searchBox: {
-    flex: 1,
-    minHeight: 50,
-    borderRadius: 16,
+    minHeight: 46,
+    borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    marginBottom: 16,
   },
-  menuButton: {
-    width: 50,
-    height: 50,
+  searchInput: { flex: 1, fontSize: 14, fontWeight: "600", paddingVertical: 8 },
+  clearSearchBtn: { padding: 4 },
+  sectionLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginBottom: 12 },
+
+  // Folder Level Cards
+  folderCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
     borderRadius: 16,
     borderWidth: 1,
+    marginBottom: 12,
+  },
+  folderIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    marginRight: 14,
   },
-  menuLine: { width: 20, height: 2, borderRadius: 2 },
-  menuBadge: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#ef4444",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  menuBadgeText: { color: "#fff", fontSize: 10, fontWeight: "900" },
-  searchIcon: { fontSize: 11, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
-  searchInput: { flex: 1, fontSize: 15, fontWeight: "600", paddingVertical: 10 },
-  clearSearchBtn: { paddingHorizontal: 8, paddingVertical: 6 },
-  clearSearchText: { fontSize: 12, fontWeight: "800" },
-  filterRow: { flexDirection: "row", gap: 8, marginBottom: 16, flexWrap: "wrap" },
-  organizePanel: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 12,
-    marginBottom: 18,
-  },
-  organizeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10 },
-  organizeHint: { fontSize: 11, fontWeight: "700", flexShrink: 1, textAlign: "right" },
-  clearFiltersText: { fontSize: 12, fontWeight: "900" },
-  sortRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  sortLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1.4, marginRight: 4 },
-  sortChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  sortChipText: { fontSize: 12, fontWeight: "800" },
-  filterSectionTitle: { fontSize: 10, fontWeight: "800", letterSpacing: 1.8, marginBottom: 9, marginTop: 4 },
-  filterChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 15,
-    paddingVertical: 9,
-  },
-  filterChipText: { fontSize: 12, fontWeight: "800" },
-  courseChipRow: { gap: 8, paddingBottom: 14 },
-  courseChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  courseChipText: { fontSize: 12, fontWeight: "700" },
-  sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 2.5, marginBottom: 14 },
+  folderInfo: { flex: 1, marginRight: 10 },
+  folderTitle: { fontSize: 16, fontWeight: "700", marginBottom: 2 },
+  folderSubTitle: { fontSize: 12, fontWeight: "500" },
+  folderRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  countPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  countPillText: { fontSize: 11, fontWeight: "800" },
+
+  // Quiz Card
   card: {
-    borderRadius: 20,
+    borderRadius: 18,
     marginBottom: 14,
     borderWidth: 1,
     overflow: "hidden",
   },
   cardAccent: { height: 3, width: "100%" },
-  cardInner: { padding: 18 },
-  cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 },
+  cardInner: { padding: 16 },
+  cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10 },
   badge: {
     alignSelf: "flex-start",
     paddingHorizontal: 10,
@@ -697,14 +725,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   completedBadgeText: { color: "#6ee7b7", fontSize: 11, fontWeight: "700" },
-  cardTitle: { fontSize: 17, fontWeight: "700", marginBottom: 6, letterSpacing: -0.2 },
-  cardDesc: { fontSize: 13, lineHeight: 20, marginBottom: 12 },
-  cardTagRow: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 16 },
+  cardTitle: { fontSize: 16, fontWeight: "700", marginBottom: 4, letterSpacing: -0.2 },
+  cardDesc: { fontSize: 13, lineHeight: 18, marginBottom: 10 },
+  cardTagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 14 },
   cardTag: {
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     maxWidth: "100%",
   },
   cardTagText: { fontSize: 11, fontWeight: "800" },
@@ -712,15 +740,14 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", gap: 8 },
   metaPill: {
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
-  metaText: { fontSize: 12, fontWeight: "500" },
+  metaText: { fontSize: 11, fontWeight: "600" },
   startBtn: { borderRadius: 10, overflow: "hidden" },
   startGrad: { paddingHorizontal: 16, paddingVertical: 8 },
   startText: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  emptyWrap: { alignItems: "center", paddingTop: 80 },
-  emptyEyebrow: { fontSize: 12, fontWeight: "700", marginBottom: 10, letterSpacing: 1.4 },
-  emptyTitle: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, textAlign: "center" },
+  emptyWrap: { alignItems: "center", paddingTop: 60, paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 18, fontWeight: "700", marginTop: 12, marginBottom: 6 },
+  emptySubtitle: { fontSize: 13, textAlign: "center" },
 });

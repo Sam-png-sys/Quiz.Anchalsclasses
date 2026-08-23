@@ -33,7 +33,7 @@ const AnalyticsScreen = ({ navigation }) => {
       setLoading(true);
 
       // Fetch all quizzes to cross-reference titles
-      const quizRes = await API.get("/quiz/?page=1&limit=50");
+      const quizRes = await API.get("/quiz/?page=1&limit=1000");
       const quizList = Array.isArray(quizRes.data)
         ? quizRes.data
         : Array.isArray(quizRes.data.quizzes)

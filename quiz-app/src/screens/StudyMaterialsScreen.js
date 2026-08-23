@@ -6,18 +6,19 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
-  Linking,
   StatusBar
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
+import DocumentViewerModal from "../components/DocumentViewerModal";
 
 const StudyMaterialsScreen = ({ navigation }) => {
   const { themeColors, accentOption, settings } = useAppSettings();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedDoc, setSelectedDoc] = useState(null);
 
   const primaryColor = accentOption?.colors?.[0] || themeColors.primary || "#7c3aed";
   const errorColor = themeColors.danger || themeColors.error || "#ef4444";
@@ -30,7 +31,7 @@ const StudyMaterialsScreen = ({ navigation }) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await API.get("/quiz/?page=1&limit=50");
+      const res = await API.get("/quiz/?page=1&limit=1000");
       const quizData = Array.isArray(res.data)
         ? res.data
         : Array.isArray(res.data?.quizzes)
@@ -60,10 +61,11 @@ const StudyMaterialsScreen = ({ navigation }) => {
     grouped[course][subject].push(q);
   });
 
-  const handleOpenPdf = (url) => {
-    if (url) {
-      Linking.openURL(url).catch(err => {
-        console.log("Failed to open URL:", err);
+  const handleOpenDocument = (quiz) => {
+    if (quiz && quiz.studyMaterialUrl) {
+      setSelectedDoc({
+        url: quiz.studyMaterialUrl,
+        title: quiz.studyMaterialName || quiz.title || "Study Material",
       });
     }
   };
@@ -120,7 +122,7 @@ const StudyMaterialsScreen = ({ navigation }) => {
                             <TouchableOpacity
                               key={quiz._id || quiz.id}
                               style={[styles.materialCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                              onPress={() => handleOpenPdf(quiz.studyMaterialUrl)}
+                              onPress={() => handleOpenDocument(quiz)}
                             >
                               <View style={[styles.iconContainer, { backgroundColor: primaryColor + "1A" }]}>
                                 <Ionicons name="document-text" size={20} color={primaryColor} />
@@ -133,7 +135,10 @@ const StudyMaterialsScreen = ({ navigation }) => {
                                   Quiz: {quiz.title}
                                 </Text>
                               </View>
-                              <Ionicons name="download-outline" size={20} color={primaryColor} />
+                              <View style={[styles.viewBadge, { backgroundColor: primaryColor + "15" }]}>
+                                <Ionicons name="eye-outline" size={18} color={primaryColor} />
+                                <Text style={[styles.viewBadgeText, { color: primaryColor }]}>View</Text>
+                              </View>
                             </TouchableOpacity>
                           ))}
                         </View>
@@ -147,6 +152,16 @@ const StudyMaterialsScreen = ({ navigation }) => {
           <View style={{ height: 40 }} />
         </ScrollView>
       )}
+
+      {/* In-App Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={!!selectedDoc}
+        url={selectedDoc?.url}
+        title={selectedDoc?.title}
+        onClose={() => setSelectedDoc(null)}
+        themeColors={themeColors}
+        accentOption={accentOption}
+      />
     </View>
   );
 };
@@ -248,6 +263,18 @@ const styles = StyleSheet.create({
   },
   quizTitle: {
     fontSize: 12,
+  },
+  viewBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  viewBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
 
