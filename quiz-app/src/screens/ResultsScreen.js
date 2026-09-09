@@ -53,8 +53,8 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
     ]).start();
   }, [delay, fadeAnim, slideAnim]);
 
-  const correctAnswer = question.correct_answer;
-  const isCorrect = userAnswer === correctAnswer;
+  const correctAnswer = question.correct_answer || question.correctAnswer || question.correct || "";
+  const isCorrect = userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
   const skipped = userAnswer === null || userAnswer === undefined;
   const storedExplanation = (question.explanation || "").trim();
 
@@ -227,22 +227,24 @@ const ResultScreen = ({ route, navigation }) => {
     ?? answers[question?.id]
   ), [answers]);
 
-  let score = 0;
+  let rawScore = 0;
   questions.forEach((q, i) => {
     const userAnswer = getAnswerForQuestion(q, i);
-    const correct = q.correct_answer;
+    const correct = q?.correct_answer || q?.correctAnswer || q?.correct;
     if (userAnswer && correct && String(userAnswer).trim() === String(correct).trim()) {
-      score++;
+      rawScore++;
     }
   });
 
-  const total = questions.length;
-  const pct = total > 0 ? Math.round((score / total) * 100) : 0;
-  const skipped = questions.filter((q, i) => {
+  const total = Math.max(0, questions.length);
+  const score = Math.min(total, Math.max(0, rawScore));
+  const pct = total > 0 ? Math.min(100, Math.max(0, Math.round((score / total) * 100))) : 0;
+  const skippedCount = questions.filter((q, i) => {
     const answer = getAnswerForQuestion(q, i);
     return answer === null || answer === undefined;
   }).length;
-  const wrong = total - score - skipped;
+  const skipped = Math.min(total, Math.max(0, skippedCount));
+  const wrong = Math.max(0, total - score - skipped);
 
   const grade = pct >= 80
     ? { label: "Excellent!", colors: ["#059669", "#10b981"], textColor: "#6ee7b7" }

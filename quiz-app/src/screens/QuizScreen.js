@@ -219,6 +219,13 @@ const QuizScreen = ({ route, navigation }) => {
   );
   const currentSection = sections[currentSectionIndex];
 
+  const hasTimer = useMemo(() => {
+    if (examType === "section_no_timer") return false;
+    if (examType === "section_with_timer" && currentSection?.durationMinutes) return true;
+    const duration = Number(quizMeta?.duration);
+    return !isNaN(duration) && duration > 0;
+  }, [examType, currentSection, quizMeta]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -351,13 +358,30 @@ const QuizScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     clearInterval(timerRef.current);
-    if (!currentSection || examType !== "section_with_timer") {
+
+    if (!hasTimer) {
       setTimeLeft(null);
       return undefined;
     }
 
-    const durationSeconds = (Number(currentSection.durationMinutes) || 0) * 60;
-    setTimeLeft(durationSeconds);
+    let initialSeconds = 0;
+    if (examType === "section_with_timer" && currentSection?.durationMinutes) {
+      initialSeconds = Number(currentSection.durationMinutes) * 60;
+    } else if (quizMeta?.duration) {
+      initialSeconds = Number(quizMeta.duration) * 60;
+    }
+
+    if (initialSeconds <= 0) {
+      setTimeLeft(null);
+      return undefined;
+    }
+
+    setTimeLeft((prevTime) => {
+      if (examType === "section_with_timer") {
+        return initialSeconds;
+      }
+      return prevTime != null ? prevTime : initialSeconds;
+    });
 
     timerRef.current = setInterval(() => {
       setTimeLeft((remaining) => {
@@ -372,7 +396,7 @@ const QuizScreen = ({ route, navigation }) => {
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [currentSection, examType, goToNextStep]);
+  }, [currentSectionIndex, currentSection?.durationMinutes, examType, hasTimer, quizMeta?.duration, goToNextStep]);
 
   if (loading || !q) {
     return (
@@ -433,7 +457,7 @@ const QuizScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {examType === "section_with_timer" && timeLeft != null ? (
+        {hasTimer && timeLeft != null ? (
           <TimerRing timeLeft={timeLeft} themeColors={themeColors} accentColor={accentOption.colors[0]} />
         ) : (
           <View style={[styles.timerStatic, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
