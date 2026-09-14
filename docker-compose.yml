@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: ./quiz-backend
+    container_name: quizapp-backend
+    restart: unless-stopped
+    env_file:
+      - ./quiz-backend/.env
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./quiz-frontend
+      args:
+        VITE_API_URL: /api
+    container_name: quizapp-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"

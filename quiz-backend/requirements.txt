@@ -1,0 +1,17 @@
+# Use this cmd for installing dependencies: pip install -r requirements.txt
+fastapi==0.111.0
+uvicorn==0.30.0
+pymongo==4.7.2
+python-dotenv==1.0.1
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+argon2-cffi==23.1.0
+pydantic==2.7.4
+resend==0.6.0
+certifi==2024.2.2
+cloudinary==1.40.0
+python-multipart==0.0.9
+standard-imghdr
+openai>=2.0.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1

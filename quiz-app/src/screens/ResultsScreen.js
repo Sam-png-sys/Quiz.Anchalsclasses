@@ -1,0 +1,535 @@
+import React, { useCallback, useRef, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  StatusBar,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  BackHandler,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import API from "../api/client";
+import { useAppSettings } from "../context/AppSettingsContext";
+
+const LOCAL_COMPLETIONS_KEY = "local_completed_quizzes";
+
+const saveLocalCompletion = async (quizId, score, total) => {
+  if (!quizId || !total) return;
+
+  try {
+    const raw = await AsyncStorage.getItem(LOCAL_COMPLETIONS_KEY);
+    const completions = raw ? JSON.parse(raw) : {};
+    const previous = completions[quizId] || {};
+    const percent = Math.round((score / total) * 100);
+
+    completions[quizId] = {
+      completedAt: new Date().toISOString(),
+      attempts: (previous.attempts || 0) + 1,
+      bestScore: typeof previous.bestScore === "number" ? Math.max(previous.bestScore, percent) : percent,
+    };
+
+    await AsyncStorage.setItem(LOCAL_COMPLETIONS_KEY, JSON.stringify(completions));
+  } catch (error) {
+    console.log("Local completion save failed:", error?.message || error);
+  }
+};
+
+const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, accentOption }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
+  const [teacherQuestion, setTeacherQuestion] = useState("");
+  const [teacherAnswer, setTeacherAnswer] = useState(question.explanation || "");
+  const [teacherLoading, setTeacherLoading] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, delay, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 11, delay, useNativeDriver: true }),
+    ]).start();
+  }, [delay, fadeAnim, slideAnim]);
+
+  const correctAnswer = question.correct_answer || question.correctAnswer || question.correct || "";
+  const isCorrect = userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
+  const skipped = userAnswer === null || userAnswer === undefined;
+  const storedExplanation = (question.explanation || "").trim();
+
+  const askTeacher = async (message) => {
+    try {
+      setTeacherLoading(true);
+      const res = await API.post("/ai/teacher/explain", {
+        quizId,
+        questionId: question._id || question.id,
+        message,
+      });
+      setTeacherAnswer(res.data.answer);
+    } catch {
+      setTeacherAnswer("I could not reach the AI teacher right now. Please try again.");
+    } finally {
+      setTeacherLoading(false);
+    }
+  };
+
+  const handleAsk = () => {
+    const message = teacherQuestion.trim() || `Explain why "${correctAnswer}" is the correct answer for this question.`;
+    askTeacher(message);
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.reviewCard,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+          backgroundColor: themeColors.surface,
+          borderColor: themeColors.border,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.reviewStripe,
+          skipped ? styles.stripeSkipped : isCorrect ? styles.stripeCorrect : styles.stripeWrong,
+        ]}
+      />
+
+      <View style={styles.reviewBody}>
+        <View style={styles.reviewTop}>
+          <Text style={[styles.reviewNum, { color: themeColors.textSubtle }]}>Q{index + 1}</Text>
+          <View
+            style={[
+              styles.reviewChip,
+              skipped ? styles.chipSkipped : isCorrect ? styles.chipCorrect : styles.chipWrong,
+            ]}
+          >
+            <Text
+              style={[
+                styles.reviewChipTxt,
+                skipped ? styles.chipTxtSkipped : isCorrect ? styles.chipTxtCorrect : styles.chipTxtWrong,
+              ]}
+            >
+              {skipped ? "Skipped" : isCorrect ? "Correct" : "Wrong"}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={[styles.reviewQuestion, { color: themeColors.textMuted }]} numberOfLines={3}>
+          {question.question}
+        </Text>
+
+        {!skipped && !isCorrect && (
+          <View style={styles.reviewAnswerRow}>
+            <Text style={[styles.reviewAnswerLabel, { color: themeColors.textSubtle }]}>Your answer: </Text>
+            <Text style={styles.reviewAnswerWrong}>{userAnswer}</Text>
+          </View>
+        )}
+        <View style={styles.reviewAnswerRow}>
+          <Text style={[styles.reviewAnswerLabel, { color: themeColors.textSubtle }]}>Correct: </Text>
+          <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
+        </View>
+
+        <View
+          style={[
+            styles.teacherBox,
+            {
+              backgroundColor: accentOption.colors[0] + "12",
+              borderColor: accentOption.colors[0] + "33",
+            },
+          ]}
+        >
+          <View style={styles.teacherTop}>
+            <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>AI Teacher</Text>
+            <TouchableOpacity
+              style={[
+                styles.teacherExplainBtn,
+                {
+                  backgroundColor: accentOption.colors[0] + "22",
+                  borderColor: accentOption.colors[0] + "44",
+                },
+              ]}
+              onPress={() => askTeacher(`Explain this answer for me like a teacher: ${question.question}`)}
+              disabled={teacherLoading}
+            >
+              <Text style={[styles.teacherExplainTxt, { color: accentOption.colors[0] }]}>Explain</Text>
+            </TouchableOpacity>
+          </View>
+
+          {!!storedExplanation && (
+            <View
+              style={[
+                styles.explanationBox,
+                {
+                  backgroundColor: accentOption.colors[0] + "10",
+                  borderColor: accentOption.colors[0] + "24",
+                },
+              ]}
+            >
+              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>AI Explanation</Text>
+              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>{storedExplanation}</Text>
+            </View>
+          )}
+
+          {!!teacherAnswer && teacherAnswer !== storedExplanation && (
+            <Text style={[styles.teacherAnswer, { color: themeColors.textMuted }]}>{teacherAnswer}</Text>
+          )}
+
+          <View style={styles.teacherInputRow}>
+            <TextInput
+              value={teacherQuestion}
+              onChangeText={setTeacherQuestion}
+              placeholder="Ask about this topic..."
+              placeholderTextColor={themeColors.textGhost}
+              style={[
+                styles.teacherInput,
+                {
+                  color: themeColors.text,
+                  backgroundColor: themeColors.surfaceStrong,
+                  borderColor: themeColors.border,
+                },
+              ]}
+              multiline
+            />
+            <TouchableOpacity
+              style={[styles.teacherAskBtn, { backgroundColor: accentOption.colors[0] }]}
+              onPress={handleAsk}
+              disabled={teacherLoading}
+            >
+              {teacherLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.teacherAskTxt}>Ask</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Animated.View>
+  );
+};
+
+const ResultScreen = ({ route, navigation }) => {
+  const { answers, questions, quizId } = route.params;
+  const { accentOption, themeColors, settings } = useAppSettings();
+  const completionSaved = useRef(false);
+
+  const goHome = useCallback(() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Home" }],
+    });
+  }, [navigation]);
+
+  const getAnswerForQuestion = useCallback((question, index) => (
+    answers[index]
+    ?? answers[String(index)]
+    ?? answers[question?._id]
+    ?? answers[question?.id]
+  ), [answers]);
+
+  let rawScore = 0;
+  questions.forEach((q, i) => {
+    const userAnswer = getAnswerForQuestion(q, i);
+    const correct = q?.correct_answer || q?.correctAnswer || q?.correct;
+    if (userAnswer && correct && String(userAnswer).trim() === String(correct).trim()) {
+      rawScore++;
+    }
+  });
+
+  const total = Math.max(0, questions.length);
+  const score = Math.min(total, Math.max(0, rawScore));
+  const pct = total > 0 ? Math.min(100, Math.max(0, Math.round((score / total) * 100))) : 0;
+  const skippedCount = questions.filter((q, i) => {
+    const answer = getAnswerForQuestion(q, i);
+    return answer === null || answer === undefined;
+  }).length;
+  const skipped = Math.min(total, Math.max(0, skippedCount));
+  const wrong = Math.max(0, total - score - skipped);
+
+  const grade = pct >= 80
+    ? { label: "Excellent!", colors: ["#059669", "#10b981"], textColor: "#6ee7b7" }
+    : pct >= 60
+      ? { label: "Good Job!", colors: ["#d97706", "#f59e0b"], textColor: "#fcd34d" }
+      : pct >= 40
+        ? { label: "Keep Going!", colors: accentOption.colors, textColor: accentOption.colors[0] }
+        : { label: "Try Again!", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
+
+  const headerFade = useRef(new Animated.Value(0)).current;
+  const scoreScale = useRef(new Animated.Value(0.6)).current;
+  const scoreOpacity = useRef(new Animated.Value(0)).current;
+  const statsSlide = useRef(new Animated.Value(30)).current;
+  const statsFade = useRef(new Animated.Value(0)).current;
+  const barWidth = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(headerFade, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.spring(scoreScale, { toValue: 1, tension: 55, friction: 8, useNativeDriver: true }),
+        Animated.timing(scoreOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(statsFade, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(statsSlide, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
+        Animated.timing(barWidth, { toValue: pct / 100, duration: 800, useNativeDriver: false }),
+      ]),
+    ]).start();
+  }, [barWidth, headerFade, pct, scoreOpacity, scoreScale, statsFade, statsSlide]);
+
+  const animatedBarWidth = barWidth.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
+
+  useEffect(() => {
+    if (!quizId || completionSaved.current) return;
+    completionSaved.current = true;
+
+    API.post(`/attempt/complete/${quizId}`, { answers })
+      .catch((error) => {
+        console.log("Completion save failed:", error.response?.data?.detail || error.message);
+      })
+      .finally(() => {
+        saveLocalCompletion(quizId, score, total);
+      });
+  }, [answers, quizId, score, total]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      goHome();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [goHome]);
+
+  return (
+    <View style={[styles.root, { backgroundColor: themeColors.background }]}>
+      <StatusBar barStyle={settings.theme === "light" ? "dark-content" : "light-content"} />
+      <LinearGradient colors={[themeColors.background, themeColors.backgroundAlt, themeColors.background]} style={StyleSheet.absoluteFill} />
+
+      <View style={[styles.orb1, { backgroundColor: grade.colors[0] }]} pointerEvents="none" />
+      <View style={[styles.orb2, { backgroundColor: accentOption.colors[0] }]} pointerEvents="none" />
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Animated.View style={[styles.hero, { opacity: headerFade }]}>
+          <Text style={[styles.heroLabel, { color: grade.textColor }]}>{grade.label}</Text>
+          <Text style={[styles.heroSub, { color: themeColors.textSubtle }]}>Quiz Complete</Text>
+        </Animated.View>
+
+        <Animated.View style={[styles.scoreWrap, { opacity: scoreOpacity, transform: [{ scale: scoreScale }] }]}>
+          <LinearGradient colors={grade.colors} style={styles.scoreRingOuter}>
+            <View style={[styles.scoreRingInner, { backgroundColor: themeColors.background }]}>
+              <Text style={[styles.scorePct, { color: themeColors.text }]}>{pct}%</Text>
+              <Text style={[styles.scoreRatio, { color: themeColors.textSubtle }]}>{score} / {total}</Text>
+              <Text style={[styles.scoreCorrectLabel, { color: themeColors.textGhost }]}>correct</Text>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        <Animated.View style={[styles.barSection, { opacity: statsFade, transform: [{ translateY: statsSlide }] }]}>
+          <View style={[styles.barBg, { backgroundColor: themeColors.border }]}>
+            <Animated.View style={[styles.barTrack, { width: animatedBarWidth }]}>
+              <LinearGradient colors={grade.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.barFill} />
+            </Animated.View>
+          </View>
+        </Animated.View>
+
+        <Animated.View style={[styles.statsRow, { opacity: statsFade, transform: [{ translateY: statsSlide }] }]}>
+          <View style={[styles.statCard, styles.statCardCorrect]}>
+            <Text style={[styles.statNum, { color: "#6ee7b7" }]}>{score}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSubtle }]}>Correct</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardWrong]}>
+            <Text style={[styles.statNum, { color: "#fca5a5" }]}>{wrong}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSubtle }]}>Wrong</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardSkipped]}>
+            <Text style={[styles.statNum, { color: "#fcd34d" }]}>{skipped}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSubtle }]}>Skipped</Text>
+          </View>
+        </Animated.View>
+
+        <Animated.View style={[styles.btnRow, { opacity: statsFade }]}>
+          <TouchableOpacity
+            style={[styles.btnSecondary, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
+            onPress={goHome}
+          >
+            <Text style={[styles.btnSecTxt, { color: themeColors.textMuted }]}>Back Home</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.btnPrimaryWrap}
+            onPress={() => {
+              if (!quizId) {
+                navigation.replace("Home");
+                return;
+              }
+              navigation.replace("Quiz", { quizId });
+            }}
+          >
+            <LinearGradient colors={grade.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.btnPrimary}>
+              <Text style={styles.btnPrimaryTxt}>Retry Quiz</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View style={{ opacity: statsFade }}>
+          <View style={styles.reviewHeader}>
+            <View style={[styles.reviewHeaderLine, { backgroundColor: themeColors.border }]} />
+            <Text style={[styles.reviewHeaderTxt, { color: themeColors.textGhost }]}>QUESTION REVIEW</Text>
+            <View style={[styles.reviewHeaderLine, { backgroundColor: themeColors.border }]} />
+          </View>
+
+          {questions.map((q, i) => (
+            <ReviewCard
+              key={i}
+              question={q}
+              userAnswer={getAnswerForQuestion(q, i)}
+              index={i}
+              delay={i * 60}
+              quizId={quizId}
+              themeColors={themeColors}
+              accentOption={accentOption}
+            />
+          ))}
+        </Animated.View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+};
+
+export default ResultScreen;
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  orb1: { position: "absolute", width: 320, height: 320, top: -80, right: -80, borderRadius: 999, opacity: 0.12 },
+  orb2: { position: "absolute", width: 200, height: 200, bottom: 100, left: -60, borderRadius: 999, opacity: 0.07 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 22, paddingTop: 70, paddingBottom: 30 },
+  hero: { alignItems: "center", marginBottom: 28 },
+  heroLabel: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5, marginBottom: 4 },
+  heroSub: { fontSize: 14, fontWeight: "500" },
+  scoreWrap: { alignItems: "center", marginBottom: 28 },
+  scoreRingOuter: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#7c3aed",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  scoreRingInner: {
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scorePct: { fontSize: 42, fontWeight: "900", letterSpacing: -2 },
+  scoreRatio: { fontSize: 15, fontWeight: "600", marginTop: 2 },
+  scoreCorrectLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 1 },
+  barSection: { marginBottom: 22 },
+  barBg: { height: 8, borderRadius: 4, overflow: "hidden" },
+  barTrack: { height: 8, borderRadius: 4, overflow: "hidden" },
+  barFill: { height: 8, borderRadius: 4, width: "100%" },
+  statsRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
+  statCard: { flex: 1, borderRadius: 18, padding: 16, alignItems: "center", borderWidth: 1 },
+  statCardCorrect: { backgroundColor: "rgba(5,150,105,0.08)", borderColor: "rgba(5,150,105,0.25)" },
+  statCardWrong: { backgroundColor: "rgba(220,38,38,0.08)", borderColor: "rgba(220,38,38,0.25)" },
+  statCardSkipped: { backgroundColor: "rgba(217,119,6,0.08)", borderColor: "rgba(217,119,6,0.25)" },
+  statNum: { fontSize: 26, fontWeight: "900" },
+  statLbl: { fontSize: 11, fontWeight: "600", marginTop: 2, letterSpacing: 0.5 },
+  btnRow: { flexDirection: "row", gap: 12, marginBottom: 36 },
+  btnSecondary: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  btnSecTxt: { fontWeight: "700", fontSize: 15 },
+  btnPrimaryWrap: { flex: 1, borderRadius: 16, overflow: "hidden" },
+  btnPrimary: { paddingVertical: 16, alignItems: "center" },
+  btnPrimaryTxt: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  reviewHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
+  reviewHeaderLine: { flex: 1, height: 1 },
+  reviewHeaderTxt: { fontSize: 11, fontWeight: "700", letterSpacing: 2.5 },
+  reviewCard: {
+    flexDirection: "row",
+    borderRadius: 18,
+    marginBottom: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  reviewStripe: { width: 4, flexShrink: 0 },
+  stripeCorrect: { backgroundColor: "#059669" },
+  stripeWrong: { backgroundColor: "#dc2626" },
+  stripeSkipped: { backgroundColor: "#d97706" },
+  reviewBody: { flex: 1, padding: 14 },
+  reviewTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  reviewNum: { fontSize: 12, fontWeight: "700" },
+  reviewChip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 99, borderWidth: 1 },
+  chipCorrect: { backgroundColor: "rgba(5,150,105,0.12)", borderColor: "rgba(5,150,105,0.35)" },
+  chipWrong: { backgroundColor: "rgba(220,38,38,0.12)", borderColor: "rgba(220,38,38,0.35)" },
+  chipSkipped: { backgroundColor: "rgba(217,119,6,0.12)", borderColor: "rgba(217,119,6,0.35)" },
+  reviewChipTxt: { fontSize: 11, fontWeight: "700" },
+  chipTxtCorrect: { color: "#6ee7b7" },
+  chipTxtWrong: { color: "#fca5a5" },
+  chipTxtSkipped: { color: "#fcd34d" },
+  reviewQuestion: { fontSize: 13, lineHeight: 20, marginBottom: 10 },
+  reviewAnswerRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", marginTop: 2 },
+  reviewAnswerLabel: { fontSize: 12, fontWeight: "600" },
+  reviewAnswerCorrect: { color: "#6ee7b7", fontSize: 12, fontWeight: "700", flex: 1 },
+  reviewAnswerWrong: { color: "#fca5a5", fontSize: 12, fontWeight: "700", flex: 1 },
+  teacherBox: {
+    marginTop: 14,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+  },
+  explanationBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    marginBottom: 10,
+  },
+  explanationLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    marginBottom: 6,
+  },
+  teacherTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  teacherTitle: { fontSize: 12, fontWeight: "800" },
+  teacherExplainBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  teacherExplainTxt: { fontSize: 11, fontWeight: "700" },
+  teacherAnswer: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  teacherInputRow: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
+  teacherInput: {
+    flex: 1,
+    minHeight: 38,
+    maxHeight: 86,
+    fontSize: 12,
+    lineHeight: 17,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  teacherAskBtn: {
+    width: 48,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  teacherAskTxt: { color: "#fff", fontSize: 12, fontWeight: "800" },
+});

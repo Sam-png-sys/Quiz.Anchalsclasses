@@ -1,0 +1,840 @@
+import { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    ArrowLeft, BookOpen, AlignLeft, Clock, Save,
+    CheckCircle2, ChevronDown, ChevronUp, Trash2,
+    Lightbulb, GraduationCap, BarChart2, PlusCircle,
+    RotateCcw, FileText, ImagePlus, X
+} from "lucide-react";
+import { apiRequest } from "../utils/api";
+import { Toaster, toast } from "react-hot-toast";
+import AdminShell from "../components/AdminShell";
+import { API_BASE } from "../utils/config";
+
+const fadeUp = {
+    hidden: { opacity: 0, y: 12 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
+    exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
+};
+
+const DIFFICULTY_LEVELS = [
+    { value: "easy", label: "Easy", color: "text-emerald-400", dot: "bg-emerald-400", badge: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
+    { value: "medium", label: "Medium", color: "text-amber-400", dot: "bg-amber-400", badge: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+    { value: "hard", label: "Hard", color: "text-rose-400", dot: "bg-rose-400", badge: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
+];
+
+const EXAM_TYPES = [
+    { value: "no_section_no_timer", label: "No Section No Timer" },
+    { value: "section_no_timer", label: "Section with No Timer" },
+    { value: "section_with_timer", label: "Section with Timer" },
+];
+
+const MotionDiv = motion.div;
+
+function newQuestion() {
+    return { questionText: "", options: ["", "", "", ""], correctAnswer: 0, explanation: "" };
+}
+
+function newSection(index = 0) {
+    return { title: `Section ${index + 1}`, questionCount: "", durationMinutes: "" };
+}
+
+function normalizeQuestion(question) {
+    const options = Array.isArray(question?.options) ? question.options : ["", "", "", ""];
+    const correctAnswerText = question?.correct_answer ?? question?.correctAnswer ?? "";
+    const correctAnswerIndex = Math.max(0, options.findIndex((option) => option === correctAnswerText));
+
+    return {
+        ...question,
+        questionText: question?.questionText ?? question?.question ?? "",
+        options,
+        correctAnswer: correctAnswerIndex,
+        explanation: question?.explanation ?? "",
+        imageUrl: question?.imageUrl ?? null,
+    };
+}
+
+// ── Reusable field wrapper ────────────────────────────────────────────────────
+function Field({ icon, label, children }) {
+    return (
+        <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+            <div className="mt-0.5 flex-shrink-0">{icon}</div>
+            <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-bold uppercase tracking-widest block mb-1" style={{ color: "var(--app-text-subtle)" }}>{label}</label>
+                {children}
+            </div>
+        </div>
+    );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function EditQuiz() {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const scrollRef = useRef(null);
+    const imageRefs = useRef([]);
+    const token = localStorage.getItem("token");
+
+    const [quiz, setQuiz] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [fetching, setFetching] = useState(true);
+    const [collapsed, setCollapsed] = useState({});
+    const [saved, setSaved] = useState(false);
+    const [studyMaterialUploading, setStudyMaterialUploading] = useState(false);
+    const usesSections = quiz?.examType !== "no_section_no_timer";
+    const sectionQuestionTotal = (quiz?.sections || []).reduce(
+        (total, section) => total + (Number(section.questionCount) || 0),
+        0
+    );
+    const computedDuration = quiz?.examType === "section_with_timer"
+        ? (quiz.sections || []).reduce((total, section) => total + (Number(section.durationMinutes) || 0), 0)
+        : Number(quiz?.duration) || 0;
+
+    // ── Fetch ──
+    useEffect(() => {
+        const fetchQuiz = async () => {
+            try {
+                const data = await apiRequest(`/admin/quiz-details/${id}`);
+                setQuiz({
+                    ...data,
+                    questions: (data.questions || []).map(normalizeQuestion),
+                    sections: data.sections || [],
+                });
+            } catch (err) {
+                console.error(err);
+                toast.error("Failed to load quiz");
+            } finally {
+                setFetching(false);
+            }
+        };
+        fetchQuiz();
+    }, [id]);
+
+    // ── Quiz-level changes ──
+    const handleChange = (field, value) => setQuiz({ ...quiz, [field]: value });
+
+    // ── Question-level changes ──
+    const updateQuestion = (index, patch) => {
+        setQuiz((prev) => {
+            const updated = [...prev.questions];
+            updated[index] = { ...updated[index], ...patch };
+            return { ...prev, questions: updated };
+        });
+    };
+
+    const handleQuestionChange = (index, field, value) => {
+        updateQuestion(index, { [field]: value });
+    };
+
+    const handleOptionChange = (qIndex, oIndex, value) => {
+        const updated = [...quiz.questions];
+        const opts = [...updated[qIndex].options];
+        opts[oIndex] = value;
+        updated[qIndex] = { ...updated[qIndex], options: opts };
+        setQuiz({ ...quiz, questions: updated });
+    };
+
+    const handleSectionChange = (index, field, value) => {
+        const updated = [...(quiz.sections || [])];
+        updated[index] = { ...updated[index], [field]: value };
+        setQuiz({ ...quiz, sections: updated });
+    };
+
+    // ── Image upload ──────────────────────────────────────────────────────────
+    const uploadQuestionImage = async (index, file) => {
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            updateQuestion(index, { imagePreview: e.target.result, uploading: true });
+        };
+        reader.readAsDataURL(file);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch(`${API_BASE}/admin/upload-question-image`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            const text = await res.text();
+            if (!res.ok) throw new Error(`Upload failed: ${res.status} ${text}`);
+
+            const data = JSON.parse(text);
+            updateQuestion(index, { imageUrl: data.url, uploading: false });
+
+        } catch (err) {
+            console.error("Image upload error:", err.message);
+            toast.error(`Image upload failed: ${err.message}`);
+            updateQuestion(index, { imageUrl: null, imagePreview: null, uploading: false });
+        }
+    };
+
+    const handleImagePick = async (index, file) => {
+        await uploadQuestionImage(index, file);
+    };
+
+    const handleImagePaste = async (index, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return;
+
+        const imageItem = Array.from(items).find((item) => item.type?.startsWith("image/"));
+        if (!imageItem) return;
+
+        const file = imageItem.getAsFile();
+        if (!file) return;
+
+        event.preventDefault();
+        await uploadQuestionImage(index, file);
+    };
+
+    const removeImage = (index) =>
+        updateQuestion(index, { imageUrl: null, imagePreview: null });
+
+    const addSection = () => {
+        setQuiz({ ...quiz, sections: [...(quiz.sections || []), newSection(quiz.sections?.length || 0)] });
+    };
+
+    const removeSection = (index) => {
+        const updated = (quiz.sections || []).filter((_, i) => i !== index);
+        setQuiz({ ...quiz, sections: updated });
+    };
+
+    const handleStudyMaterialPick = async (file) => {
+        if (!file) return;
+
+        try {
+            setStudyMaterialUploading(true);
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch(`${API_BASE}/admin/upload-study-material`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Study material upload failed");
+
+            setQuiz((prev) => ({
+                ...prev,
+                studyMaterialUrl: data.url,
+                studyMaterialName: data.name,
+            }));
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || "Study material upload failed");
+        } finally {
+            setStudyMaterialUploading(false);
+        }
+    };
+
+    const addQuestion = () => {
+        setQuiz({ ...quiz, questions: [...quiz.questions, newQuestion()] });
+        setTimeout(() => {
+            scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+        }, 50);
+    };
+
+    const removeQuestion = (index) => {
+        if (quiz.questions.length === 1) return;
+        setQuiz({ ...quiz, questions: quiz.questions.filter((_, i) => i !== index) });
+    };
+
+    const toggleCollapse = (index) =>
+        setCollapsed(prev => ({ ...prev, [index]: !prev[index] }));
+
+    // ── Save ──
+    const handleSave = async () => {
+        if (!quiz.title?.trim()) {
+            toast.error("Title is required");
+            return;
+        }
+        if (!quiz.course?.trim()) {
+            toast.error("Course is required");
+            return;
+        }
+        if (!quiz.subject?.trim()) {
+            toast.error("Subject is required");
+            return;
+        }
+        if (usesSections && sectionQuestionTotal !== (quiz.questions?.length || 0)) {
+            toast.error(`Section question count must match total questions (${quiz.questions?.length || 0})`);
+            return;
+        }
+        if (quiz.examType === "section_with_timer" && (quiz.sections || []).some((section) => Number(section.durationMinutes) < 1)) {
+            toast.error("Each timed section needs a duration");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            if (studyMaterialUploading) {
+                toast.error("Please wait for the study material upload to finish");
+                return;
+            }
+
+            //  FIX PAYLOAD
+            const payload = {
+                ...quiz,
+                subSubject: quiz.subSubject || "",
+                duration: computedDuration,
+                requireAnswer: quiz.requireAnswer ?? true,
+                sections: (quiz.sections || []).map((section) => ({
+                    title: section.title?.trim() || "",
+                    questionCount: Number(section.questionCount) || 0,
+                    durationMinutes: section.durationMinutes ? Number(section.durationMinutes) : null,
+                })),
+                questions: quiz.questions.map(q => ({
+                    question: q.questionText,
+                    options: q.options,
+                    correct_answer: q.options[q.correctAnswer] || "",
+                    explanation: q.explanation || "",
+                    imageUrl: q.imageUrl || null,
+                }))
+            };
+
+            await apiRequest(`/admin/quiz-update/${id}`, "PUT", payload);
+
+            toast.success("Quiz updated successfully ");
+
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2500);
+
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to save changes");
+        } finally {
+            setLoading(false);
+        }
+    };
+    const selectedDifficulty = DIFFICULTY_LEVELS.find(d => d.value === quiz?.difficulty);
+
+    // ── Loading skeleton ──
+    if (fetching) {
+        return (
+            <AdminShell>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center animate-pulse">
+                            <RotateCcw size={18} className="text-cyan-400 animate-spin" />
+                        </div>
+                        <p className="text-[13px] text-white/30 font-medium">Loading quiz…</p>
+                    </div>
+                </div>
+            </AdminShell>
+        );
+    }
+
+    if (!quiz) return null;
+
+    return (
+        <AdminShell contentRef={scrollRef}>
+                <div className="max-w-3xl mx-auto w-full px-4 py-8">
+
+                    {/* ── Page header ── */}
+                    <div className="flex items-center gap-4 mb-8">
+                        <button
+                            onClick={() => navigate("/quizzes")}
+                            className="w-9 h-9 rounded-xl border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+                        >
+                            <ArrowLeft size={16} />
+                        </button>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-2xl font-bold text-white tracking-tight">Edit Quiz</h1>
+                            <p className="text-sm text-white/35 mt-0.5 truncate">
+                                Editing: <span className="text-white/50">{quiz.title || "Untitled"}</span>
+                            </p>
+                        </div>
+                        {/* Unsaved indicator */}
+                        <div className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all duration-300 ${saved
+                            ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
+                            : "text-white/20 bg-white/[0.03] border-white/[0.06]"
+                            }`}>
+                            {saved ? "Saved" : "Unsaved"}
+                        </div>
+                    </div>
+
+                    {/* ── Quiz Details card ── */}
+                    <div className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl p-6 mb-5">
+                        <div className="flex items-center gap-2 mb-5">
+                            <BookOpen size={15} className="text-cyan-400" />
+                            <h2 className="text-[14px] font-bold text-white">Quiz Details</h2>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            {/* Title */}
+                            <Field icon={<BookOpen size={14} className="text-white/30" />} label="Quiz Title">
+                                <input
+                                    value={quiz.title ?? ""}
+                                    onChange={e => handleChange("title", e.target.value)}
+                                    placeholder="e.g. Oral Anatomy — Chapter 1"
+                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                />
+                            </Field>
+
+                            {/* Description */}
+                            <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Description">
+                                <textarea
+                                    rows={2}
+                                    value={quiz.description ?? ""}
+                                    onChange={e => handleChange("description", e.target.value)}
+                                    placeholder="Brief description of this quiz..."
+                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none"
+                                />
+                            </Field>
+
+                            {/* Course + Subject + Sub-subject + Duration */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <Field icon={<GraduationCap size={14} className="text-cyan-400/60" />} label="Course">
+                                    <input
+                                        value={quiz.course ?? ""}
+                                        onChange={e => handleChange("course", e.target.value)}
+                                        placeholder="e.g. BDS Year 2"
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                    />
+                                </Field>
+
+                                <Field icon={<BookOpen size={14} className="text-emerald-400/60" />} label="Subject">
+                                    <input
+                                        value={quiz.subject ?? ""}
+                                        onChange={e => handleChange("subject", e.target.value)}
+                                        placeholder="e.g. Oral Anatomy"
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                    />
+                                </Field>
+
+                                <Field icon={<BookOpen size={14} className="text-purple-400/60" />} label="Sub-subject">
+                                    <input
+                                        value={quiz.subSubject ?? ""}
+                                        onChange={e => handleChange("subSubject", e.target.value)}
+                                        placeholder="e.g. Teeth"
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none"
+                                    />
+                                </Field>
+
+                                <Field icon={<Clock size={14} className="text-white/30" />} label="Duration (minutes)">
+                                    <input
+                                        type="number" min={quiz.examType === "no_section_no_timer" ? 1 : 0}
+                                        value={quiz.duration ?? ""}
+                                        onChange={e => handleChange("duration", e.target.value)}
+                                        placeholder={quiz.examType === "no_section_no_timer" ? "e.g. 30" : "Auto from sections"}
+                                        disabled={usesSections}
+                                        className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none disabled:opacity-50"
+                                    />
+                                </Field>
+                            </div>
+
+                            <Field icon={<Clock size={14} className="text-white/30" />} label="Exam Type">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                    {EXAM_TYPES.map((type) => {
+                                        const active = quiz.examType === type.value;
+                                        return (
+                                            <button
+                                                key={type.value}
+                                                type="button"
+                                                onClick={() => handleChange("examType", type.value)}
+                                                className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                                                style={active
+                                                    ? { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }
+                                                    : { color: "var(--app-text-subtle)", background: "var(--app-input)", borderColor: "var(--app-border)" }}
+                                            >
+                                                {type.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </Field>
+
+                            <div className="rounded-xl px-4 py-3.5" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--app-text-subtle)" }}>Answer Required</p>
+                                        <p className="text-[12px] mt-1" style={{ color: "var(--app-text-muted)" }}>
+                                            When turned off, students can move on without selecting any option.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange("requireAnswer", !(quiz.requireAnswer ?? true))}
+                                        className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                                        style={(quiz.requireAnswer ?? true)
+                                            ? { color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }
+                                            : { color: "var(--app-text-subtle)", background: "var(--app-surface)", borderColor: "var(--app-border)" }}
+                                    >
+                                        {(quiz.requireAnswer ?? true) ? "Required" : "Optional"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {usesSections && (
+                                <div className="rounded-xl px-4 py-4 flex flex-col gap-3" style={{ background: "var(--app-input)", border: "1px solid var(--app-border)" }}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--app-text-subtle)" }}>Sections</p>
+                                            <p className="text-[12px] mt-1" style={{ color: "var(--app-text-muted)" }}>
+                                                Keep section counts aligned with total questions in this quiz.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={addSection}
+                                            className="px-3 py-2 rounded-xl border text-[12px] font-semibold transition-all"
+                                            style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}
+                                        >
+                                            Add Section
+                                        </button>
+                                    </div>
+
+                                    {(quiz.sections || []).map((section, index) => (
+                                        <div key={`${section.title}-${index}`} className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,auto] gap-2 items-center">
+                                            <input
+                                                value={section.title ?? ""}
+                                                onChange={(e) => handleSectionChange(index, "title", e.target.value)}
+                                                placeholder={`Section ${index + 1}`}
+                                                className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none"
+                                                style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                                            />
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                value={section.questionCount ?? ""}
+                                                onChange={(e) => handleSectionChange(index, "questionCount", e.target.value)}
+                                                placeholder="Questions"
+                                                className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none"
+                                                style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                                            />
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                disabled={quiz.examType !== "section_with_timer"}
+                                                value={section.durationMinutes ?? ""}
+                                                onChange={(e) => handleSectionChange(index, "durationMinutes", e.target.value)}
+                                                placeholder={quiz.examType === "section_with_timer" ? "Minutes" : "No timer"}
+                                                className="px-3 py-2 rounded-xl bg-transparent text-[13px] outline-none disabled:opacity-50"
+                                                style={{ color: "var(--app-text)", border: "1px solid var(--app-border)" }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeSection(index)}
+                                                className="w-10 h-10 rounded-xl border flex items-center justify-center"
+                                                style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.28)" }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    <div className="flex flex-wrap gap-4 text-[12px]" style={{ color: "var(--app-text-subtle)" }}>
+                                        <span>Total section questions: <strong style={{ color: "var(--app-text)" }}>{sectionQuestionTotal}</strong></span>
+                                        <span>Current quiz questions: <strong style={{ color: "var(--app-text)" }}>{quiz.questions?.length || 0}</strong></span>
+                                        {quiz.examType === "section_with_timer" && (
+                                            <span>Total timed duration: <strong style={{ color: "var(--app-text)" }}>{computedDuration} min</strong></span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest block" style={{ color: "var(--app-text-subtle)" }}>
+                                    Study Material (PDF)
+                                </label>
+                                <label
+                                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-dashed cursor-pointer transition-all"
+                                    style={{ background: "var(--app-input)", borderColor: "var(--app-border-strong)" }}
+                                >
+                                    <FileText size={18} style={{ color: "var(--accent)" }} />
+                                    <span className="text-[13px] truncate flex-1" style={{ color: "var(--app-text-muted)" }}>
+                                        {studyMaterialUploading
+                                            ? "Uploading PDF..."
+                                            : quiz.studyMaterialName || "Upload study material PDF"}
+                                    </span>
+                                    {quiz.studyMaterialUrl && !studyMaterialUploading && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setQuiz((prev) => ({ ...prev, studyMaterialUrl: "", studyMaterialName: "" }));
+                                            }}
+                                            className="text-[11px] font-semibold px-2 py-1 rounded-lg border"
+                                            style={{ color: "var(--app-text-subtle)", borderColor: "var(--app-border)" }}
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="application/pdf"
+                                        className="hidden"
+                                        onChange={(e) => handleStudyMaterialPick(e.target.files?.[0] || null)}
+                                    />
+                                </label>
+                                <p className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>
+                                    Replace or remove the reference PDF attached to this quiz.
+                                </p>
+                            </div>
+
+                            {/* Difficulty selector */}
+                            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] focus-within:border-cyan-500/30 transition-all duration-200">
+                                <div className="mt-0.5 flex-shrink-0">
+                                    <BarChart2 size={14} className={selectedDifficulty ? selectedDifficulty.color : "text-white/30"} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest block mb-2">
+                                        Difficulty Level
+                                    </label>
+                                    <div className="flex gap-2">
+                                        {DIFFICULTY_LEVELS.map(level => {
+                                            const active = quiz.difficulty === level.value;
+                                            return (
+                                                <button
+                                                    key={level.value}
+                                                    type="button"
+                                                    onClick={() => handleChange("difficulty", level.value)}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] font-bold transition-all duration-200
+                            ${active
+                                                            ? `${level.badge} border-current`
+                                                            : "text-white/25 border-white/[0.07] hover:text-white/50 hover:border-white/20"
+                                                        }`}
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${active ? level.dot : "bg-white/20"}`} />
+                                                    {level.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Questions ── */}
+                    <div className="flex flex-col gap-4 mb-5">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 size={15} className="text-cyan-400" />
+                            <h2 className="text-[14px] font-bold text-white">Questions</h2>
+                            <span className="text-[11px] font-bold text-white/30 bg-white/[0.05] px-2 py-0.5 rounded-full">
+                                {quiz.questions?.length ?? 0}
+                            </span>
+                        </div>
+
+                        <AnimatePresence>
+                            {quiz.questions?.map((q, index) => (
+                                <MotionDiv
+                                    key={q._id ?? q.id ?? index}
+                                    variants={fadeUp} initial="hidden" animate="show" exit="exit"
+                                    className="bg-[#0c0c18] border border-white/[0.06] rounded-2xl overflow-hidden"
+                                >
+                                    {/* Question header */}
+                                    <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-[12px] font-bold text-cyan-400">
+                                                {index + 1}
+                                            </div>
+                                            <span className="text-[13px] font-semibold text-white/60 truncate max-w-[240px]">
+                                                {q.questionText || `Question ${index + 1}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => toggleCollapse(index)}
+                                                className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.06] transition-all"
+                                            >
+                                                {collapsed[index] ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                                            </button>
+                                            {quiz.questions.length > 1 && (
+                                                <button
+                                                    onClick={() => removeQuestion(index)}
+                                                    className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Question body */}
+                                    {!collapsed[index] && (
+                                        <div className="p-5 flex flex-col gap-4">
+                                            <Field icon={<AlignLeft size={14} className="text-white/30" />} label="Question">
+                                                <textarea
+                                                    rows={2}
+                                                    value={q.questionText ?? ""}
+                                                    onChange={e => handleQuestionChange(index, "questionText", e.target.value)}
+                                                    placeholder="Type your question here..."
+                                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none"
+                                                />
+                                            </Field>
+
+                                            {/* Image upload */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
+                                                    Question Image <span className="text-white/15 normal-case font-normal">(optional)</span>
+                                                </label>
+
+                                                {q.imagePreview || q.imageUrl ? (
+                                                    <div
+                                                        className="relative rounded-xl overflow-hidden border border-white/[0.08] group"
+                                                        onPaste={(e) => handleImagePaste(index, e)}
+                                                        tabIndex={0}
+                                                    >
+                                                        <img src={q.imagePreview || q.imageUrl} alt="question"
+                                                            className="w-full max-h-52 object-contain bg-white/[0.02]" />
+
+                                                        {q.uploading && (
+                                                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                                                                <div className="w-6 h-6 border-2 border-white/20 border-t-cyan-400 rounded-full animate-spin" />
+                                                                <span className="text-[11px] text-white/60">Uploading...</span>
+                                                            </div>
+                                                        )}
+
+                                                        {q.imageUrl && !q.uploading && (
+                                                            <div className="absolute top-2 left-2 flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/25 px-2 py-1 rounded-lg">
+                                                                <CheckCircle2 size={10} /> Uploaded
+                                                            </div>
+                                                        )}
+
+                                                        {!q.uploading && (
+                                                            <button onClick={() => removeImage(index)}
+                                                                className="absolute top-2 right-2 w-7 h-7 rounded-xl bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/40 transition-all opacity-0 group-hover:opacity-100">
+                                                                <X size={13} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => imageRefs.current[index]?.click()}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === "Enter" || e.key === " ") {
+                                                                e.preventDefault();
+                                                                imageRefs.current[index]?.click();
+                                                            }
+                                                        }}
+                                                        onPaste={(e) => handleImagePaste(index, e)}
+                                                        className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2"
+                                                        style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-subtle)", background: "var(--app-input)" }}>
+                                                        <ImagePlus size={22} />
+                                                        <span className="text-[12px] font-semibold">Click or paste image</span>
+                                                        <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>JPG, PNG, WEBP — max 5MB</span>
+                                                        <span className="text-[11px]" style={{ color: "var(--app-text-ghost)" }}>Click this box, then press Ctrl+V to paste</span>
+                                                    </div>
+                                                )}
+
+                                                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                                                    ref={el => imageRefs.current[index] = el}
+                                                    onChange={e => handleImagePick(index, e.target.files[0])} />
+                                            </div>
+
+                                            {/* Options */}
+                                            <div>
+                                                <label className="text-[11px] font-bold uppercase tracking-widest mb-3 block" style={{ color: "var(--app-text-subtle)" }}>
+                                                    Options — click radio to mark correct answer
+                                                </label>
+                                                <div className="flex flex-col gap-2">
+                                                    {q.options?.map((opt, i) => {
+                                                        const isCorrect = Number(q.correctAnswer) === i;
+                                                        return (
+                                                            <div
+                                                                key={i}
+                                                                className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                                                                style={isCorrect
+                                                                    ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" }
+                                                                    : { borderColor: "var(--app-border)", background: "var(--app-input)" }}
+                                                            >
+                                                                <button
+                                                                    onClick={() => handleQuestionChange(index, "correctAnswer", i)}
+                                                                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                                                                    style={isCorrect ? { borderColor: "var(--accent)", background: "var(--accent)" } : { borderColor: "var(--app-text-ghost)" }}
+                                                                >
+                                                                    {isCorrect && <div className="w-2 h-2 rounded-full bg-white" />}
+                                                                </button>
+                                                                <span className="text-[12px] font-bold flex-shrink-0 w-5" style={{ color: isCorrect ? "var(--accent)" : "var(--app-text-subtle)" }}>
+                                                                    {String.fromCharCode(65 + i)}
+                                                                </span>
+                                                                <input
+                                                                    value={opt ?? ""}
+                                                                    onChange={e => handleOptionChange(index, i, e.target.value)}
+                                                                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                                                                    className="flex-1 bg-transparent text-[13px] outline-none"
+                                                                    style={{ color: isCorrect ? "var(--accent-strong)" : "var(--app-text)" }}
+                                                                />
+                                                                {isCorrect && (
+                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0" style={{ color: "var(--accent)", background: "var(--accent-soft)", borderColor: "var(--accent-border)" }}>
+                                                                        Correct
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* Explanation */}
+                                            <Field icon={<Lightbulb size={14} className="text-amber-400/60" />} label="Explanation (optional)">
+                                                <textarea
+                                                    rows={2}
+                                                    value={q.explanation ?? ""}
+                                                    onChange={e => handleQuestionChange(index, "explanation", e.target.value)}
+                                                    placeholder="Explain why the correct answer is right..."
+                                                    className="w-full bg-transparent text-[14px] text-white placeholder:text-white/20 outline-none resize-none"
+                                                />
+                                            </Field>
+                                        </div>
+                                    )}
+                                </MotionDiv>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Add question */}
+                    <button
+                        onClick={addQuestion}
+                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-dashed border-white/[0.10] text-white/30 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 mb-6 text-[13px] font-semibold"
+                    >
+                        <PlusCircle size={16} />
+                        Add Question
+                    </button>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => navigate("/quizzes")}
+                            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border border-white/[0.08] text-white/40 hover:text-white hover:bg-white/[0.04] text-[14px] font-semibold transition-all"
+                        >
+                            <ArrowLeft size={15} />
+                            Discard
+                        </button>
+
+                        <button
+                            onClick={handleSave}
+                            disabled={loading}
+                            className="flex-[2] flex items-center justify-center gap-2.5 py-4 rounded-2xl text-white font-bold text-[15px] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99]"
+                            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))", boxShadow: "0 22px 38px var(--accent-glow)" }}
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={17} />
+                                    Save Changes
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="h-8" />
+                </div>
+        </AdminShell>
+    );
+}
