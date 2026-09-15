@@ -118,6 +118,67 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex, palet
   );
 };
 
+const QuestionNumberGrid = ({
+  total,
+  current,
+  answers,
+  markedReviews,
+  themeColors,
+  accentColor,
+  onSelect,
+}) => {
+  return (
+    <View style={styles.numberGridWrap}>
+      <Text style={[styles.numberGridTitle, { color: themeColors.isLight ? "#475569" : themeColors.textSubtle }]}>
+        Questions
+      </Text>
+      <View style={styles.numberGrid}>
+        {Array.from({ length: total }, (_, i) => i).map((index) => {
+          const isCurrent = index === current;
+          const isAnswered = answers[index] != null && answers[index] !== "";
+          const isMarked = !!markedReviews[index];
+
+          let backgroundColor = themeColors.isLight ? "#ffffff" : themeColors.surface;
+          let borderColor = themeColors.isLight ? "#e2e8f0" : themeColors.border;
+          let textColor = themeColors.isLight ? "#334155" : themeColors.text;
+
+          if (isAnswered) {
+            backgroundColor = themeColors.isLight ? `${accentColor}24` : `${accentColor}33`;
+            borderColor = accentColor;
+            textColor = accentColor;
+          }
+          if (isMarked) {
+            backgroundColor = themeColors.isLight ? "#fef3c7" : "#d9770633";
+            borderColor = "#d97706";
+            textColor = "#b45309";
+          }
+          if (isCurrent) {
+            backgroundColor = accentColor;
+            borderColor = accentColor;
+            textColor = "#ffffff";
+          }
+
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => onSelect(index)}
+              activeOpacity={0.75}
+              style={[
+                styles.numberCell,
+                { backgroundColor, borderColor },
+              ]}
+            >
+              <Text style={[styles.numberCellText, { color: textColor }]}>
+                {index + 1}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
 const buildSections = (quiz, questions) => {
   const usesSections = quiz?.examType === "section_no_timer" || quiz?.examType === "section_with_timer";
   const rawSections = usesSections && Array.isArray(quiz?.sections) ? quiz.sections : [];
@@ -219,13 +280,6 @@ const QuizScreen = ({ route, navigation }) => {
   );
   const currentSection = sections[currentSectionIndex];
 
-  const hasTimer = useMemo(() => {
-    if (examType === "section_no_timer") return false;
-    if (examType === "section_with_timer" && currentSection?.durationMinutes) return true;
-    const duration = Number(quizMeta?.duration);
-    return !isNaN(duration) && duration > 0;
-  }, [examType, currentSection, quizMeta]);
-
   useEffect(() => {
     let mounted = true;
 
@@ -308,40 +362,51 @@ const QuizScreen = ({ route, navigation }) => {
     advancingRef.current = true;
     clearInterval(timerRef.current);
 
-    const valueToSave = selected ?? null;
-    const newAnswers = { ...answersRef.current, [current]: valueToSave };
-    saveAnswers(newAnswers);
-    await saveProgress(newAnswers);
+    try {
+      const valueToSave = selected ?? null;
+      const newAnswers = { ...answersRef.current, [current]: valueToSave };
+      saveAnswers(newAnswers);
+      await saveProgress(newAnswers);
 
-    if (isLastQuestion) {
+      if (isLastQuestion) {
+        const resultParams = { answers: newAnswers, questions, quizId, quizMeta };
+        try {
+          navigation.reset({
+            index: 1,
+            routes: [{ name: "Home" }, { name: "Result", params: resultParams }],
+          });
+        } catch (navError) {
+          // If 'Result' isn't registered on this navigator, reset() throws (or is
+          // silently ignored by some RN Navigation versions). Fall back to a plain
+          // navigate so the student isn't stuck on a dead Submit button, and log
+          // loudly so this is easy to spot instead of failing silently.
+          console.error(
+            "navigation.reset to 'Result' failed — check that 'Result' is registered on this navigator:",
+            navError
+          );
+          navigation.navigate("Result", resultParams);
+        }
+        return;
+      }
+
+      if ((forcedByTimer || isLastInSection) && nextSection) {
+        setCurrent(nextSection.start);
+        setSelected(newAnswers[nextSection.start] ?? null);
+        return;
+      }
+
+      setCurrent((value) => value + 1);
+    } catch (error) {
+      // Never let an unexpected error (network hiccup, bad response shape, etc.)
+      // leave the quiz permanently stuck — surface it and let the student retry.
+      console.error("goToNextStep failed:", error);
+      Alert.alert(
+        "Something went wrong",
+        "We couldn't move to the next step. Please check your connection and try again."
+      );
+    } finally {
       advancingRef.current = false;
-      navigation.reset({
-        index: 1,
-        routes: [
-          { name: "Home" },
-          {
-            name: "Result",
-            params: {
-              answers: newAnswers,
-              questions,
-              quizId,
-              quizMeta,
-            },
-          },
-        ],
-      });
-      return;
     }
-
-    if ((forcedByTimer || isLastInSection) && nextSection) {
-      setCurrent(nextSection.start);
-      setSelected(newAnswers[nextSection.start] ?? null);
-      advancingRef.current = false;
-      return;
-    }
-
-    setCurrent((value) => value + 1);
-    advancingRef.current = false;
   }, [current, isLastInSection, isLastQuestion, navigation, nextSection, questions, quizId, quizMeta, saveProgress, selected]);
 
   const goToPrevious = async () => {
@@ -356,32 +421,29 @@ const QuizScreen = ({ route, navigation }) => {
     }
   };
 
+  const goToQuestion = useCallback(async (index) => {
+    if (index === current || progressSaving || advancingRef.current) return;
+
+    const valueToSave = selected ?? null;
+    const newAnswers = { ...answersRef.current, [current]: valueToSave };
+    saveAnswers(newAnswers);
+    await saveProgress(newAnswers);
+
+    clearInterval(timerRef.current);
+    setCurrent(index);
+    setSelected(newAnswers[index] ?? null);
+  }, [current, progressSaving, saveProgress, selected]);
+
   useEffect(() => {
     clearInterval(timerRef.current);
-
-    if (!hasTimer) {
+    const hasTimer = !!currentSection?.durationMinutes && Number(currentSection.durationMinutes) > 0;
+    if (!currentSection || !hasTimer) {
       setTimeLeft(null);
       return undefined;
     }
 
-    let initialSeconds = 0;
-    if (examType === "section_with_timer" && currentSection?.durationMinutes) {
-      initialSeconds = Number(currentSection.durationMinutes) * 60;
-    } else if (quizMeta?.duration) {
-      initialSeconds = Number(quizMeta.duration) * 60;
-    }
-
-    if (initialSeconds <= 0) {
-      setTimeLeft(null);
-      return undefined;
-    }
-
-    setTimeLeft((prevTime) => {
-      if (examType === "section_with_timer") {
-        return initialSeconds;
-      }
-      return prevTime != null ? prevTime : initialSeconds;
-    });
+    const durationSeconds = Number(currentSection.durationMinutes) * 60;
+    setTimeLeft(durationSeconds);
 
     timerRef.current = setInterval(() => {
       setTimeLeft((remaining) => {
@@ -396,7 +458,7 @@ const QuizScreen = ({ route, navigation }) => {
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [currentSectionIndex, currentSection?.durationMinutes, examType, hasTimer, quizMeta?.duration, goToNextStep]);
+  }, [currentSection, examType, goToNextStep]);
 
   if (loading || !q) {
     return (
@@ -457,7 +519,7 @@ const QuizScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {hasTimer && timeLeft != null ? (
+        {examType === "section_with_timer" && timeLeft != null ? (
           <TimerRing timeLeft={timeLeft} themeColors={themeColors} accentColor={accentOption.colors[0]} />
         ) : (
           <View style={[styles.timerStatic, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
@@ -616,20 +678,15 @@ const QuizScreen = ({ route, navigation }) => {
           <Text style={[styles.hintTxt, { color: themeColors.textGhost }]}>Pick an option to continue</Text>
         )}
 
-        <View style={styles.dotRow}>
-          {questions.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i < current && answers[i] != null && styles.dotAnswered,
-                i < current && answers[i] == null && styles.dotSkipped,
-                markedReviews[i] && styles.dotMarked,
-                i === current && [styles.dotActive, { backgroundColor: accentOption.colors[0] }],
-              ]}
-            />
-          ))}
-        </View>
+        <QuestionNumberGrid
+          total={questions.length}
+          current={current}
+          answers={answers}
+          markedReviews={markedReviews}
+          themeColors={themeColors}
+          accentColor={accentOption.colors[0]}
+          onSelect={goToQuestion}
+        />
       </ScrollView>
     </View>
   );
@@ -680,7 +737,7 @@ const styles = StyleSheet.create({
   qMetaBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
   qMetaBadgeText: { fontSize: 11, fontWeight: "700" },
   qLine: { height: 2, borderRadius: 2, marginBottom: 18 },
-  questionTxt: { fontSize: 19, fontWeight: "700", lineHeight: 29, letterSpacing: -0.2 },
+  questionTxt: { fontSize: 14, fontWeight: "700", lineHeight: 22, letterSpacing: -0.2 },
   imageHint: { marginTop: 14, borderWidth: 1, borderRadius: 14, padding: 12 },
   imageHintText: { fontSize: 12, lineHeight: 18 },
   optionsWrap: { gap: 11, marginBottom: 18 },
@@ -706,4 +763,18 @@ const styles = StyleSheet.create({
   prevBtnText: { fontSize: 14, fontWeight: "700" },
   reviewBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 16, borderWidth: 1, paddingVertical: 14 },
   reviewBtnText: { fontSize: 14, fontWeight: "700" },
+  numberGridWrap: { marginTop: 18, marginBottom: 20 },
+  numberGridTitle: { fontSize: 14, fontWeight: "700", marginBottom: 12 },
+  numberGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  numberCell: {
+    width: Math.floor((width - 40 - 42) / 7),
+    height: Math.floor((width - 40 - 42) / 7),
+    minWidth: 38,
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  numberCellText: { fontSize: 14, fontWeight: "800" },
 });

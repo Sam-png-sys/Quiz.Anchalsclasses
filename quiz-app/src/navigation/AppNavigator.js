@@ -16,6 +16,7 @@ import SettingsScreen from "../screens/SettingsScreen";
 import StudyMaterialsScreen from "../screens/StudyMaterialsScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import AnalyticsScreen from "../screens/AnalyticsScreen";
+import RankScreen from "../screens/RankScreen";
 import { AuthContext } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 
@@ -145,6 +146,7 @@ const AppNavigator = () => {
                     <Stack.Screen name="StudyMaterials" component={StudyMaterialsScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
                     <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+                    <Stack.Screen name="Rank" component={RankScreen} />
                 </>
             ) : (
                 <>

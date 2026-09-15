@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
 
@@ -346,6 +347,23 @@ const ResultScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
 
+        <Animated.View style={[{ opacity: statsFade, marginBottom: 12 }]}>
+          <TouchableOpacity
+            style={[styles.rankBtn, { backgroundColor: `${accentOption.colors[0]}18`, borderColor: accentOption.colors[0] }]}
+            onPress={() => {
+              navigation.navigate("Rank", {
+                quizId,
+                quizTitle: "Quiz Leaderboard",
+                currentMarks: score,
+              });
+            }}
+          >
+            <Ionicons name="trophy-outline" size={20} color={accentOption.colors[0]} style={{ marginRight: 8 }} />
+            <Text style={[styles.rankBtnTxt, { color: accentOption.colors[0] }]}>View Quiz Rankings & Leaderboard</Text>
+            <Ionicons name="chevron-forward" size={16} color={accentOption.colors[0]} style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View style={[styles.btnRow, { opacity: statsFade }]}>
           <TouchableOpacity
             style={[styles.btnSecondary, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
@@ -532,4 +550,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   teacherAskTxt: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  rankBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  rankBtnTxt: { fontSize: 14, fontWeight: "800" },
 });
