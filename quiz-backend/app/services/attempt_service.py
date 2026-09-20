@@ -1,4 +1,4 @@
-from app.config.database import attempt_collection, question_collection, quiz_collection
+from app.config.database import attempt_collection, question_collection, quiz_collection, users_collection
 from bson import ObjectId
 from datetime import datetime
 
@@ -200,3 +200,59 @@ def get_attempt_summary(user_id):
         "totalAttempts": len(submitted_attempts),
         "bestScore": best_score,
     }
+
+
+def get_quiz_leaderboard(quiz_id):
+    try:
+        q_obj_id = ObjectId(quiz_id)
+    except Exception:
+        return []
+
+    attempts = list(attempt_collection.find({
+        "quizId": q_obj_id,
+        "submittedAt": {"$ne": None}
+    }))
+
+    if not attempts:
+        return []
+
+    user_best_map = {}
+    for att in attempts:
+        uid = str(att.get("userId", ""))
+        score = att.get("score", 0)
+        total_questions = len(att.get("questions", []))
+        submitted_at = att.get("submittedAt")
+
+        if uid not in user_best_map or score > user_best_map[uid]["score"]:
+            user_best_map[uid] = {
+                "userId": uid,
+                "score": score,
+                "totalQuestions": total_questions,
+                "percentage": round((score / total_questions * 100)) if total_questions > 0 else 0,
+                "submittedAt": submitted_at.isoformat() if isinstance(submitted_at, datetime) else str(submitted_at),
+            }
+
+    leaderboard = []
+    for uid, data in user_best_map.items():
+        user_info = None
+        try:
+            user_info = users_collection.find_one({"_id": ObjectId(uid)})
+        except Exception:
+            user_info = users_collection.find_one({"_id": uid})
+
+        name = user_info.get("name") if user_info else None
+        email = user_info.get("email") if user_info else None
+
+        leaderboard.append({
+            "userId": uid,
+            "name": name or email or "Student",
+            "email": email or "",
+            "marks": data["score"],
+            "score": data["score"],
+            "totalQuestions": data["totalQuestions"],
+            "percentage": data["percentage"],
+            "submittedAt": data["submittedAt"],
+        })
+
+    leaderboard.sort(key=lambda x: (x["marks"], x["percentage"]), reverse=True)
+    return leaderboard

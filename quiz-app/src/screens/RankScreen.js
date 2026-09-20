@@ -146,9 +146,22 @@ const RankScreen = ({ route, navigation }) => {
 
   const sortedEntries = useMemo(() => {
     const list = Array.isArray(leaderboard) ? [...leaderboard] : [];
+    if (myEmail && currentMarks != null) {
+      const exists = list.some(
+        (entry) => (getEntryEmail(entry) || "").toLowerCase() === myEmail.toLowerCase()
+      );
+      if (!exists) {
+        list.push({
+          email: myEmail,
+          name: "You",
+          marks: currentMarks,
+          score: currentMarks,
+        });
+      }
+    }
     list.sort((a, b) => getEntryMarks(b) - getEntryMarks(a));
     return list;
-  }, [leaderboard]);
+  }, [leaderboard, myEmail, currentMarks]);
 
   const myRankInfo = useMemo(() => {
     if (!myEmail) return null;

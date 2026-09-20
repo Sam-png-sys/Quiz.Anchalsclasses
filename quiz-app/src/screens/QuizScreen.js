@@ -21,17 +21,17 @@ import { AuthContext } from "../context/AuthContext";
 const { width } = Dimensions.get("window");
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
 
-const TimerRing = ({ timeLeft, themeColors, accentColor }) => {
+const DotTimerRing = ({ timeLeft, totalDuration, themeColors, accentColor }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const isUrgent = timeLeft <= 60;
+  const isUrgent = timeLeft != null && timeLeft <= 60;
 
   useEffect(() => {
     if (timeLeft == null) return undefined;
     if (isUrgent) {
       const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.1, duration: 380, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.08, duration: 400, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
         ])
       );
       loop.start();
@@ -42,18 +42,71 @@ const TimerRing = ({ timeLeft, themeColors, accentColor }) => {
     return undefined;
   }, [isUrgent, pulseAnim, timeLeft]);
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-  const label = `${minutes}:${String(seconds).padStart(2, "0")}`;
-  const color = timeLeft > 300 ? accentColor : timeLeft > 120 ? "#f59e0b" : "#ef4444";
+  const total = Math.max(1, totalDuration || 60);
+  const remaining = Math.max(0, timeLeft || 0);
+  const progress = Math.min(1, Math.max(0, remaining / total));
+
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const timeLabel = minutes > 0 ? `${minutes}:${String(seconds).padStart(2, "0")}` : `${seconds}`;
+  const unitLabel = minutes > 0 ? "min" : "seconds";
+
+  const numDots = 36;
+  const ringSize = 84;
+  const radius = 35;
+  const centerX = ringSize / 2;
+  const centerY = ringSize / 2;
+  const dotSize = 4.5;
+
+  const activeColor = remaining > 300 ? "#f59e0b" : remaining > 120 ? "#f59e0b" : "#ef4444";
+  const dots = [];
+
+  for (let i = 0; i < numDots; i++) {
+    const angle = (i / numDots) * 2 * Math.PI - Math.PI / 2;
+    const x = centerX + radius * Math.cos(angle) - dotSize / 2;
+    const y = centerY + radius * Math.sin(angle) - dotSize / 2;
+    const isActive = (i / numDots) <= progress;
+
+    dots.push(
+      <View
+        key={i}
+        style={{
+          position: "absolute",
+          left: x,
+          top: y,
+          width: dotSize,
+          height: dotSize,
+          borderRadius: dotSize / 2,
+          backgroundColor: isActive ? activeColor : "rgba(148, 163, 184, 0.2)",
+          shadowColor: isActive ? activeColor : "transparent",
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isActive ? 0.8 : 0,
+          shadowRadius: isActive ? 4 : 0,
+          elevation: isActive ? 3 : 0,
+        }}
+      />
+    );
+  }
 
   return (
-    <Animated.View style={[styles.timerWrap, { transform: [{ scale: pulseAnim }] }]}>
-      <View style={[styles.timerRingBg, { borderColor: themeColors.border }]} />
-      <View style={[styles.timerRingFill, { borderColor: color }]} />
-      <View style={styles.timerInner}>
-        <Text style={[styles.timerNum, { color }]}>{label}</Text>
-        <Text style={[styles.timerSec, { color: themeColors.textGhost }]}>section</Text>
+    <Animated.View style={[styles.dotTimerWrap, { transform: [{ scale: pulseAnim }] }]}>
+      <View style={{ width: ringSize, height: ringSize, alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={[
+            styles.dotTimerInnerCircle,
+            {
+              width: ringSize - 22,
+              height: ringSize - 22,
+              borderRadius: (ringSize - 22) / 2,
+              borderColor: activeColor + "33",
+              backgroundColor: themeColors.surface,
+            },
+          ]}
+        >
+          <Text style={[styles.dotTimerNum, { color: activeColor }]}>{timeLabel}</Text>
+          <Text style={[styles.dotTimerUnit, { color: themeColors.textGhost }]}>{unitLabel}</Text>
+        </View>
+        {dots}
       </View>
     </Animated.View>
   );
@@ -228,6 +281,7 @@ const QuizScreen = ({ route, navigation }) => {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [totalDuration, setTotalDuration] = useState(null);
   const [progressSaving, setProgressSaving] = useState(false);
   const [markedReviews, setMarkedReviews] = useState({});
 
@@ -279,6 +333,13 @@ const QuizScreen = ({ route, navigation }) => {
     [sections, current]
   );
   const currentSection = sections[currentSectionIndex];
+
+  const hasTimer = useMemo(() => {
+    if (examType === "section_no_timer") return false;
+    if (examType === "section_with_timer" && currentSection?.durationMinutes) return true;
+    const duration = Number(quizMeta?.duration);
+    return !isNaN(duration) && duration > 0;
+  }, [examType, currentSection, quizMeta]);
 
   useEffect(() => {
     let mounted = true;
@@ -436,14 +497,33 @@ const QuizScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     clearInterval(timerRef.current);
-    const hasTimer = !!currentSection?.durationMinutes && Number(currentSection.durationMinutes) > 0;
-    if (!currentSection || !hasTimer) {
+
+    if (!hasTimer) {
       setTimeLeft(null);
+      setTotalDuration(null);
       return undefined;
     }
 
-    const durationSeconds = Number(currentSection.durationMinutes) * 60;
-    setTimeLeft(durationSeconds);
+    let initialSeconds = 0;
+    if (examType === "section_with_timer" && currentSection?.durationMinutes) {
+      initialSeconds = Number(currentSection.durationMinutes) * 60;
+    } else if (quizMeta?.duration) {
+      initialSeconds = Number(quizMeta.duration) * 60;
+    }
+
+    if (initialSeconds <= 0) {
+      setTimeLeft(null);
+      setTotalDuration(null);
+      return undefined;
+    }
+
+    setTotalDuration(initialSeconds);
+    setTimeLeft((prevTime) => {
+      if (examType === "section_with_timer") {
+        return initialSeconds;
+      }
+      return prevTime != null ? prevTime : initialSeconds;
+    });
 
     timerRef.current = setInterval(() => {
       setTimeLeft((remaining) => {
@@ -458,7 +538,7 @@ const QuizScreen = ({ route, navigation }) => {
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [currentSection, examType, goToNextStep]);
+  }, [currentSectionIndex, currentSection?.durationMinutes, examType, hasTimer, quizMeta?.duration, goToNextStep]);
 
   if (loading || !q) {
     return (
@@ -519,8 +599,13 @@ const QuizScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {examType === "section_with_timer" && timeLeft != null ? (
-          <TimerRing timeLeft={timeLeft} themeColors={themeColors} accentColor={accentOption.colors[0]} />
+        {hasTimer && timeLeft != null ? (
+          <DotTimerRing
+            timeLeft={timeLeft}
+            totalDuration={totalDuration}
+            themeColors={themeColors}
+            accentColor={accentOption.colors[0]}
+          />
         ) : (
           <View style={[styles.timerStatic, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
             <Text style={[styles.timerStaticText, { color: themeColors.textSubtle }]}>
@@ -714,12 +799,10 @@ const styles = StyleSheet.create({
   progressCurrent: { fontWeight: "800" },
   progressTotal: { fontWeight: "500" },
   progressPct: { fontSize: 12, fontWeight: "700" },
-  timerWrap: { width: 84, height: 64, alignItems: "center", justifyContent: "center" },
-  timerRingBg: { position: "absolute", width: 72, height: 72, borderRadius: 36, borderWidth: 3 },
-  timerRingFill: { position: "absolute", width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderTopColor: "transparent", borderRightColor: "transparent" },
-  timerInner: { alignItems: "center" },
-  timerNum: { fontSize: 13, fontWeight: "800", lineHeight: 16 },
-  timerSec: { fontSize: 9, fontWeight: "600" },
+  dotTimerWrap: { width: 84, height: 84, alignItems: "center", justifyContent: "center" },
+  dotTimerInnerCircle: { borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  dotTimerNum: { fontSize: 13, fontWeight: "900", lineHeight: 16 },
+  dotTimerUnit: { fontSize: 9, fontWeight: "700" },
   timerStatic: { minWidth: 84, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 1, paddingHorizontal: 10 },
   timerStaticText: { fontSize: 11, fontWeight: "700" },
   scorePill: { alignSelf: "flex-end", marginRight: 20, marginBottom: 6 },

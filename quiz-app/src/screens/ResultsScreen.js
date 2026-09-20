@@ -7,8 +7,6 @@ import {
   Animated,
   StatusBar,
   ScrollView,
-  TextInput,
-  ActivityIndicator,
   BackHandler,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { getSavedTasks, saveTaskItem } from "./TaskScreen";
 
 const LOCAL_COMPLETIONS_KEY = "local_completed_quizzes";
 
@@ -40,12 +39,9 @@ const saveLocalCompletion = async (quizId, score, total) => {
   }
 };
 
-const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, accentOption }) => {
+const ReviewCard = ({ question, userAnswer, index, delay, themeColors }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
-  const [teacherQuestion, setTeacherQuestion] = useState("");
-  const [teacherAnswer, setTeacherAnswer] = useState(question.explanation || "");
-  const [teacherLoading, setTeacherLoading] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -57,28 +53,6 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
   const correctAnswer = question.correct_answer || question.correctAnswer || question.correct || "";
   const isCorrect = userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
   const skipped = userAnswer === null || userAnswer === undefined;
-  const storedExplanation = (question.explanation || "").trim();
-
-  const askTeacher = async (message) => {
-    try {
-      setTeacherLoading(true);
-      const res = await API.post("/ai/teacher/explain", {
-        quizId,
-        questionId: question._id || question.id,
-        message,
-      });
-      setTeacherAnswer(res.data.answer);
-    } catch {
-      setTeacherAnswer("I could not reach the AI teacher right now. Please try again.");
-    } finally {
-      setTeacherLoading(false);
-    }
-  };
-
-  const handleAsk = () => {
-    const message = teacherQuestion.trim() || `Explain why "${correctAnswer}" is the correct answer for this question.`;
-    askTeacher(message);
-  };
 
   return (
     <Animated.View
@@ -133,86 +107,24 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
           <Text style={[styles.reviewAnswerLabel, { color: themeColors.textSubtle }]}>Correct: </Text>
           <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
         </View>
-
-        <View
-          style={[
-            styles.teacherBox,
-            {
-              backgroundColor: accentOption.colors[0] + "12",
-              borderColor: accentOption.colors[0] + "33",
-            },
-          ]}
-        >
-          <View style={styles.teacherTop}>
-            <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>AI Teacher</Text>
-            <TouchableOpacity
-              style={[
-                styles.teacherExplainBtn,
-                {
-                  backgroundColor: accentOption.colors[0] + "22",
-                  borderColor: accentOption.colors[0] + "44",
-                },
-              ]}
-              onPress={() => askTeacher(`Explain this answer for me like a teacher: ${question.question}`)}
-              disabled={teacherLoading}
-            >
-              <Text style={[styles.teacherExplainTxt, { color: accentOption.colors[0] }]}>Explain</Text>
-            </TouchableOpacity>
-          </View>
-
-          {!!storedExplanation && (
-            <View
-              style={[
-                styles.explanationBox,
-                {
-                  backgroundColor: accentOption.colors[0] + "10",
-                  borderColor: accentOption.colors[0] + "24",
-                },
-              ]}
-            >
-              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>AI Explanation</Text>
-              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>{storedExplanation}</Text>
-            </View>
-          )}
-
-          {!!teacherAnswer && teacherAnswer !== storedExplanation && (
-            <Text style={[styles.teacherAnswer, { color: themeColors.textMuted }]}>{teacherAnswer}</Text>
-          )}
-
-          <View style={styles.teacherInputRow}>
-            <TextInput
-              value={teacherQuestion}
-              onChangeText={setTeacherQuestion}
-              placeholder="Ask about this topic..."
-              placeholderTextColor={themeColors.textGhost}
-              style={[
-                styles.teacherInput,
-                {
-                  color: themeColors.text,
-                  backgroundColor: themeColors.surfaceStrong,
-                  borderColor: themeColors.border,
-                },
-              ]}
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.teacherAskBtn, { backgroundColor: accentOption.colors[0] }]}
-              onPress={handleAsk}
-              disabled={teacherLoading}
-            >
-              {teacherLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.teacherAskTxt}>Ask</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
     </Animated.View>
   );
 };
 
 const ResultScreen = ({ route, navigation }) => {
-  const { answers, questions, quizId } = route.params;
+  const { answers, questions, quizId, quizMeta } = route.params;
   const { accentOption, themeColors, settings } = useAppSettings();
   const completionSaved = useRef(false);
+  const [taskAdded, setTaskAdded] = useState(false);
+
+  useEffect(() => {
+    if (!quizId) return;
+    getSavedTasks().then((list) => {
+      const found = list.some((t) => t.quizId === quizId);
+      if (found) setTaskAdded(true);
+    });
+  }, [quizId]);
 
   const goHome = useCallback(() => {
     navigation.reset({
@@ -347,13 +259,54 @@ const ResultScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
 
+        <Animated.View style={[{ opacity: statsFade, marginBottom: 10 }]}>
+          <TouchableOpacity
+            style={[
+              styles.taskBtn,
+              {
+                backgroundColor: taskAdded ? "#10b9811A" : `${accentOption.colors[0]}12`,
+                borderColor: taskAdded ? "#10b981" : accentOption.colors[0],
+              },
+            ]}
+            onPress={async () => {
+              const success = await saveTaskItem({
+                quizId,
+                title: quizMeta?.title || "Quiz Task",
+                course: quizMeta?.course || "General",
+                subject: quizMeta?.subject || "Subject",
+                score,
+                total,
+                pct,
+              });
+              if (success) {
+                setTaskAdded(true);
+              }
+            }}
+          >
+            <Ionicons
+              name={taskAdded ? "checkmark-circle" : "bookmark-outline"}
+              size={20}
+              color={taskAdded ? "#10b981" : accentOption.colors[0]}
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={[
+                styles.taskBtnTxt,
+                { color: taskAdded ? "#10b981" : accentOption.colors[0] },
+              ]}
+            >
+              {taskAdded ? "Added to My Tasks ✓" : "Add to My Tasks for Revision"}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View style={[{ opacity: statsFade, marginBottom: 12 }]}>
           <TouchableOpacity
             style={[styles.rankBtn, { backgroundColor: `${accentOption.colors[0]}18`, borderColor: accentOption.colors[0] }]}
             onPress={() => {
               navigation.navigate("Rank", {
                 quizId,
-                quizTitle: "Quiz Leaderboard",
+                quizTitle: quizMeta?.title || "Quiz Leaderboard",
                 currentMarks: score,
               });
             }}
@@ -402,9 +355,7 @@ const ResultScreen = ({ route, navigation }) => {
               userAnswer={getAnswerForQuestion(q, i)}
               index={i}
               delay={i * 60}
-              quizId={quizId}
               themeColors={themeColors}
-              accentOption={accentOption}
             />
           ))}
         </Animated.View>
@@ -560,4 +511,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   rankBtnTxt: { fontSize: 14, fontWeight: "800" },
+  taskBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  taskBtnTxt: { fontSize: 14, fontWeight: "800" },
 });

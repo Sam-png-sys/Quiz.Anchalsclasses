@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from app.services.attempt_service import complete_quiz, get_attempt_summary, save_quiz_progress, start_quiz, submit_quiz
+from app.services.attempt_service import complete_quiz, get_attempt_summary, get_quiz_leaderboard, save_quiz_progress, start_quiz, submit_quiz
 from app.dependencies.auth_dependency import get_current_user
 
 router = APIRouter(prefix="/attempt", tags=["Attempt"])
@@ -27,3 +27,8 @@ def complete(quiz_id: str, data: dict, user=Depends(get_current_user)):
 @router.get("/summary")
 def summary(user=Depends(get_current_user)):
     return get_attempt_summary(user["user_id"])
+
+
+@router.get("/leaderboard/{quiz_id}")
+def leaderboard(quiz_id: str):
+    return get_quiz_leaderboard(quiz_id)

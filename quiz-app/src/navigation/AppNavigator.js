@@ -17,6 +17,7 @@ import StudyMaterialsScreen from "../screens/StudyMaterialsScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import AnalyticsScreen from "../screens/AnalyticsScreen";
 import RankScreen from "../screens/RankScreen";
+import TaskScreen from "../screens/TaskScreen";
 import { AuthContext } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 
@@ -37,6 +38,8 @@ function TabNavigator() {
             iconName = focused ? "home" : "home-outline";
           } else if (route.name === "Quizzes") {
             iconName = focused ? "book" : "book-outline";
+          } else if (route.name === "Tasks") {
+            iconName = focused ? "bookmark" : "bookmark-outline";
           } else if (route.name === "StudyNotes") {
             iconName = focused ? "document-text" : "document-text-outline";
           } else if (route.name === "Analytics") {
@@ -64,6 +67,7 @@ function TabNavigator() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Quizzes" component={HomeScreen} />
+      <Tab.Screen name="Tasks" component={TaskScreen} options={{ title: "Tasks" }} />
       <Tab.Screen name="StudyNotes" component={StudyMaterialsScreen} options={{ title: "Study Notes" }} />
       <Tab.Screen name="Analytics" component={AnalyticsScreen} />
       <Tab.Screen name="SettingsTab" component={SettingsScreen} options={{ title: "Settings" }} />
@@ -147,6 +151,7 @@ const AppNavigator = () => {
                     <Stack.Screen name="Settings" component={SettingsScreen} />
                     <Stack.Screen name="Analytics" component={AnalyticsScreen} />
                     <Stack.Screen name="Rank" component={RankScreen} />
+                    <Stack.Screen name="Task" component={TaskScreen} />
                 </>
             ) : (
                 <>
