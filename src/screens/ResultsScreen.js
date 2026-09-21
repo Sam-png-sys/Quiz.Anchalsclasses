@@ -8,8 +8,6 @@ import {
   StatusBar,
   ScrollView,
   BackHandler,
-  TextInput,
-  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -46,8 +44,6 @@ const ReviewCard = ({
   userAnswer,
   index,
   delay,
-  quizId,
-  quizMeta,
   themeColors,
   accentOption,
   isSaved,
@@ -55,9 +51,6 @@ const ReviewCard = ({
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
-  const [teacherQuestion, setTeacherQuestion] = useState("");
-  const [teacherAnswer, setTeacherAnswer] = useState(question.explanation || "");
-  const [teacherLoading, setTeacherLoading] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -69,41 +62,7 @@ const ReviewCard = ({
   const correctAnswer = question.correct_answer || question.correctAnswer || question.correct || "";
   const isCorrect = userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
   const skipped = userAnswer === null || userAnswer === undefined;
-  const storedExplanation = (question.explanation || "").trim();
-
-  const askTeacher = async (message) => {
-    try {
-      setTeacherLoading(true);
-      const qId = question._id || question.id;
-      if (!quizId || !qId) {
-        setTeacherAnswer(
-          storedExplanation || "AI Teacher is only available for online quizzes with stored question IDs."
-        );
-        return;
-      }
-      const res = await API.post("/ai/teacher/explain", {
-        quizId,
-        questionId: qId,
-        message,
-      });
-      const ans = res.data?.answer || "No response received.";
-      setTeacherAnswer(ans);
-      if (isSaved && onToggleTask) {
-        onToggleTask(question, index, userAnswer, ans, true);
-      }
-    } catch (err) {
-      console.log("Teacher explain error:", err?.response?.data?.detail || err.message);
-      setTeacherAnswer("I could not reach the AI teacher right now. Please try again.");
-    } finally {
-      setTeacherLoading(false);
-    }
-  };
-
-  const handleAsk = () => {
-    const message =
-      teacherQuestion.trim() || `Explain why "${correctAnswer}" is the correct answer for this question.`;
-    askTeacher(message);
-  };
+  const explanation = (question.explanation || "").trim();
 
   return (
     <Animated.View
@@ -154,10 +113,7 @@ const ReviewCard = ({
                 borderColor: isSaved ? "#10b981" : `${accentOption.colors[0]}40`,
               },
             ]}
-            onPress={() =>
-              onToggleTask &&
-              onToggleTask(question, index, userAnswer, teacherAnswer || storedExplanation)
-            }
+            onPress={() => onToggleTask && onToggleTask(question, index, userAnswer, explanation)}
             activeOpacity={0.7}
           >
             <Ionicons
@@ -167,10 +123,7 @@ const ReviewCard = ({
               style={{ marginRight: 4 }}
             />
             <Text
-              style={[
-                styles.questionTaskBtnTxt,
-                { color: isSaved ? "#10b981" : accentOption.colors[0] },
-              ]}
+              style={[styles.questionTaskBtnTxt, { color: isSaved ? "#10b981" : accentOption.colors[0] }]}
             >
               {isSaved ? "In Tasks ✓" : "+ Add to Task"}
             </Text>
@@ -192,99 +145,25 @@ const ReviewCard = ({
           <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
         </View>
 
-        {/* AI Teacher Explanation Box */}
-        <View
-          style={[
-            styles.teacherBox,
-            {
-              backgroundColor: accentOption.colors[0] + "10",
-              borderColor: accentOption.colors[0] + "28",
-            },
-          ]}
-        >
-          <View style={styles.teacherTop}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="sparkles" size={14} color={accentOption.colors[0]} style={{ marginRight: 6 }} />
-              <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>AI Teacher</Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.teacherExplainBtn,
-                {
-                  backgroundColor: accentOption.colors[0] + "20",
-                  borderColor: accentOption.colors[0] + "44",
-                },
-              ]}
-              onPress={() => askTeacher(`Explain this answer for me like a teacher: ${question.question}`)}
-              disabled={teacherLoading}
-            >
-              <Text style={[styles.teacherExplainTxt, { color: accentOption.colors[0] }]}>Explain</Text>
-            </TouchableOpacity>
+        {/* Explanation only for wrong / skipped answers */}
+        {!isCorrect && !!explanation && (
+          <View
+            style={[
+              styles.explanationBox,
+              {
+                backgroundColor: accentOption.colors[0] + "0C",
+                borderColor: accentOption.colors[0] + "22",
+                marginTop: 12,
+                marginBottom: 0,
+              },
+            ]}
+          >
+            <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>Explanation</Text>
+            <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
+              {explanation}
+            </Text>
           </View>
-
-          {!!storedExplanation && (
-            <View
-              style={[
-                styles.explanationBox,
-                {
-                  backgroundColor: accentOption.colors[0] + "0C",
-                  borderColor: accentOption.colors[0] + "22",
-                },
-              ]}
-            >
-              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>Stored Explanation</Text>
-              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
-                {storedExplanation}
-              </Text>
-            </View>
-          )}
-
-          {!!teacherAnswer && teacherAnswer !== storedExplanation && (
-            <View
-              style={[
-                styles.explanationBox,
-                {
-                  backgroundColor: accentOption.colors[0] + "0C",
-                  borderColor: accentOption.colors[0] + "22",
-                },
-              ]}
-            >
-              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>AI Teacher Explanation</Text>
-              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
-                {teacherAnswer}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.teacherInputRow}>
-            <TextInput
-              value={teacherQuestion}
-              onChangeText={setTeacherQuestion}
-              placeholder="Ask AI Teacher about this topic..."
-              placeholderTextColor={themeColors.textGhost}
-              style={[
-                styles.teacherInput,
-                {
-                  color: themeColors.text,
-                  backgroundColor: themeColors.surfaceStrong || themeColors.surface,
-                  borderColor: themeColors.border,
-                },
-              ]}
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.teacherAskBtn, { backgroundColor: accentOption.colors[0] }]}
-              onPress={handleAsk}
-              disabled={teacherLoading}
-            >
-              {teacherLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.teacherAskTxt}>Ask</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        )}
       </View>
     </Animated.View>
   );
@@ -311,43 +190,43 @@ const ResultScreen = ({ route, navigation }) => {
   }, []);
 
   const toggleTaskForQuestion = useCallback(
-    async (question, index, userAnswer, explanation, forceUpdate = false) => {
+    async (question, index, userAnswer, explanation) => {
       const taskId = getTaskId(question, index);
-      const isAlreadySaved = savedTaskIds.has(taskId);
 
-      if (isAlreadySaved && !forceUpdate) {
+      if (savedTaskIds.has(taskId)) {
         await removeTaskItem(taskId);
         setSavedTaskIds((prev) => {
           const next = new Set(prev);
           next.delete(taskId);
           return next;
         });
-      } else {
-        const correctAnswer =
-          question.correct_answer || question.correctAnswer || question.correct || "";
-        const isCorrect =
-          userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
-        const skipped = userAnswer === null || userAnswer === undefined;
-
-        await saveTaskItem({
-          taskId,
-          quizId: quizId || "",
-          quizTitle: quizMeta?.title || "Quiz Task",
-          course: quizMeta?.course || "General",
-          subject: quizMeta?.subject || "Subject",
-          questionId: question._id || question.id || String(index),
-          questionIndex: index,
-          question: question.question,
-          options: question.options || [],
-          userAnswer,
-          correctAnswer,
-          status: skipped ? "skipped" : isCorrect ? "correct" : "wrong",
-          explanation: explanation || question.explanation || "",
-          addedAt: new Date().toISOString(),
-        });
-
-        setSavedTaskIds((prev) => new Set(prev).add(taskId));
+        return;
       }
+
+      const correctAnswer =
+        question.correct_answer || question.correctAnswer || question.correct || "";
+      const isCorrect =
+        userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
+      const skipped = userAnswer === null || userAnswer === undefined;
+
+      await saveTaskItem({
+        taskId,
+        quizId: quizId || "",
+        quizTitle: quizMeta?.title || "Quiz Task",
+        course: quizMeta?.course || "General",
+        subject: quizMeta?.subject || "Subject",
+        questionId: question._id || question.id || String(index),
+        questionIndex: index,
+        question: question.question,
+        options: question.options || [],
+        userAnswer,
+        correctAnswer,
+        status: skipped ? "skipped" : isCorrect ? "correct" : "wrong",
+        explanation: explanation || question.explanation || "",
+        addedAt: new Date().toISOString(),
+      });
+
+      setSavedTaskIds((prev) => new Set(prev).add(taskId));
     },
     [getTaskId, quizId, quizMeta, savedTaskIds]
   );
@@ -580,8 +459,6 @@ const ResultScreen = ({ route, navigation }) => {
                 userAnswer={userAnswer}
                 index={i}
                 delay={i * 60}
-                quizId={quizId}
-                quizMeta={quizMeta}
                 themeColors={themeColors}
                 accentOption={accentOption}
                 isSaved={savedTaskIds.has(taskId)}
@@ -701,12 +578,6 @@ const styles = StyleSheet.create({
   reviewAnswerLabel: { fontSize: 12, fontWeight: "600" },
   reviewAnswerCorrect: { color: "#6ee7b7", fontSize: 12, fontWeight: "700", flex: 1 },
   reviewAnswerWrong: { color: "#fca5a5", fontSize: 12, fontWeight: "700", flex: 1 },
-  teacherBox: {
-    marginTop: 14,
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-  },
   explanationBox: {
     borderRadius: 12,
     borderWidth: 1,
@@ -718,36 +589,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 6,
   },
-  teacherTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  teacherTitle: { fontSize: 12, fontWeight: "800" },
-  teacherExplainBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  teacherExplainTxt: { fontSize: 11, fontWeight: "700" },
   teacherAnswer: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
-  teacherInputRow: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
-  teacherInput: {
-    flex: 1,
-    minHeight: 38,
-    maxHeight: 86,
-    fontSize: 12,
-    lineHeight: 17,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  teacherAskBtn: {
-    width: 48,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  teacherAskTxt: { color: "#fff", fontSize: 12, fontWeight: "800" },
   rankBtn: {
     flexDirection: "row",
     alignItems: "center",
