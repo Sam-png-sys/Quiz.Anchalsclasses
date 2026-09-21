@@ -7,14 +7,16 @@ import {
   Animated,
   StatusBar,
   ScrollView,
+  BackHandler,
   TextInput,
   ActivityIndicator,
-  BackHandler,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { getSavedTasks, saveTaskItem, removeTaskItem } from "./TaskScreen";
 
 const LOCAL_COMPLETIONS_KEY = "local_completed_quizzes";
 
@@ -39,7 +41,18 @@ const saveLocalCompletion = async (quizId, score, total) => {
   }
 };
 
-const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, accentOption }) => {
+const ReviewCard = ({
+  question,
+  userAnswer,
+  index,
+  delay,
+  quizId,
+  quizMeta,
+  themeColors,
+  accentOption,
+  isSaved,
+  onToggleTask,
+}) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
   const [teacherQuestion, setTeacherQuestion] = useState("");
@@ -61,13 +74,25 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
   const askTeacher = async (message) => {
     try {
       setTeacherLoading(true);
+      const qId = question._id || question.id;
+      if (!quizId || !qId) {
+        setTeacherAnswer(
+          storedExplanation || "AI Teacher is only available for online quizzes with stored question IDs."
+        );
+        return;
+      }
       const res = await API.post("/ai/teacher/explain", {
         quizId,
-        questionId: question._id || question.id,
+        questionId: qId,
         message,
       });
-      setTeacherAnswer(res.data.answer);
-    } catch {
+      const ans = res.data?.answer || "No response received.";
+      setTeacherAnswer(ans);
+      if (isSaved && onToggleTask) {
+        onToggleTask(question, index, userAnswer, ans, true);
+      }
+    } catch (err) {
+      console.log("Teacher explain error:", err?.response?.data?.detail || err.message);
       setTeacherAnswer("I could not reach the AI teacher right now. Please try again.");
     } finally {
       setTeacherLoading(false);
@@ -75,7 +100,8 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
   };
 
   const handleAsk = () => {
-    const message = teacherQuestion.trim() || `Explain why "${correctAnswer}" is the correct answer for this question.`;
+    const message =
+      teacherQuestion.trim() || `Explain why "${correctAnswer}" is the correct answer for this question.`;
     askTeacher(message);
   };
 
@@ -100,25 +126,58 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
 
       <View style={styles.reviewBody}>
         <View style={styles.reviewTop}>
-          <Text style={[styles.reviewNum, { color: themeColors.textSubtle }]}>Q{index + 1}</Text>
-          <View
-            style={[
-              styles.reviewChip,
-              skipped ? styles.chipSkipped : isCorrect ? styles.chipCorrect : styles.chipWrong,
-            ]}
-          >
-            <Text
+          <View style={styles.reviewTopLeft}>
+            <Text style={[styles.reviewNum, { color: themeColors.textSubtle }]}>Q{index + 1}</Text>
+            <View
               style={[
-                styles.reviewChipTxt,
-                skipped ? styles.chipTxtSkipped : isCorrect ? styles.chipTxtCorrect : styles.chipTxtWrong,
+                styles.reviewChip,
+                skipped ? styles.chipSkipped : isCorrect ? styles.chipCorrect : styles.chipWrong,
               ]}
             >
-              {skipped ? "Skipped" : isCorrect ? "Correct" : "Wrong"}
-            </Text>
+              <Text
+                style={[
+                  styles.reviewChipTxt,
+                  skipped ? styles.chipTxtSkipped : isCorrect ? styles.chipTxtCorrect : styles.chipTxtWrong,
+                ]}
+              >
+                {skipped ? "Skipped" : isCorrect ? "Correct" : "Wrong"}
+              </Text>
+            </View>
           </View>
+
+          {/* Single-Question Add to Task Button */}
+          <TouchableOpacity
+            style={[
+              styles.questionTaskBtn,
+              {
+                backgroundColor: isSaved ? "#10b9811A" : `${accentOption.colors[0]}15`,
+                borderColor: isSaved ? "#10b981" : `${accentOption.colors[0]}40`,
+              },
+            ]}
+            onPress={() =>
+              onToggleTask &&
+              onToggleTask(question, index, userAnswer, teacherAnswer || storedExplanation)
+            }
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isSaved ? "checkmark-circle" : "bookmark-outline"}
+              size={13}
+              color={isSaved ? "#10b981" : accentOption.colors[0]}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.questionTaskBtnTxt,
+                { color: isSaved ? "#10b981" : accentOption.colors[0] },
+              ]}
+            >
+              {isSaved ? "In Tasks ✓" : "+ Add to Task"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <Text style={[styles.reviewQuestion, { color: themeColors.textMuted }]} numberOfLines={3}>
+        <Text style={[styles.reviewQuestion, { color: themeColors.textMuted }]} numberOfLines={4}>
           {question.question}
         </Text>
 
@@ -133,22 +192,26 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
           <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
         </View>
 
+        {/* AI Teacher Explanation Box */}
         <View
           style={[
             styles.teacherBox,
             {
-              backgroundColor: accentOption.colors[0] + "12",
-              borderColor: accentOption.colors[0] + "33",
+              backgroundColor: accentOption.colors[0] + "10",
+              borderColor: accentOption.colors[0] + "28",
             },
           ]}
         >
           <View style={styles.teacherTop}>
-            <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>AI Teacher</Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons name="sparkles" size={14} color={accentOption.colors[0]} style={{ marginRight: 6 }} />
+              <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>AI Teacher</Text>
+            </View>
             <TouchableOpacity
               style={[
                 styles.teacherExplainBtn,
                 {
-                  backgroundColor: accentOption.colors[0] + "22",
+                  backgroundColor: accentOption.colors[0] + "20",
                   borderColor: accentOption.colors[0] + "44",
                 },
               ]}
@@ -164,31 +227,46 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
               style={[
                 styles.explanationBox,
                 {
-                  backgroundColor: accentOption.colors[0] + "10",
-                  borderColor: accentOption.colors[0] + "24",
+                  backgroundColor: accentOption.colors[0] + "0C",
+                  borderColor: accentOption.colors[0] + "22",
                 },
               ]}
             >
-              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>AI Explanation</Text>
-              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>{storedExplanation}</Text>
+              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>Stored Explanation</Text>
+              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
+                {storedExplanation}
+              </Text>
             </View>
           )}
 
           {!!teacherAnswer && teacherAnswer !== storedExplanation && (
-            <Text style={[styles.teacherAnswer, { color: themeColors.textMuted }]}>{teacherAnswer}</Text>
+            <View
+              style={[
+                styles.explanationBox,
+                {
+                  backgroundColor: accentOption.colors[0] + "0C",
+                  borderColor: accentOption.colors[0] + "22",
+                },
+              ]}
+            >
+              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>AI Teacher Explanation</Text>
+              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
+                {teacherAnswer}
+              </Text>
+            </View>
           )}
 
           <View style={styles.teacherInputRow}>
             <TextInput
               value={teacherQuestion}
               onChangeText={setTeacherQuestion}
-              placeholder="Ask about this topic..."
+              placeholder="Ask AI Teacher about this topic..."
               placeholderTextColor={themeColors.textGhost}
               style={[
                 styles.teacherInput,
                 {
                   color: themeColors.text,
-                  backgroundColor: themeColors.surfaceStrong,
+                  backgroundColor: themeColors.surfaceStrong || themeColors.surface,
                   borderColor: themeColors.border,
                 },
               ]}
@@ -199,7 +277,11 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
               onPress={handleAsk}
               disabled={teacherLoading}
             >
-              {teacherLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.teacherAskTxt}>Ask</Text>}
+              {teacherLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.teacherAskTxt}>Ask</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -209,9 +291,66 @@ const ReviewCard = ({ question, userAnswer, index, delay, quizId, themeColors, a
 };
 
 const ResultScreen = ({ route, navigation }) => {
-  const { answers, questions, quizId } = route.params;
+  const { answers, questions, quizId, quizMeta } = route.params;
   const { accentOption, themeColors, settings } = useAppSettings();
   const completionSaved = useRef(false);
+  const [savedTaskIds, setSavedTaskIds] = useState(new Set());
+
+  const getTaskId = useCallback(
+    (question, index) => `${quizId || "quiz"}_${question?._id || question?.id || String(index)}`,
+    [quizId]
+  );
+
+  useEffect(() => {
+    getSavedTasks().then((list) => {
+      const idSet = new Set(
+        list.map((t) => t.taskId || t.id || `${t.quizId}_${t.questionId}`)
+      );
+      setSavedTaskIds(idSet);
+    });
+  }, []);
+
+  const toggleTaskForQuestion = useCallback(
+    async (question, index, userAnswer, explanation, forceUpdate = false) => {
+      const taskId = getTaskId(question, index);
+      const isAlreadySaved = savedTaskIds.has(taskId);
+
+      if (isAlreadySaved && !forceUpdate) {
+        await removeTaskItem(taskId);
+        setSavedTaskIds((prev) => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
+        });
+      } else {
+        const correctAnswer =
+          question.correct_answer || question.correctAnswer || question.correct || "";
+        const isCorrect =
+          userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
+        const skipped = userAnswer === null || userAnswer === undefined;
+
+        await saveTaskItem({
+          taskId,
+          quizId: quizId || "",
+          quizTitle: quizMeta?.title || "Quiz Task",
+          course: quizMeta?.course || "General",
+          subject: quizMeta?.subject || "Subject",
+          questionId: question._id || question.id || String(index),
+          questionIndex: index,
+          question: question.question,
+          options: question.options || [],
+          userAnswer,
+          correctAnswer,
+          status: skipped ? "skipped" : isCorrect ? "correct" : "wrong",
+          explanation: explanation || question.explanation || "",
+          addedAt: new Date().toISOString(),
+        });
+
+        setSavedTaskIds((prev) => new Set(prev).add(taskId));
+      }
+    },
+    [getTaskId, quizId, quizMeta, savedTaskIds]
+  );
 
   const goHome = useCallback(() => {
     navigation.reset({
@@ -220,12 +359,14 @@ const ResultScreen = ({ route, navigation }) => {
     });
   }, [navigation]);
 
-  const getAnswerForQuestion = useCallback((question, index) => (
-    answers[index]
-    ?? answers[String(index)]
-    ?? answers[question?._id]
-    ?? answers[question?.id]
-  ), [answers]);
+  const getAnswerForQuestion = useCallback(
+    (question, index) =>
+      answers[index] ??
+      answers[String(index)] ??
+      answers[question?._id] ??
+      answers[question?.id],
+    [answers]
+  );
 
   let rawScore = 0;
   questions.forEach((q, i) => {
@@ -246,13 +387,14 @@ const ResultScreen = ({ route, navigation }) => {
   const skipped = Math.min(total, Math.max(0, skippedCount));
   const wrong = Math.max(0, total - score - skipped);
 
-  const grade = pct >= 80
-    ? { label: "Excellent!", colors: ["#059669", "#10b981"], textColor: "#6ee7b7" }
-    : pct >= 60
+  const grade =
+    pct >= 80
+      ? { label: "Excellent!", colors: ["#059669", "#10b981"], textColor: "#6ee7b7" }
+      : pct >= 60
       ? { label: "Good Job!", colors: ["#d97706", "#f59e0b"], textColor: "#fcd34d" }
       : pct >= 40
-        ? { label: "Keep Going!", colors: accentOption.colors, textColor: accentOption.colors[0] }
-        : { label: "Try Again!", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
+      ? { label: "Keep Going!", colors: accentOption.colors, textColor: accentOption.colors[0] }
+      : { label: "Try Again!", colors: ["#dc2626", "#ef4444"], textColor: "#fca5a5" };
 
   const headerFade = useRef(new Animated.Value(0)).current;
   const scoreScale = useRef(new Animated.Value(0.6)).current;
@@ -346,6 +488,54 @@ const ResultScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
 
+        {/* View Tasks Navigation Button */}
+        <Animated.View style={[{ opacity: statsFade, marginBottom: 10 }]}>
+          <TouchableOpacity
+            style={[
+              styles.taskNavBtn,
+              {
+                backgroundColor: `${accentOption.colors[0]}12`,
+                borderColor: accentOption.colors[0],
+              },
+            ]}
+            onPress={() => navigation.navigate("Tasks")}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="bookmark"
+              size={18}
+              color={accentOption.colors[0]}
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={[
+                styles.taskNavBtnTxt,
+                { color: accentOption.colors[0] },
+              ]}
+            >
+              View My Saved Tasks ({savedTaskIds.size})
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={accentOption.colors[0]} style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View style={[{ opacity: statsFade, marginBottom: 12 }]}>
+          <TouchableOpacity
+            style={[styles.rankBtn, { backgroundColor: `${accentOption.colors[0]}18`, borderColor: accentOption.colors[0] }]}
+            onPress={() => {
+              navigation.navigate("Rank", {
+                quizId,
+                quizTitle: quizMeta?.title || "Quiz Leaderboard",
+                currentMarks: score,
+              });
+            }}
+          >
+            <Ionicons name="trophy-outline" size={20} color={accentOption.colors[0]} style={{ marginRight: 8 }} />
+            <Text style={[styles.rankBtnTxt, { color: accentOption.colors[0] }]}>View Quiz Rankings & Leaderboard</Text>
+            <Ionicons name="chevron-forward" size={16} color={accentOption.colors[0]} style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        </Animated.View>
+
         <Animated.View style={[styles.btnRow, { opacity: statsFade }]}>
           <TouchableOpacity
             style={[styles.btnSecondary, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
@@ -376,19 +566,29 @@ const ResultScreen = ({ route, navigation }) => {
             <Text style={[styles.reviewHeaderTxt, { color: themeColors.textGhost }]}>QUESTION REVIEW</Text>
             <View style={[styles.reviewHeaderLine, { backgroundColor: themeColors.border }]} />
           </View>
+          <Text style={[styles.reviewHint, { color: themeColors.textSubtle }]}>
+            Tip: Tap &quot;+ Add to Task&quot; on any question below to save it for revision.
+          </Text>
 
-          {questions.map((q, i) => (
-            <ReviewCard
-              key={i}
-              question={q}
-              userAnswer={getAnswerForQuestion(q, i)}
-              index={i}
-              delay={i * 60}
-              quizId={quizId}
-              themeColors={themeColors}
-              accentOption={accentOption}
-            />
-          ))}
+          {questions.map((q, i) => {
+            const userAnswer = getAnswerForQuestion(q, i);
+            const taskId = getTaskId(q, i);
+            return (
+              <ReviewCard
+                key={i}
+                question={q}
+                userAnswer={userAnswer}
+                index={i}
+                delay={i * 60}
+                quizId={quizId}
+                quizMeta={quizMeta}
+                themeColors={themeColors}
+                accentOption={accentOption}
+                isSaved={savedTaskIds.has(taskId)}
+                onToggleTask={toggleTaskForQuestion}
+              />
+            );
+          })}
         </Animated.View>
 
         <View style={{ height: 40 }} />
@@ -455,13 +655,19 @@ const styles = StyleSheet.create({
   btnPrimaryWrap: { flex: 1, borderRadius: 16, overflow: "hidden" },
   btnPrimary: { paddingVertical: 16, alignItems: "center" },
   btnPrimaryTxt: { color: "#fff", fontWeight: "800", fontSize: 15 },
-  reviewHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
+  reviewHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
   reviewHeaderLine: { flex: 1, height: 1 },
   reviewHeaderTxt: { fontSize: 11, fontWeight: "700", letterSpacing: 2.5 },
+  reviewHint: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 16,
+  },
   reviewCard: {
     flexDirection: "row",
     borderRadius: 18,
-    marginBottom: 12,
+    marginBottom: 14,
     borderWidth: 1,
     overflow: "hidden",
   },
@@ -470,9 +676,10 @@ const styles = StyleSheet.create({
   stripeWrong: { backgroundColor: "#dc2626" },
   stripeSkipped: { backgroundColor: "#d97706" },
   reviewBody: { flex: 1, padding: 14 },
-  reviewTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  reviewTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  reviewTopLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   reviewNum: { fontSize: 12, fontWeight: "700" },
-  reviewChip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 99, borderWidth: 1 },
+  reviewChip: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 99, borderWidth: 1 },
   chipCorrect: { backgroundColor: "rgba(5,150,105,0.12)", borderColor: "rgba(5,150,105,0.35)" },
   chipWrong: { backgroundColor: "rgba(220,38,38,0.12)", borderColor: "rgba(220,38,38,0.35)" },
   chipSkipped: { backgroundColor: "rgba(217,119,6,0.12)", borderColor: "rgba(217,119,6,0.35)" },
@@ -480,6 +687,15 @@ const styles = StyleSheet.create({
   chipTxtCorrect: { color: "#6ee7b7" },
   chipTxtWrong: { color: "#fca5a5" },
   chipTxtSkipped: { color: "#fcd34d" },
+  questionTaskBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  questionTaskBtnTxt: { fontSize: 11, fontWeight: "800" },
   reviewQuestion: { fontSize: 13, lineHeight: 20, marginBottom: 10 },
   reviewAnswerRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", marginTop: 2 },
   reviewAnswerLabel: { fontSize: 12, fontWeight: "600" },
@@ -532,4 +748,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   teacherAskTxt: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  rankBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  rankBtnTxt: { fontSize: 14, fontWeight: "800" },
+  taskNavBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  taskNavBtnTxt: { fontSize: 14, fontWeight: "800" },
 });

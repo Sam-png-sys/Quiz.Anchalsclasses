@@ -8,7 +8,7 @@ import TaskScreen, {
   getMyTasks,
   saveMyTaskQuestion,
   removeMyTaskEntry,
-} from "./TaskScreen";
+} from "../../quiz-app/src/screens/TaskScreen";
 
 export {
   TASKS_STORAGE_KEY,
