@@ -21,17 +21,17 @@ import { AuthContext } from "../context/AuthContext";
 const { width } = Dimensions.get("window");
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
 
-const TimerRing = ({ timeLeft, themeColors, accentColor }) => {
+const DotTimerRing = ({ timeLeft, totalDuration, themeColors, accentColor }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const isUrgent = timeLeft <= 60;
+  const isUrgent = timeLeft != null && timeLeft <= 60;
 
   useEffect(() => {
     if (timeLeft == null) return undefined;
     if (isUrgent) {
       const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.1, duration: 380, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.08, duration: 400, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
         ])
       );
       loop.start();
@@ -42,18 +42,71 @@ const TimerRing = ({ timeLeft, themeColors, accentColor }) => {
     return undefined;
   }, [isUrgent, pulseAnim, timeLeft]);
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-  const label = `${minutes}:${String(seconds).padStart(2, "0")}`;
-  const color = timeLeft > 300 ? accentColor : timeLeft > 120 ? "#f59e0b" : "#ef4444";
+  const total = Math.max(1, totalDuration || 60);
+  const remaining = Math.max(0, timeLeft || 0);
+  const progress = Math.min(1, Math.max(0, remaining / total));
+
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const timeLabel = minutes > 0 ? `${minutes}:${String(seconds).padStart(2, "0")}` : `${seconds}`;
+  const unitLabel = minutes > 0 ? "min" : "seconds";
+
+  const numDots = 36;
+  const ringSize = 84;
+  const radius = 35;
+  const centerX = ringSize / 2;
+  const centerY = ringSize / 2;
+  const dotSize = 4.5;
+
+  const activeColor = remaining > 300 ? "#f59e0b" : remaining > 120 ? "#f59e0b" : "#ef4444";
+  const dots = [];
+
+  for (let i = 0; i < numDots; i++) {
+    const angle = (i / numDots) * 2 * Math.PI - Math.PI / 2;
+    const x = centerX + radius * Math.cos(angle) - dotSize / 2;
+    const y = centerY + radius * Math.sin(angle) - dotSize / 2;
+    const isActive = (i / numDots) <= progress;
+
+    dots.push(
+      <View
+        key={i}
+        style={{
+          position: "absolute",
+          left: x,
+          top: y,
+          width: dotSize,
+          height: dotSize,
+          borderRadius: dotSize / 2,
+          backgroundColor: isActive ? activeColor : "rgba(148, 163, 184, 0.2)",
+          shadowColor: isActive ? activeColor : "transparent",
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isActive ? 0.8 : 0,
+          shadowRadius: isActive ? 4 : 0,
+          elevation: isActive ? 3 : 0,
+        }}
+      />
+    );
+  }
 
   return (
-    <Animated.View style={[styles.timerWrap, { transform: [{ scale: pulseAnim }] }]}>
-      <View style={[styles.timerRingBg, { borderColor: themeColors.border }]} />
-      <View style={[styles.timerRingFill, { borderColor: color }]} />
-      <View style={styles.timerInner}>
-        <Text style={[styles.timerNum, { color }]}>{label}</Text>
-        <Text style={[styles.timerSec, { color: themeColors.textGhost }]}>section</Text>
+    <Animated.View style={[styles.dotTimerWrap, { transform: [{ scale: pulseAnim }] }]}>
+      <View style={{ width: ringSize, height: ringSize, alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={[
+            styles.dotTimerInnerCircle,
+            {
+              width: ringSize - 22,
+              height: ringSize - 22,
+              borderRadius: (ringSize - 22) / 2,
+              borderColor: activeColor + "33",
+              backgroundColor: themeColors.surface,
+            },
+          ]}
+        >
+          <Text style={[styles.dotTimerNum, { color: activeColor }]}>{timeLabel}</Text>
+          <Text style={[styles.dotTimerUnit, { color: themeColors.textGhost }]}>{unitLabel}</Text>
+        </View>
+        {dots}
       </View>
     </Animated.View>
   );
@@ -118,6 +171,110 @@ const OptionBtn = ({ label, text, selected, onPress, delay, questionIndex, palet
   );
 };
 
+const QuestionNumberGrid = ({
+  total,
+  current,
+  answers,
+  markedReviews,
+  themeColors,
+  accentColor,
+  onSelect,
+}) => {
+  const GRID_COLUMNS = 5;
+  const GRID_GAP = 9;
+  const cellSize = Math.floor((width - 40 - (GRID_COLUMNS - 1) * GRID_GAP) / GRID_COLUMNS);
+
+  return (
+    <View style={styles.numberGridWrap}>
+      <Text style={[styles.numberGridTitle, { color: themeColors.isLight ? "#334155" : "#f1f5f9" }]}>
+        Questions
+      </Text>
+      <View style={[styles.numberGrid, { gap: GRID_GAP }]}>
+        {Array.from({ length: total }, (_, i) => i).map((index) => {
+          const isCurrent = index === current;
+          const isAnswered = answers[index] != null && answers[index] !== "";
+          const isMarked = !!markedReviews[index];
+
+          let backgroundColor = themeColors.isLight ? "#f8fafc" : "#1a162b";
+          let borderColor = themeColors.isLight ? "#e2e8f0" : "rgba(255, 255, 255, 0.08)";
+          let textColor = themeColors.isLight ? "#64748b" : "#94a3b8";
+          let borderWidth = 1;
+
+          if (isAnswered) {
+            backgroundColor = themeColors.isLight ? `${accentColor}18` : "#251b3d";
+            borderColor = accentColor;
+            borderWidth = 1.5;
+            textColor = themeColors.isLight ? accentColor : "#ede9fe";
+          }
+          if (isMarked) {
+            backgroundColor = themeColors.isLight ? "#fef3c7" : "#38230f";
+            borderColor = "#d97706";
+            borderWidth = 1.5;
+            textColor = "#fbbf24";
+          }
+          if (isCurrent) {
+            backgroundColor = accentColor;
+            borderColor = accentColor;
+            borderWidth = 1.5;
+            textColor = "#ffffff";
+          }
+
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => onSelect(index)}
+              activeOpacity={0.7}
+              style={[
+                styles.numberCell,
+                {
+                  width: cellSize,
+                  height: cellSize,
+                  backgroundColor,
+                  borderColor,
+                  borderWidth,
+                  borderRadius: 14,
+                },
+                isCurrent && {
+                  shadowColor: accentColor,
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.45,
+                  shadowRadius: 6,
+                  elevation: 5,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.numberCellText,
+                  {
+                    color: textColor,
+                    fontWeight: isCurrent || isAnswered ? "800" : "700",
+                  },
+                ]}
+              >
+                {index + 1}
+              </Text>
+              {isMarked && !isCurrent && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: "#d97706",
+                  }}
+                />
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
 const buildSections = (quiz, questions) => {
   const usesSections = quiz?.examType === "section_no_timer" || quiz?.examType === "section_with_timer";
   const rawSections = usesSections && Array.isArray(quiz?.sections) ? quiz.sections : [];
@@ -167,12 +324,14 @@ const QuizScreen = ({ route, navigation }) => {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [totalDuration, setTotalDuration] = useState(null);
   const [progressSaving, setProgressSaving] = useState(false);
   const [markedReviews, setMarkedReviews] = useState({});
 
   const answersRef = useRef({});
   const timerRef = useRef(null);
   const advancingRef = useRef(false);
+  const scrollRef = useRef(null);
 
   const cardFade = useRef(new Animated.Value(0)).current;
   const cardSlide = useRef(new Animated.Value(width * 0.25)).current;
@@ -308,40 +467,53 @@ const QuizScreen = ({ route, navigation }) => {
     advancingRef.current = true;
     clearInterval(timerRef.current);
 
-    const valueToSave = selected ?? null;
-    const newAnswers = { ...answersRef.current, [current]: valueToSave };
-    saveAnswers(newAnswers);
-    await saveProgress(newAnswers);
+    try {
+      const valueToSave = selected ?? null;
+      const newAnswers = { ...answersRef.current, [current]: valueToSave };
+      saveAnswers(newAnswers);
+      await saveProgress(newAnswers);
 
-    if (isLastQuestion) {
+      if (isLastQuestion) {
+        const resultParams = { answers: newAnswers, questions, quizId, quizMeta };
+        try {
+          navigation.reset({
+            index: 1,
+            routes: [{ name: "Home" }, { name: "Result", params: resultParams }],
+          });
+        } catch (navError) {
+          // If 'Result' isn't registered on this navigator, reset() throws (or is
+          // silently ignored by some RN Navigation versions). Fall back to a plain
+          // navigate so the student isn't stuck on a dead Submit button, and log
+          // loudly so this is easy to spot instead of failing silently.
+          console.error(
+            "navigation.reset to 'Result' failed — check that 'Result' is registered on this navigator:",
+            navError
+          );
+          navigation.navigate("Result", resultParams);
+        }
+        return;
+      }
+
+      if ((forcedByTimer || isLastInSection) && nextSection) {
+        setCurrent(nextSection.start);
+        setSelected(newAnswers[nextSection.start] ?? null);
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+        return;
+      }
+
+      setCurrent((value) => value + 1);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    } catch (error) {
+      // Never let an unexpected error (network hiccup, bad response shape, etc.)
+      // leave the quiz permanently stuck — surface it and let the student retry.
+      console.error("goToNextStep failed:", error);
+      Alert.alert(
+        "Something went wrong",
+        "We couldn't move to the next step. Please check your connection and try again."
+      );
+    } finally {
       advancingRef.current = false;
-      navigation.reset({
-        index: 1,
-        routes: [
-          { name: "Home" },
-          {
-            name: "Result",
-            params: {
-              answers: newAnswers,
-              questions,
-              quizId,
-              quizMeta,
-            },
-          },
-        ],
-      });
-      return;
     }
-
-    if ((forcedByTimer || isLastInSection) && nextSection) {
-      setCurrent(nextSection.start);
-      setSelected(newAnswers[nextSection.start] ?? null);
-      advancingRef.current = false;
-      return;
-    }
-
-    setCurrent((value) => value + 1);
-    advancingRef.current = false;
   }, [current, isLastInSection, isLastQuestion, navigation, nextSection, questions, quizId, quizMeta, saveProgress, selected]);
 
   const goToPrevious = async () => {
@@ -353,14 +525,29 @@ const QuizScreen = ({ route, navigation }) => {
 
       setCurrent((value) => value - 1);
       setSelected(newAnswers[current - 1] ?? null);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     }
   };
+
+  const goToQuestion = useCallback(async (index) => {
+    if (index === current || progressSaving || advancingRef.current) return;
+
+    const valueToSave = selected ?? null;
+    const newAnswers = { ...answersRef.current, [current]: valueToSave };
+    saveAnswers(newAnswers);
+    await saveProgress(newAnswers);
+
+    setCurrent(index);
+    setSelected(newAnswers[index] ?? null);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [current, progressSaving, saveProgress, selected]);
 
   useEffect(() => {
     clearInterval(timerRef.current);
 
     if (!hasTimer) {
       setTimeLeft(null);
+      setTotalDuration(null);
       return undefined;
     }
 
@@ -373,9 +560,11 @@ const QuizScreen = ({ route, navigation }) => {
 
     if (initialSeconds <= 0) {
       setTimeLeft(null);
+      setTotalDuration(null);
       return undefined;
     }
 
+    setTotalDuration(initialSeconds);
     setTimeLeft((prevTime) => {
       if (examType === "section_with_timer") {
         return initialSeconds;
@@ -458,7 +647,12 @@ const QuizScreen = ({ route, navigation }) => {
         </View>
 
         {hasTimer && timeLeft != null ? (
-          <TimerRing timeLeft={timeLeft} themeColors={themeColors} accentColor={accentOption.colors[0]} />
+          <DotTimerRing
+            timeLeft={timeLeft}
+            totalDuration={totalDuration}
+            themeColors={themeColors}
+            accentColor={accentOption.colors[0]}
+          />
         ) : (
           <View style={[styles.timerStatic, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
             <Text style={[styles.timerStaticText, { color: themeColors.textSubtle }]}>
@@ -481,6 +675,7 @@ const QuizScreen = ({ route, navigation }) => {
       </Animated.View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -616,20 +811,15 @@ const QuizScreen = ({ route, navigation }) => {
           <Text style={[styles.hintTxt, { color: themeColors.textGhost }]}>Pick an option to continue</Text>
         )}
 
-        <View style={styles.dotRow}>
-          {questions.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i < current && answers[i] != null && styles.dotAnswered,
-                i < current && answers[i] == null && styles.dotSkipped,
-                markedReviews[i] && styles.dotMarked,
-                i === current && [styles.dotActive, { backgroundColor: accentOption.colors[0] }],
-              ]}
-            />
-          ))}
-        </View>
+        <QuestionNumberGrid
+          total={questions.length}
+          current={current}
+          answers={answers}
+          markedReviews={markedReviews}
+          themeColors={themeColors}
+          accentColor={accentOption.colors[0]}
+          onSelect={goToQuestion}
+        />
       </ScrollView>
     </View>
   );
@@ -657,12 +847,10 @@ const styles = StyleSheet.create({
   progressCurrent: { fontWeight: "800" },
   progressTotal: { fontWeight: "500" },
   progressPct: { fontSize: 12, fontWeight: "700" },
-  timerWrap: { width: 84, height: 64, alignItems: "center", justifyContent: "center" },
-  timerRingBg: { position: "absolute", width: 72, height: 72, borderRadius: 36, borderWidth: 3 },
-  timerRingFill: { position: "absolute", width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderTopColor: "transparent", borderRightColor: "transparent" },
-  timerInner: { alignItems: "center" },
-  timerNum: { fontSize: 13, fontWeight: "800", lineHeight: 16 },
-  timerSec: { fontSize: 9, fontWeight: "600" },
+  dotTimerWrap: { width: 84, height: 84, alignItems: "center", justifyContent: "center" },
+  dotTimerInnerCircle: { borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  dotTimerNum: { fontSize: 13, fontWeight: "900", lineHeight: 16 },
+  dotTimerUnit: { fontSize: 9, fontWeight: "700" },
   timerStatic: { minWidth: 84, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 1, paddingHorizontal: 10 },
   timerStaticText: { fontSize: 11, fontWeight: "700" },
   scorePill: { alignSelf: "flex-end", marginRight: 20, marginBottom: 6 },
@@ -680,7 +868,7 @@ const styles = StyleSheet.create({
   qMetaBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
   qMetaBadgeText: { fontSize: 11, fontWeight: "700" },
   qLine: { height: 2, borderRadius: 2, marginBottom: 18 },
-  questionTxt: { fontSize: 19, fontWeight: "700", lineHeight: 29, letterSpacing: -0.2 },
+  questionTxt: { fontSize: 14, fontWeight: "700", lineHeight: 22, letterSpacing: -0.2 },
   imageHint: { marginTop: 14, borderWidth: 1, borderRadius: 14, padding: 12 },
   imageHintText: { fontSize: 12, lineHeight: 18 },
   optionsWrap: { gap: 11, marginBottom: 18 },
@@ -706,4 +894,12 @@ const styles = StyleSheet.create({
   prevBtnText: { fontSize: 14, fontWeight: "700" },
   reviewBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 16, borderWidth: 1, paddingVertical: 14 },
   reviewBtnText: { fontSize: 14, fontWeight: "700" },
+  numberGridWrap: { marginTop: 22, marginBottom: 28 },
+  numberGridTitle: { fontSize: 16, fontWeight: "800", marginBottom: 14, letterSpacing: -0.2 },
+  numberGrid: { flexDirection: "row", flexWrap: "wrap" },
+  numberCell: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  numberCellText: { fontSize: 15, fontWeight: "800" },
 });

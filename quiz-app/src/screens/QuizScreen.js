@@ -180,34 +180,42 @@ const QuestionNumberGrid = ({
   accentColor,
   onSelect,
 }) => {
+  const GRID_COLUMNS = 5;
+  const GRID_GAP = 9;
+  const cellSize = Math.floor((width - 40 - (GRID_COLUMNS - 1) * GRID_GAP) / GRID_COLUMNS);
+
   return (
     <View style={styles.numberGridWrap}>
-      <Text style={[styles.numberGridTitle, { color: themeColors.isLight ? "#475569" : themeColors.textSubtle }]}>
+      <Text style={[styles.numberGridTitle, { color: themeColors.isLight ? "#334155" : "#f1f5f9" }]}>
         Questions
       </Text>
-      <View style={styles.numberGrid}>
+      <View style={[styles.numberGrid, { gap: GRID_GAP }]}>
         {Array.from({ length: total }, (_, i) => i).map((index) => {
           const isCurrent = index === current;
           const isAnswered = answers[index] != null && answers[index] !== "";
           const isMarked = !!markedReviews[index];
 
-          let backgroundColor = themeColors.isLight ? "#ffffff" : themeColors.surface;
-          let borderColor = themeColors.isLight ? "#e2e8f0" : themeColors.border;
-          let textColor = themeColors.isLight ? "#334155" : themeColors.text;
+          let backgroundColor = themeColors.isLight ? "#f8fafc" : "#1a162b";
+          let borderColor = themeColors.isLight ? "#e2e8f0" : "rgba(255, 255, 255, 0.08)";
+          let textColor = themeColors.isLight ? "#64748b" : "#94a3b8";
+          let borderWidth = 1;
 
           if (isAnswered) {
-            backgroundColor = themeColors.isLight ? `${accentColor}24` : `${accentColor}33`;
+            backgroundColor = themeColors.isLight ? `${accentColor}18` : "#251b3d";
             borderColor = accentColor;
-            textColor = accentColor;
+            borderWidth = 1.5;
+            textColor = themeColors.isLight ? accentColor : "#ede9fe";
           }
           if (isMarked) {
-            backgroundColor = themeColors.isLight ? "#fef3c7" : "#d9770633";
+            backgroundColor = themeColors.isLight ? "#fef3c7" : "#38230f";
             borderColor = "#d97706";
-            textColor = "#b45309";
+            borderWidth = 1.5;
+            textColor = "#fbbf24";
           }
           if (isCurrent) {
             backgroundColor = accentColor;
             borderColor = accentColor;
+            borderWidth = 1.5;
             textColor = "#ffffff";
           }
 
@@ -215,15 +223,50 @@ const QuestionNumberGrid = ({
             <TouchableOpacity
               key={index}
               onPress={() => onSelect(index)}
-              activeOpacity={0.75}
+              activeOpacity={0.7}
               style={[
                 styles.numberCell,
-                { backgroundColor, borderColor },
+                {
+                  width: cellSize,
+                  height: cellSize,
+                  backgroundColor,
+                  borderColor,
+                  borderWidth,
+                  borderRadius: 14,
+                },
+                isCurrent && {
+                  shadowColor: accentColor,
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.45,
+                  shadowRadius: 6,
+                  elevation: 5,
+                },
               ]}
             >
-              <Text style={[styles.numberCellText, { color: textColor }]}>
+              <Text
+                style={[
+                  styles.numberCellText,
+                  {
+                    color: textColor,
+                    fontWeight: isCurrent || isAnswered ? "800" : "700",
+                  },
+                ]}
+              >
                 {index + 1}
               </Text>
+              {isMarked && !isCurrent && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: "#d97706",
+                  }}
+                />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -288,6 +331,7 @@ const QuizScreen = ({ route, navigation }) => {
   const answersRef = useRef({});
   const timerRef = useRef(null);
   const advancingRef = useRef(false);
+  const scrollRef = useRef(null);
 
   const cardFade = useRef(new Animated.Value(0)).current;
   const cardSlide = useRef(new Animated.Value(width * 0.25)).current;
@@ -453,10 +497,12 @@ const QuizScreen = ({ route, navigation }) => {
       if ((forcedByTimer || isLastInSection) && nextSection) {
         setCurrent(nextSection.start);
         setSelected(newAnswers[nextSection.start] ?? null);
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
         return;
       }
 
       setCurrent((value) => value + 1);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     } catch (error) {
       // Never let an unexpected error (network hiccup, bad response shape, etc.)
       // leave the quiz permanently stuck — surface it and let the student retry.
@@ -479,6 +525,7 @@ const QuizScreen = ({ route, navigation }) => {
 
       setCurrent((value) => value - 1);
       setSelected(newAnswers[current - 1] ?? null);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     }
   };
 
@@ -490,9 +537,9 @@ const QuizScreen = ({ route, navigation }) => {
     saveAnswers(newAnswers);
     await saveProgress(newAnswers);
 
-    clearInterval(timerRef.current);
     setCurrent(index);
     setSelected(newAnswers[index] ?? null);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [current, progressSaving, saveProgress, selected]);
 
   useEffect(() => {
@@ -628,6 +675,7 @@ const QuizScreen = ({ route, navigation }) => {
       </Animated.View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -846,18 +894,12 @@ const styles = StyleSheet.create({
   prevBtnText: { fontSize: 14, fontWeight: "700" },
   reviewBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 16, borderWidth: 1, paddingVertical: 14 },
   reviewBtnText: { fontSize: 14, fontWeight: "700" },
-  numberGridWrap: { marginTop: 18, marginBottom: 20 },
-  numberGridTitle: { fontSize: 14, fontWeight: "700", marginBottom: 12 },
-  numberGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  numberGridWrap: { marginTop: 22, marginBottom: 28 },
+  numberGridTitle: { fontSize: 16, fontWeight: "800", marginBottom: 14, letterSpacing: -0.2 },
+  numberGrid: { flexDirection: "row", flexWrap: "wrap" },
   numberCell: {
-    width: Math.floor((width - 40 - 42) / 7),
-    height: Math.floor((width - 40 - 42) / 7),
-    minWidth: 38,
-    minHeight: 38,
-    borderRadius: 12,
-    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
-  numberCellText: { fontSize: 14, fontWeight: "800" },
+  numberCellText: { fontSize: 15, fontWeight: "800" },
 });
