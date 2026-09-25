@@ -93,7 +93,22 @@ export function AppSettingsProvider({ children }) {
 export function useAppSettings() {
   const context = useContext(AppSettingsContext);
   if (!context) {
-    throw new Error("useAppSettings must be used within an AppSettingsProvider");
+    console.warn("useAppSettings was used outside AppSettingsProvider, falling back to default theme/accent.");
+    const defaultAccent = getAccentOption(defaultSettings.accent);
+    const defaultBase = APP_THEMES[defaultSettings.theme] || APP_THEMES.dark;
+    return {
+      ready: true,
+      settings: defaultSettings,
+      themeColors: {
+        ...defaultBase,
+        primary: defaultAccent.colors[0],
+        error: defaultBase.danger || "#ef4444",
+      },
+      accentOption: defaultAccent,
+      setTheme: () => {},
+      setAccent: () => {},
+      setNotification: () => {},
+    };
   }
   return context;
 }

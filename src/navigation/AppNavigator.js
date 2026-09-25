@@ -37,6 +37,8 @@ function TabNavigator() {
             iconName = focused ? "home" : "home-outline";
           } else if (route.name === "Quizzes") {
             iconName = focused ? "book" : "book-outline";
+          } else if (route.name === "Tasks") {
+            iconName = focused ? "bookmark" : "bookmark-outline";
           } else if (route.name === "StudyNotes") {
             iconName = focused ? "document-text" : "document-text-outline";
           } else if (route.name === "Analytics") {
