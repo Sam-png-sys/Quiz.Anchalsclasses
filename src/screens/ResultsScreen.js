@@ -171,9 +171,9 @@ const ReviewCard = ({
 };
 
 const ResultScreen = ({ route, navigation }) => {
-  const { answers, questions, quizId, quizMeta } = route.params;
+  const { answers = {}, questions = [], quizId = "", quizMeta = {} } = route.params || {};
   const { accentOption, themeColors, settings } = useAppSettings();
-  const { email: myEmail } = useContext(AuthContext);
+  const { email: myEmail, name: myName } = useContext(AuthContext);
   const completionSaved = useRef(false);
   const [savedTaskIds, setSavedTaskIds] = useState(new Set());
 
@@ -409,6 +409,7 @@ const ResultScreen = ({ route, navigation }) => {
                 quizTitle: quizMeta?.title || "Quiz Leaderboard",
                 currentMarks: score,
                 currentEmail: myEmail || "",
+                currentName: myName || "",
               });
             }}
           >

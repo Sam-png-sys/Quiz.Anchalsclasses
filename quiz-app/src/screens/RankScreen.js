@@ -20,8 +20,19 @@ import { AuthContext } from "../context/AuthContext";
 const getEntryMarks = (entry) =>
   entry?.marks ?? entry?.achievedMarks ?? entry?.score ?? entry?.totalMarks ?? 0;
 
-const getEntryName = (entry) =>
-  entry?.name || entry?.fullName || entry?.username || entry?.email || "Student";
+const getDisplayName = (entry, isMe, myName) => {
+  if (isMe) {
+    if (myName && myName.trim()) {
+      return `${myName.trim()} (You)`;
+    }
+    const entryName = entry?.name || entry?.fullName || entry?.username;
+    if (entryName && entryName !== "You" && entryName !== "Student") {
+      return `${entryName} (You)`;
+    }
+    return "You";
+  }
+  return entry?.name || entry?.fullName || entry?.username || entry?.email || "Student";
+};
 
 const getEntryEmail = (entry) => entry?.email || entry?.userEmail || null;
 
@@ -32,7 +43,7 @@ const medalForRank = (rank) => {
   return null;
 };
 
-const RankRow = ({ entry, rank, isMe, delay, themeColors, accentColor }) => {
+const RankRow = ({ entry, rank, isMe, delay, themeColors, accentColor, myName }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(16)).current;
 
@@ -44,6 +55,7 @@ const RankRow = ({ entry, rank, isMe, delay, themeColors, accentColor }) => {
   }, [delay, fadeAnim, slideAnim]);
 
   const medal = medalForRank(rank);
+  const displayName = getDisplayName(entry, isMe, myName);
 
   return (
     <Animated.View
@@ -67,8 +79,7 @@ const RankRow = ({ entry, rank, isMe, delay, themeColors, accentColor }) => {
 
       <View style={styles.nameCol}>
         <Text style={[styles.nameTxt, { color: themeColors.text }]} numberOfLines={1}>
-          {getEntryName(entry)}
-          {isMe ? "  (You)" : ""}
+          {displayName}
         </Text>
         {!!getEntryEmail(entry) && (
           <Text style={[styles.emailTxt, { color: themeColors.textGhost }]} numberOfLines={1}>
@@ -77,7 +88,7 @@ const RankRow = ({ entry, rank, isMe, delay, themeColors, accentColor }) => {
         )}
       </View>
 
-      <View style={[styles.marksPill, { backgroundColor: isMe ? accentColor : themeColors.surfaceStrong }]}>
+      <View style={[styles.marksPill, { backgroundColor: isMe ? accentColor : themeColors.surfaceStrong || themeColors.surface }]}>
         <Text style={[styles.marksTxt, { color: isMe ? "#fff" : themeColors.text }]}>
           {getEntryMarks(entry)}
         </Text>
@@ -87,15 +98,16 @@ const RankRow = ({ entry, rank, isMe, delay, themeColors, accentColor }) => {
 };
 
 const RankScreen = ({ route, navigation }) => {
-  const { quizId, quizTitle, initialLeaderboard, currentEmail, currentMarks } = route.params || {};
+  const { quizId, quizTitle, initialLeaderboard, currentEmail, currentMarks, currentName } = route.params || {};
   const { accentOption, themeColors, settings } = useAppSettings();
-  const { email: contextEmail } = useContext(AuthContext);
+  const { email: contextEmail, name: contextName } = useContext(AuthContext);
   const myEmail = currentEmail || contextEmail;
+  const myName = currentName || contextName || "";
 
   const [leaderboard, setLeaderboard] = useState(
     Array.isArray(initialLeaderboard) ? initialLeaderboard : null
   );
-  const [loading, setLoading] = useState(!Array.isArray(initialLeaderboard));
+  const [loading, setLoading] = useState(!Array.isArray(initialLeaderboard) && currentMarks == null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
@@ -112,7 +124,7 @@ const RankScreen = ({ route, navigation }) => {
         return;
       }
       try {
-        if (!silent) setLoading(true);
+        if (!silent && currentMarks == null) setLoading(true);
         const res = await API.get(`/attempt/leaderboard/${quizId}`);
         const list = Array.isArray(res.data)
           ? res.data
@@ -122,20 +134,30 @@ const RankScreen = ({ route, navigation }) => {
         setLeaderboard(list);
         setError(null);
       } catch (err) {
-        console.log("Leaderboard fetch failed:", err.response?.data?.detail || err.message);
-        setError("Couldn't load rankings. Pull down to try again.");
+        console.log("Leaderboard fetch info:", err.response?.status, err.response?.data?.detail || err.message);
+        // If 404 or backend route is not available/deployed yet, treat cleanly as empty remote leaderboard
+        if (err.response?.status === 404) {
+          setLeaderboard((prev) => (Array.isArray(prev) ? prev : []));
+          setError(null);
+        } else {
+          // If server error or offline:
+          // If we already have the user's local score, avoid showing a scary red error banner
+          if (currentMarks != null || (Array.isArray(leaderboard) && leaderboard.length > 0)) {
+            setError(null);
+          } else {
+            setError("Unable to load latest rankings. Pull down to retry.");
+          }
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [quizId]
+    [quizId, currentMarks, leaderboard]
   );
 
   useEffect(() => {
-    // If the Result screen's prefetch hadn't landed yet, fetch now.
-    // If it had, quietly refresh in the background so the list is fresh.
-    fetchLeaderboard({ silent: Array.isArray(initialLeaderboard) });
+    fetchLeaderboard({ silent: Array.isArray(initialLeaderboard) || currentMarks != null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizId]);
 
@@ -153,7 +175,7 @@ const RankScreen = ({ route, navigation }) => {
       if (!exists) {
         list.push({
           email: myEmail,
-          name: "You",
+          name: myName || "You",
           marks: currentMarks,
           score: currentMarks,
         });
@@ -161,20 +183,25 @@ const RankScreen = ({ route, navigation }) => {
     }
     list.sort((a, b) => getEntryMarks(b) - getEntryMarks(a));
     return list;
-  }, [leaderboard, myEmail, currentMarks]);
+  }, [leaderboard, myEmail, currentMarks, myName]);
 
   const myRankInfo = useMemo(() => {
     if (!myEmail) return null;
-    const idx = sortedEntries.findIndex((entry) => getEntryEmail(entry) === myEmail);
+    const idx = sortedEntries.findIndex(
+      (entry) => (getEntryEmail(entry) || "").toLowerCase() === myEmail.toLowerCase()
+    );
     if (idx === -1) return null;
     return { rank: idx + 1, marks: getEntryMarks(sortedEntries[idx]) };
   }, [sortedEntries, myEmail]);
+
+  // Safe background colors — backgroundAlt may not exist in some themes
+  const bgAlt = themeColors.backgroundAlt || themeColors.surface || themeColors.background;
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.background }]}>
       <StatusBar barStyle={settings.theme === "light" ? "dark-content" : "light-content"} />
       <LinearGradient
-        colors={[themeColors.background, themeColors.backgroundAlt, themeColors.background]}
+        colors={[themeColors.background, bgAlt, themeColors.background]}
         style={StyleSheet.absoluteFill}
       />
       <View style={[styles.orb, { backgroundColor: accentOption.colors[0] }]} pointerEvents="none" />
@@ -226,6 +253,7 @@ const RankScreen = ({ route, navigation }) => {
 
           {!error && sortedEntries.length === 0 && (
             <View style={styles.centerWrap}>
+              <Ionicons name="trophy-outline" size={52} color={accentOption.colors[0]} style={{ opacity: 0.4, marginBottom: 14 }} />
               <Text style={[styles.emptyTxt, { color: themeColors.textSubtle }]}>
                 No attempts yet. Be the first to appear here!
               </Text>
@@ -237,10 +265,14 @@ const RankScreen = ({ route, navigation }) => {
               key={getEntryEmail(entry) || i}
               entry={entry}
               rank={i + 1}
-              isMe={!!myEmail && getEntryEmail(entry) === myEmail}
+              isMe={
+                !!myEmail &&
+                (getEntryEmail(entry) || "").toLowerCase() === myEmail.toLowerCase()
+              }
               delay={Math.min(i, 12) * 45}
               themeColors={themeColors}
               accentColor={accentOption.colors[0]}
+              myName={myName}
             />
           ))}
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect, useState } from "react";
+import React, { useCallback, useContext, useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import API from "../api/client";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { AuthContext } from "../context/AuthContext";
 import { getSavedTasks, saveTaskItem, removeTaskItem } from "./TaskScreen";
 
 const LOCAL_COMPLETIONS_KEY = "local_completed_quizzes";
@@ -245,8 +246,9 @@ const ReviewCard = ({
 };
 
 const ResultScreen = ({ route, navigation }) => {
-  const { answers, questions, quizId, quizMeta } = route.params;
+  const { answers = {}, questions = [], quizId = "", quizMeta = {} } = route.params || {};
   const { accentOption, themeColors, settings } = useAppSettings();
+  const { email: myEmail, name: myName } = useContext(AuthContext);
   const completionSaved = useRef(false);
   const [savedTaskIds, setSavedTaskIds] = useState(new Set());
 
@@ -481,6 +483,8 @@ const ResultScreen = ({ route, navigation }) => {
                 quizId,
                 quizTitle: quizMeta?.title || "Quiz Leaderboard",
                 currentMarks: score,
+                currentEmail: myEmail || "",
+                currentName: myName || "",
               });
             }}
           >
