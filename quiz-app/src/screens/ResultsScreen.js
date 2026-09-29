@@ -177,7 +177,7 @@ const ReviewCard = ({
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.reviewQuestion, { color: themeColors.textMuted }]} numberOfLines={4}>
+        <Text style={[styles.reviewQuestion, { color: themeColors.textMuted }]} numberOfLines={10}>
           {question.question}
         </Text>
 
