@@ -249,10 +249,6 @@ const ReviewCard = ({
                 },
               ]}
             >
-              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>AI Teacher Explanation</Text>
-              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
-                {teacherAnswer}
-              </Text>
             </View>
           )}
 
