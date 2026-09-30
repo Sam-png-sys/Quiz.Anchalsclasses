@@ -205,7 +205,7 @@ const ReviewCard = ({
           <View style={styles.teacherTop}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Ionicons name="sparkles" size={14} color={accentOption.colors[0]} style={{ marginRight: 6 }} />
-              <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>Explanation</Text>
+              <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>Teacher Explanation</Text>
             </View>
             <TouchableOpacity
               style={[
@@ -238,48 +238,6 @@ const ReviewCard = ({
               </Text>
             </View>
           )}
-
-          {!!teacherAnswer && teacherAnswer !== storedExplanation && (
-            <View
-              style={[
-                styles.explanationBox,
-                {
-                  backgroundColor: accentOption.colors[0] + "0C",
-                  borderColor: accentOption.colors[0] + "22",
-                },
-              ]}
-            >
-            </View>
-          )}
-
-          <View style={styles.teacherInputRow}>
-            <TextInput
-              value={teacherQuestion}
-              onChangeText={setTeacherQuestion}
-              placeholder="Ask AI Teacher about this topic..."
-              placeholderTextColor={themeColors.textGhost}
-              style={[
-                styles.teacherInput,
-                {
-                  color: themeColors.text,
-                  backgroundColor: themeColors.surfaceStrong || themeColors.surface,
-                  borderColor: themeColors.border,
-                },
-              ]}
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.teacherAskBtn, { backgroundColor: accentOption.colors[0] }]}
-              onPress={handleAsk}
-              disabled={teacherLoading}
-            >
-              {teacherLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.teacherAskTxt}>Ask</Text>
-              )}
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Animated.View>
