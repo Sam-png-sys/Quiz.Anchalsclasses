@@ -205,7 +205,7 @@ const ReviewCard = ({
           <View style={styles.teacherTop}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Ionicons name="sparkles" size={14} color={accentOption.colors[0]} style={{ marginRight: 6 }} />
-              <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>AI Teacher</Text>
+              <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>Explanation</Text>
             </View>
             <TouchableOpacity
               style={[
