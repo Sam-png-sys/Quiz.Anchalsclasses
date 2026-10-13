@@ -56,8 +56,7 @@ const ReviewCard = ({
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
-  const [teacherQuestion, setTeacherQuestion] = useState("");
-  const [teacherAnswer, setTeacherAnswer] = useState(question.explanation || "");
+  const [aiAnswer, setAiAnswer] = useState("");
   const [teacherLoading, setTeacherLoading] = useState(false);
 
   useEffect(() => {
@@ -72,14 +71,19 @@ const ReviewCard = ({
   const skipped = userAnswer === null || userAnswer === undefined;
   const storedExplanation = (question.explanation || "").trim();
 
+  // Show strictly 1 explanation: AI explanation if requested, otherwise stored explanation
+  const explanationText = aiAnswer || storedExplanation;
+
   const askTeacher = async (message) => {
     try {
       setTeacherLoading(true);
       const qId = question._id || question.id;
       if (!quizId || !qId) {
-        setTeacherAnswer(
-          storedExplanation || "AI Teacher is only available for online quizzes with stored question IDs."
-        );
+        if (!storedExplanation) {
+          setAiAnswer(
+            "Explanation is only available for online quizzes with stored question IDs."
+          );
+        }
         return;
       }
       const res = await API.post("/ai/teacher/explain", {
@@ -88,22 +92,18 @@ const ReviewCard = ({
         message,
       });
       const ans = res.data?.answer || "No response received.";
-      setTeacherAnswer(ans);
+      setAiAnswer(ans);
       if (isSaved && onToggleTask) {
         onToggleTask(question, index, userAnswer, ans, true);
       }
     } catch (err) {
       console.log("Teacher explain error:", err?.response?.data?.detail || err.message);
-      setTeacherAnswer("I could not reach the AI teacher right now. Please try again.");
+      if (!storedExplanation) {
+        setAiAnswer("Could not reach explanation service right now. Please try again.");
+      }
     } finally {
       setTeacherLoading(false);
     }
-  };
-
-  const handleAsk = () => {
-    const message =
-      teacherQuestion.trim() || `Explain why "${correctAnswer}" is the correct answer for this question.`;
-    askTeacher(message);
   };
 
   return (
@@ -157,7 +157,7 @@ const ReviewCard = ({
             ]}
             onPress={() =>
               onToggleTask &&
-              onToggleTask(question, index, userAnswer, teacherAnswer || storedExplanation)
+              onToggleTask(question, index, userAnswer, explanationText)
             }
             activeOpacity={0.7}
           >
@@ -193,53 +193,61 @@ const ReviewCard = ({
           <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
         </View>
 
-        {/* AI Teacher Explanation Box */}
-        <View
-          style={[
-            styles.teacherBox,
-            {
-              backgroundColor: accentOption.colors[0] + "10",
-              borderColor: accentOption.colors[0] + "28",
-            },
-          ]}
-        >
-          <View style={styles.teacherTop}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="sparkles" size={14} color={accentOption.colors[0]} style={{ marginRight: 6 }} />
-              <Text style={[styles.teacherTitle, { color: accentOption.colors[0] }]}>Teacher Explanation</Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.teacherExplainBtn,
-                {
-                  backgroundColor: accentOption.colors[0] + "20",
-                  borderColor: accentOption.colors[0] + "44",
-                },
-              ]}
-              onPress={() => askTeacher(`Explain this answer for me like a teacher: ${question.question}`)}
-              disabled={teacherLoading}
-            >
-              <Text style={[styles.teacherExplainTxt, { color: accentOption.colors[0] }]}>Explain</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Single Explanation Box labeled strictly 'Explanation' */}
+        {(!!explanationText || !isCorrect) && (
+          <View
+            style={[
+              styles.explanationBox,
+              {
+                backgroundColor: accentOption.colors[0] + "0C",
+                borderColor: accentOption.colors[0] + "22",
+              },
+            ]}
+          >
+            <View style={styles.explanationHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={15}
+                  color={accentOption.colors[0]}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>
+                  Explanation
+                </Text>
+              </View>
 
-          {!!storedExplanation && (
-            <View
-              style={[
-                styles.explanationBox,
-                {
-                  backgroundColor: accentOption.colors[0] + "0C",
-                  borderColor: accentOption.colors[0] + "22",
-                },
-              ]}
-            >
-              <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>Stored Explanation</Text>
-              <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
-                {storedExplanation}
-              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.explainBtn,
+                  {
+                    backgroundColor: accentOption.colors[0] + "18",
+                    borderColor: accentOption.colors[0] + "36",
+                  },
+                ]}
+                onPress={() =>
+                  askTeacher(`Explain this question and why "${correctAnswer}" is correct: ${question.question}`)
+                }
+                disabled={teacherLoading}
+                activeOpacity={0.7}
+              >
+                {teacherLoading ? (
+                  <ActivityIndicator size="small" color={accentOption.colors[0]} />
+                ) : (
+                  <Text style={[styles.explainBtnTxt, { color: accentOption.colors[0] }]}>
+                    Explain
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
-          )}
-        </View>
+
+            {!!explanationText && (
+              <Text style={[styles.explanationContent, { color: themeColors.textMuted }]}>
+                {explanationText}
+              </Text>
+            )}
+          </View>
+        )}
       </View>
     </Animated.View>
   );
@@ -659,53 +667,37 @@ const styles = StyleSheet.create({
   reviewAnswerLabel: { fontSize: 12, fontWeight: "600" },
   reviewAnswerCorrect: { color: "#6ee7b7", fontSize: 12, fontWeight: "700", flex: 1 },
   reviewAnswerWrong: { color: "#fca5a5", fontSize: 12, fontWeight: "700", flex: 1 },
-  teacherBox: {
-    marginTop: 14,
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-  },
   explanationBox: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 10,
-    marginBottom: 10,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 0,
+  },
+  explanationHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   explanationLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
-    marginBottom: 6,
   },
-  teacherTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  teacherTitle: { fontSize: 12, fontWeight: "800" },
-  teacherExplainBtn: {
-    paddingHorizontal: 10,
+  explainBtn: {
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
   },
-  teacherExplainTxt: { fontSize: 11, fontWeight: "700" },
-  teacherAnswer: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
-  teacherInputRow: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
-  teacherInput: {
-    flex: 1,
-    minHeight: 38,
-    maxHeight: 86,
+  explainBtnTxt: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  explanationContent: {
     fontSize: 12,
-    lineHeight: 17,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    lineHeight: 19,
+    marginTop: 8,
   },
-  teacherAskBtn: {
-    width: 48,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  teacherAskTxt: { color: "#fff", fontSize: 12, fontWeight: "800" },
   rankBtn: {
     flexDirection: "row",
     alignItems: "center",

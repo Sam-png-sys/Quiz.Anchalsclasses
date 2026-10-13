@@ -8,6 +8,7 @@ import {
   StatusBar,
   ScrollView,
   BackHandler,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -45,6 +46,7 @@ const ReviewCard = ({
   userAnswer,
   index,
   delay,
+  quizId,
   themeColors,
   accentOption,
   isSaved,
@@ -52,6 +54,8 @@ const ReviewCard = ({
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
+  const [aiExplanation, setAiExplanation] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -63,7 +67,40 @@ const ReviewCard = ({
   const correctAnswer = question.correct_answer || question.correctAnswer || question.correct || "";
   const isCorrect = userAnswer && correctAnswer && String(userAnswer).trim() === String(correctAnswer).trim();
   const skipped = userAnswer === null || userAnswer === undefined;
-  const explanation = (question.explanation || "").trim();
+  const storedExplanation = (question.explanation || "").trim();
+
+  // Show strictly 1 explanation: AI explanation if requested, otherwise stored explanation
+  const currentExplanation = aiExplanation || storedExplanation;
+
+  const handleExplain = async () => {
+    try {
+      setAiLoading(true);
+      const qId = question._id || question.id;
+      if (!quizId || !qId) {
+        if (!storedExplanation) {
+          setAiExplanation("Online explanation is only available for online quizzes with stored question IDs.");
+        }
+        return;
+      }
+      const res = await API.post("/ai/teacher/explain", {
+        quizId,
+        questionId: qId,
+        message: `Explain this question and why "${correctAnswer}" is correct: ${question.question}`,
+      });
+      const ans = res.data?.answer || "No explanation received.";
+      setAiExplanation(ans);
+      if (isSaved && onToggleTask) {
+        onToggleTask(question, index, userAnswer, ans, true);
+      }
+    } catch (err) {
+      console.log("Explain error:", err?.response?.data?.detail || err.message);
+      if (!storedExplanation) {
+        setAiExplanation("Could not load explanation at this moment. Please try again.");
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <Animated.View
@@ -114,7 +151,7 @@ const ReviewCard = ({
                 borderColor: isSaved ? "#10b981" : `${accentOption.colors[0]}40`,
               },
             ]}
-            onPress={() => onToggleTask && onToggleTask(question, index, userAnswer, explanation)}
+            onPress={() => onToggleTask && onToggleTask(question, index, userAnswer, currentExplanation)}
             activeOpacity={0.7}
           >
             <Ionicons
@@ -131,7 +168,7 @@ const ReviewCard = ({
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.reviewQuestion, { color: themeColors.textMuted }]} numberOfLines={4}>
+        <Text style={[styles.reviewQuestion, { color: themeColors.textMuted }]} numberOfLines={10}>
           {question.question}
         </Text>
 
@@ -146,23 +183,57 @@ const ReviewCard = ({
           <Text style={styles.reviewAnswerCorrect}>{correctAnswer}</Text>
         </View>
 
-        {/* Explanation only for wrong / skipped answers */}
-        {!isCorrect && !!explanation && (
+        {/* Single Explanation Box labeled strictly 'Explanation' */}
+        {(!!currentExplanation || !isCorrect) && (
           <View
             style={[
               styles.explanationBox,
               {
                 backgroundColor: accentOption.colors[0] + "0C",
                 borderColor: accentOption.colors[0] + "22",
-                marginTop: 12,
-                marginBottom: 0,
               },
             ]}
           >
-            <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>Explanation</Text>
-            <Text style={[styles.teacherAnswer, { color: themeColors.textMuted, marginBottom: 0 }]}>
-              {explanation}
-            </Text>
+            <View style={styles.explanationHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={15}
+                  color={accentOption.colors[0]}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.explanationLabel, { color: accentOption.colors[0] }]}>
+                  Explanation
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.explainBtn,
+                  {
+                    backgroundColor: accentOption.colors[0] + "18",
+                    borderColor: accentOption.colors[0] + "36",
+                  },
+                ]}
+                onPress={handleExplain}
+                disabled={aiLoading}
+                activeOpacity={0.7}
+              >
+                {aiLoading ? (
+                  <ActivityIndicator size="small" color={accentOption.colors[0]} />
+                ) : (
+                  <Text style={[styles.explainBtnTxt, { color: accentOption.colors[0] }]}>
+                    Explain
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {!!currentExplanation && (
+              <Text style={[styles.explanationContent, { color: themeColors.textMuted }]}>
+                {currentExplanation}
+              </Text>
+            )}
           </View>
         )}
       </View>
@@ -463,6 +534,7 @@ const ResultScreen = ({ route, navigation }) => {
                 userAnswer={userAnswer}
                 index={i}
                 delay={i * 60}
+                quizId={quizId}
                 themeColors={themeColors}
                 accentOption={accentOption}
                 isSaved={savedTaskIds.has(taskId)}
@@ -583,17 +655,36 @@ const styles = StyleSheet.create({
   reviewAnswerCorrect: { color: "#6ee7b7", fontSize: 12, fontWeight: "700", flex: 1 },
   reviewAnswerWrong: { color: "#fca5a5", fontSize: 12, fontWeight: "700", flex: 1 },
   explanationBox: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 10,
-    marginBottom: 10,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 0,
+  },
+  explanationHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   explanationLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
-    marginBottom: 6,
   },
-  teacherAnswer: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  explainBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  explainBtnTxt: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  explanationContent: {
+    fontSize: 12,
+    lineHeight: 19,
+    marginTop: 8,
+  },
   rankBtn: {
     flexDirection: "row",
     alignItems: "center",
