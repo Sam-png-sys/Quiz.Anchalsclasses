@@ -5,7 +5,9 @@ from app.config.database import quiz_collection, question_collection, users_coll
 def get_quizzes(user_id: str = None, page: int = 1, limit: int = 1000):
     skip = (page - 1) * limit
 
-    query = {"isOpen": True}
+    # Older quizzes predate the isOpen field and should remain visible unless
+    # an admin explicitly closed them.
+    query = {"isOpen": {"$ne": False}}
 
     if user_id:
         user = users_collection.find_one({"_id": ObjectId(user_id)})

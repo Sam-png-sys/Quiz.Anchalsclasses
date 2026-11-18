@@ -273,7 +273,12 @@ const HomeScreen = ({ navigation }) => {
     } catch (fetchError) {
       setQuizzes([]);
       const detail = fetchError.response?.data?.detail;
-      setError(detail || "Could not load quizzes.");
+      setError(
+        detail ||
+          (fetchError.response
+            ? "Could not load quizzes."
+            : "Unable to reach the server. Check your internet connection and try again.")
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -480,7 +485,11 @@ const HomeScreen = ({ navigation }) => {
           ref={searchInputRef}
           value={searchText}
           onChangeText={setSearchText}
-          placeholder="Search all 98+ quizzes by title or topic…"
+          placeholder={
+            quizzes.length
+              ? `Search all ${quizzes.length} quizzes by title or topic…`
+              : "Search quizzes by title or topic…"
+          }
           placeholderTextColor={themeColors.textGhost}
           style={[styles.searchInput, { color: themeColors.text }]}
           autoCorrect={false}
@@ -545,8 +554,22 @@ const HomeScreen = ({ navigation }) => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No courses found</Text>
-              <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>Check back later for new content</Text>
+              {error ? (
+                <>
+                  <Text style={[styles.emptyTitle, { color: themeColors.text }]}>Couldn&apos;t load quizzes</Text>
+                  <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>{error}</Text>
+                  <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
+                    <Text style={[styles.retryText, { color: primaryColor }]}>Try again</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No courses found</Text>
+                  <Text style={[styles.emptySubtitle, { color: themeColors.textSubtle }]}>
+                    No quizzes are available for this account right now. Pull down to refresh or contact your administrator.
+                  </Text>
+                </>
+              )}
             </View>
           }
         />
@@ -676,6 +699,8 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, fontWeight: "600", paddingVertical: 8 },
   clearSearchBtn: { padding: 4 },
   sectionLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginBottom: 12 },
+  retryButton: { marginTop: 16, paddingHorizontal: 18, paddingVertical: 10 },
+  retryText: { fontSize: 14, fontWeight: "700" },
 
   // Folder Level Cards
   folderCard: {
