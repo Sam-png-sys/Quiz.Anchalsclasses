@@ -38,6 +38,16 @@ def get_quizzes(user_id: str = None, page: int = 1, limit: int = 1000):
 
     quizzes = list(quiz_collection.find(query).skip(skip).limit(limit))
 
+    # One grouped query for all question counts instead of one query per quiz
+    quiz_ids_for_count = [q["_id"] for q in quizzes]
+    counts = {
+        d["_id"]: d["n"]
+        for d in question_collection.aggregate([
+            {"$match": {"quizId": {"$in": quiz_ids_for_count}}},
+            {"$group": {"_id": "$quizId", "n": {"$sum": 1}}},
+        ])
+    }
+
     result = []
     for q in quizzes:
         result.append({
@@ -55,9 +65,7 @@ def get_quizzes(user_id: str = None, page: int = 1, limit: int = 1000):
             "sections":       q.get("sections", []),
             "studyMaterialUrl": q.get("studyMaterialUrl", None),
             "studyMaterialName": q.get("studyMaterialName", None),
-            "question_count": question_collection.count_documents({
-                "quizId": ObjectId(str(q["_id"]))
-            }),
+            "question_count": counts.get(q["_id"], 0),
         })
 
     return result
